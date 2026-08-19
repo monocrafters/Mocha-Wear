@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://mocha-wear-production.up.railway.app";
 
 function isNetworkError(error: unknown) {
   return error instanceof TypeError && /fetch|network|failed/i.test(error.message);
