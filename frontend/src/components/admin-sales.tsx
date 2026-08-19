@@ -5,6 +5,7 @@ import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
 import { AdminConfirm } from "@/components/admin-confirm";
+import { SaleProductPicker } from "@/components/sale-product-picker";
 
 export type Sale = {
   id: string;

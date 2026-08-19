@@ -163,7 +163,7 @@ export function SiteHeader() {
           {bottomLinks.map((link) => {
             const Icon = link.icon;
             const isOn = active === link.id;
-            if (link.home) {
+            if (link.id === "home") {
               return (
                 <a
                   key={link.id}
@@ -185,7 +185,7 @@ export function SiteHeader() {
                 </a>
               );
             }
-            if (link.cart) {
+            if (link.id === "cart") {
               return (
                 <a
                   key={link.id}

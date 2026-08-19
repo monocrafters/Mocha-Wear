@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
