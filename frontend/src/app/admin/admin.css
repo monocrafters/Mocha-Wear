@@ -1,0 +1,81 @@
+.admin-root {
+  --mocha-deep: #0f172a;
+  --mocha: #334155;
+  --latte: #94a3b8;
+  --gold: #64748b;
+  --cream: #f1f5f9;
+  --ivory: #f3f4f6;
+  --sand: #e2e8f0;
+  --sale: #dc2626;
+  --sale-deep: #b91c1c;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: #f3f4f6;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+}
+
+.admin-root,
+.admin-root * {
+  font-family: inherit;
+}
+
+.admin-root * {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.admin-root *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-root *::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.admin-root *::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 2px solid #f1f5f9;
+}
+
+.admin-root *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.admin-root .font-serif {
+  font-family: inherit !important;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.admin-root .uppercase {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.admin-root [class*="tracking-[0."] {
+  letter-spacing: 0.01em !important;
+}
+
+.admin-root h1,
+.admin-root h2,
+.admin-root h3 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.admin-root input,
+.admin-root textarea,
+.admin-root select {
+  border-radius: 0.5rem;
+}
+
+.admin-root button {
+  border-radius: 0.5rem;
+}
+
+.admin-root article {
+  border-radius: 0.75rem;
+}
