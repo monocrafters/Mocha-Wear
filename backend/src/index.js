@@ -20,9 +20,52 @@ const settings = require("./settings");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || "https://mochawear.vercel.app";
 
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
+function normalizeOrigin(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
+
+const allowedOrigins = new Set(
+  [
+    process.env.CLIENT_URL,
+    process.env.CORS_ORIGINS,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://mochawear.vercel.app",
+  ]
+    .flatMap((value) => String(value || "").split(","))
+    .map(normalizeOrigin)
+    .filter(Boolean),
+);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalized = normalizeOrigin(origin);
+      if (allowedOrigins.has(normalized)) {
+        callback(null, true);
+        return;
+      }
+      try {
+        const host = new URL(normalized).hostname;
+        if (host === "mochawear.vercel.app" || host.endsWith(".mochawear.vercel.app")) {
+          callback(null, true);
+          return;
+        }
+      } catch {
+        /* ignore invalid origin */
+      }
+      callback(null, false);
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 const upload = multer({
