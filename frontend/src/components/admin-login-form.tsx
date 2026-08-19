@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL, apiFetch } from "@/lib/api";
+import { API_URL, apiFetch, setAdminToken } from "@/lib/api";
 import { ui } from "@/lib/admin-ui";
 
 export function AdminLoginForm() {
@@ -29,6 +29,7 @@ export function AdminLoginForm() {
         setError(data.message || "Could not sign in");
         return;
       }
+      if (data.token) setAdminToken(data.token);
       router.push("/admin");
       router.refresh();
     } catch {

@@ -1,0 +1,82 @@
+{
+  "hours": "10am–8pm",
+  "whatsapp_number": "923001234567",
+  "reply_line": "Usually replies in minutes",
+  "cta_label": "Chat on WhatsApp",
+  "cta_desktop_label": "Open WhatsApp",
+  "default_message": "Hi Mocha Wear, I need some help.",
+  "kicker": "Support",
+  "title": "Help",
+  "desktop_heading": "We’re here if you need us.",
+  "desktop_copy": "Sizes, orders, delivery, or an exchange — message the atelier on WhatsApp and a person will reply.",
+  "topics_heading": "What can we help with?",
+  "notes_heading": "Before you buy",
+  "topics": [
+    {
+      "id": "64c1f50b-2bf1-4a93-bddf-7aea4023857c",
+      "title": "Size & fit",
+      "copy": "Not sure which size to order? Send a photo or your measurements.",
+      "message": "Hi Mocha Wear, I need help choosing a size.",
+      "icon": "ruler",
+      "is_published": true,
+      "sort_order": 1
+    },
+    {
+      "id": "e2359581-c5dc-4bd0-ae40-8c5e7c3070c5",
+      "title": "Track an order",
+      "copy": "Share your order number and we’ll confirm packing and delivery.",
+      "message": "Hi Mocha Wear, I need help with my order.",
+      "icon": "package",
+      "is_published": true,
+      "sort_order": 2
+    },
+    {
+      "id": "ba82689f-e361-4fcd-9211-2896fe8338d2",
+      "title": "Delivery",
+      "copy": "Free nationwide delivery, usually 3–5 days after confirmation.",
+      "message": "Hi Mocha Wear, I have a question about delivery.",
+      "icon": "map-pin",
+      "is_published": true,
+      "sort_order": 3
+    },
+    {
+      "id": "8bc5decc-1a68-4029-9188-4303af007fa2",
+      "title": "Exchange",
+      "copy": "7 days on unworn pieces with tags still on.",
+      "message": "Hi Mocha Wear, I’d like to exchange a piece.",
+      "icon": "refresh",
+      "is_published": true,
+      "sort_order": 4
+    }
+  ],
+  "notes": [
+    {
+      "id": "68085dae-b853-48a2-8b9d-140ca885ddbf",
+      "title": "Free delivery",
+      "copy": "3–5 days, nationwide.",
+      "is_published": true,
+      "sort_order": 1
+    },
+    {
+      "id": "873995c0-90ff-4831-99f3-bd28f069d30e",
+      "title": "Easy exchange",
+      "copy": "7 days, tags on.",
+      "is_published": true,
+      "sort_order": 2
+    },
+    {
+      "id": "8f7ae79c-3090-45dc-9414-4e73683e56e2",
+      "title": "Cash on delivery",
+      "copy": "Pay at the door.",
+      "is_published": true,
+      "sort_order": 3
+    },
+    {
+      "id": "676b45a1-0309-4f36-bd0b-34d8f368d1c0",
+      "title": "Sizing help",
+      "copy": "We pick with you.",
+      "is_published": true,
+      "sort_order": 4
+    }
+  ]
+}

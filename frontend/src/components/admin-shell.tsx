@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { API_URL, apiFetch } from "@/lib/api";
+import { API_URL, apiFetch, clearAdminToken } from "@/lib/api";
 import { AdminMenuButton, AdminSidebar } from "@/components/admin-sidebar";
 import { AdminNotifications } from "@/components/notification-bell";
 
@@ -40,7 +40,8 @@ export function AdminShell({ active, kicker, title, copy, children }: AdminShell
     await apiFetch(`${API_URL}/api/admin/logout`, {
       method: "POST",
       credentials: "include",
-    });
+    }).catch(() => undefined);
+    clearAdminToken();
     router.replace("/Admin_Login");
   }
 

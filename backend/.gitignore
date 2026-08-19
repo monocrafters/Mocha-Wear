@@ -2,4 +2,11 @@ node_modules
 .env
 npm-debug.log*
 uploads
-data
+data/*
+!data/products.json
+!data/collections.json
+!data/hero.json
+!data/sales.json
+!data/reviews.json
+!data/help.json
+!data/settings.json

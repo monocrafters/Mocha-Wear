@@ -1,5 +1,17 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://mocha-wear-production.up.railway.app";
 
+const ADMIN_TOKEN_KEY = "mocha_admin_token";
+
+export function setAdminToken(token: string) {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token);
+  else localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+export function clearAdminToken() {
+  setAdminToken("");
+}
+
 function isNetworkError(error: unknown) {
   return error instanceof TypeError && /fetch|network|failed/i.test(error.message);
 }
@@ -12,10 +24,23 @@ function toApiError(error: unknown) {
 }
 
 export async function apiFetch(input: string, init?: RequestInit, retries = 4) {
+  const headers = new Headers(init?.headers);
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (token && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+  const nextInit: RequestInit = {
+    ...init,
+    headers,
+    credentials: init?.credentials ?? "include",
+  };
+
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      return await fetch(input, init);
+      return await fetch(input, nextInit);
     } catch (error) {
       lastError = error;
       if (!isNetworkError(error) || attempt === retries) break;

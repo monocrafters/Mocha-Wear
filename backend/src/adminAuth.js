@@ -43,11 +43,20 @@ function parseCookies(req) {
   return cookies;
 }
 
+function getToken(req) {
+  const auth = String(req.headers.authorization || "");
+  if (auth.toLowerCase().startsWith("bearer ")) {
+    return auth.slice(7).trim();
+  }
+  return parseCookies(req)[COOKIE] || "";
+}
+
 function cookieOptions() {
+  const crossSite = process.env.NODE_ENV === "production" || Boolean(process.env.RAILWAY_ENVIRONMENT);
   return {
     httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    sameSite: crossSite ? "none" : "lax",
+    secure: crossSite,
     maxAge: TOKEN_MS,
     path: "/",
   };
@@ -65,26 +74,25 @@ function login(req, res) {
     return res.status(401).json({ message: "Invalid username or password" });
   }
 
-  res.cookie(COOKIE, signToken(), cookieOptions());
-  return res.json({ ok: true, role: "admin" });
+  const token = signToken();
+  res.cookie(COOKIE, token, cookieOptions());
+  return res.json({ ok: true, role: "admin", token });
 }
 
 function me(req, res) {
-  const token = parseCookies(req)[COOKIE];
-  if (!verifyToken(token)) {
+  if (!verifyToken(getToken(req))) {
     return res.status(401).json({ authenticated: false });
   }
   return res.json({ authenticated: true, role: "admin", username: USERNAME });
 }
 
 function logout(req, res) {
-  res.clearCookie(COOKIE, { path: "/" });
+  res.clearCookie(COOKIE, { ...cookieOptions(), maxAge: 0 });
   return res.json({ ok: true });
 }
 
 function requireAdmin(req, res, next) {
-  const token = parseCookies(req)[COOKIE];
-  if (!verifyToken(token)) {
+  if (!verifyToken(getToken(req))) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   req.admin = { username: USERNAME };

@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Cotton & Lawn",
+    "slug": "cotton-lawn",
+    "code": "COTTON-LAWN",
+    "subtitle": "Everyday lawn, marked down",
+    "description": "Breathable cotton and lawn suits for warm days — 2 and 3 piece sets in floral prints, pastels, and mocha neutrals. Selected pieces are on sale for a limited time, with free nationwide delivery.",
+    "cover_image": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787080003/mocha-wear/collections/covers/hinn4rqk3xigj8d5mruk.jpg",
+    "cover_image_desktop": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787080247/mocha-wear/collections/covers-desktop/yadtqpcrepk0njm1r1tu.jpg",
+    "banner_image": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787080248/mocha-wear/collections/banners/sk8b2mmtwgmkh9fpfv6x.jpg",
+    "banner_image_desktop": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787120763/mocha-wear/collections/banners-desktop/pdln2ngea4pdjxgivr8k.jpg",
+    "sale_label": "Up to 50% off",
+    "is_on_sale": true,
+    "is_published": true,
+    "sort_order": 1,
+    "updated_at": "2026-08-19T06:26:04.937Z",
+    "id": "4a54df99-e3f3-4174-bb0a-2c5325389bd4",
+    "created_at": "2026-08-18T19:06:49.421Z"
+  }
+]

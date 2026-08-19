@@ -140,11 +140,15 @@ function payloadFromBody(body, existing = {}) {
 }
 
 async function withStore(runSupabase, runFile) {
+  const fileItems = readFileStore();
+  if (fileItems.length) {
+    return runFile();
+  }
   try {
     const supabase = getSupabase();
     return await runSupabase(supabase);
   } catch {
-    return await runFile();
+    return runFile();
   }
 }
 

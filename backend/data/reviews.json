@@ -1,0 +1,64 @@
+{
+  "reviews": [
+    {
+      "id": "rev-ayesha-khi",
+      "name": "Ayesha Khan",
+      "city": "Karachi",
+      "quote": "Sky Floral went straight into my cart. The fabric is so soft — I’ll wear it for Eid too. The sale price was too good to skip.",
+      "rating": 5,
+      "product_id": "88cb9623-b04b-4a44-9b43-cbaf5143f269",
+      "is_published": true,
+      "sort_order": 1
+    },
+    {
+      "id": "rev-hira-lhr",
+      "name": "Hira Malik",
+      "city": "Lahore",
+      "quote": "The 2-piece set was ready to wear. The mint colour matches the photos. Mocha Wear packed it beautifully, no wrinkles.",
+      "rating": 5,
+      "product_id": "88cb9623-b04b-4a44-9b43-cbaf5143f269",
+      "is_published": true,
+      "sort_order": 2
+    },
+    {
+      "id": "rev-fatima-isb",
+      "name": "Fatima Noor",
+      "city": "Islamabad",
+      "quote": "The fit is perfect on my size. Delivery arrived in 4 days. I’ll order lawn next too — honestly worth it.",
+      "rating": 5,
+      "product_id": "",
+      "is_published": true,
+      "sort_order": 3
+    },
+    {
+      "id": "rev-sana-fsd",
+      "name": "Sana Riaz",
+      "city": "Faisalabad",
+      "quote": "I thought sale quality would be lower, but it wasn’t. Stitching is clean and the print didn’t fade after a wash.",
+      "rating": 4,
+      "product_id": "",
+      "is_published": true,
+      "sort_order": 4
+    },
+    {
+      "id": "rev-mehwish-mul",
+      "name": "Mehwish Ali",
+      "city": "Multan",
+      "quote": "I bought this for my mum and she loved it. Lightweight for the heat. Worth every rupee.",
+      "rating": 5,
+      "product_id": "",
+      "is_published": true,
+      "sort_order": 5
+    },
+    {
+      "id": "rev-zara-pew",
+      "name": "Zara Ahmed",
+      "city": "Peshawar",
+      "quote": "Ordered with cash on delivery, no stress. The suit is exactly as shown. 10/10 recommend Mocha Wear’s sale drop.",
+      "rating": 5,
+      "product_id": "",
+      "is_published": true,
+      "sort_order": 6
+    }
+  ]
+}
