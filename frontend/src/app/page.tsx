@@ -7,14 +7,12 @@ import { ScrollProgress } from "@/components/scroll-progress";
 import { ShopNotes } from "@/components/shop-notes";
 import { JoinList } from "@/components/join-list";
 import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { HomeWhatsAppButton } from "@/components/home-whatsapp-button";
 
 export default function Home() {
   return (
     <>
       <ScrollProgress />
-      <SiteHeader />
       <main className="min-w-0 overflow-x-hidden">
         <SaleHero />
         <SaleCountdown />

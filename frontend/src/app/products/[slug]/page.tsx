@@ -13,7 +13,6 @@ import { ProductCard, productGridClass } from "@/components/product-card";
 import { SaleTimerProduct } from "@/components/sale-timer";
 import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-sale";
 import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -62,7 +61,6 @@ export default function ProductPage() {
 
   return (
     <>
-      <SiteHeader />
       <main className="bg-ivory pb-[calc(7.25rem+env(safe-area-inset-bottom))] lg:pb-0">
         {missing ? (
           <section className="mx-auto max-w-3xl px-5 py-24 text-center">

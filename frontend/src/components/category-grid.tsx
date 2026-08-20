@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
@@ -60,12 +61,12 @@ export function CategoryGrid() {
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <a
+          <Link
             href="/collections"
             className="mr-2 hidden text-[11px] tracking-[0.22em] text-mocha/70 uppercase underline decoration-gold/60 underline-offset-8 sm:inline"
           >
             {settings.collections_all_label}
-          </a>
+          </Link>
           <button
             type="button"
             onClick={() => scrollByCard(-1)}
@@ -98,7 +99,7 @@ export function CategoryGrid() {
             ? collection.sale_label || collection.subtitle || "Sale"
             : collection.subtitle;
           return (
-            <a
+            <Link
               key={collection.id}
               href={collectionHref(collection)}
               className="group relative aspect-[4/5] w-[min(72vw,280px)] shrink-0 overflow-hidden bg-sand sm:w-[260px] lg:w-full"
@@ -120,7 +121,7 @@ export function CategoryGrid() {
                 ) : null}
                 <h3 className="font-serif mt-1.5 text-[1.65rem] leading-none lg:text-[1.85rem]">{collection.name}</h3>
               </div>
-            </a>
+            </Link>
           );
         })}
         <div className="w-5 shrink-0 sm:w-8 lg:hidden" aria-hidden />
