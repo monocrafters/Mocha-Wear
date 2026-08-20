@@ -8,7 +8,7 @@ type CachedGet = {
   status: number;
   statusText: string;
   headers: [string, string][];
-  body: string;
+  body: ArrayBuffer;
 };
 
 const getCache = new Map<string, CachedGet>();
@@ -55,7 +55,7 @@ function shouldCacheGet(url: string, method: string) {
 }
 
 function replay(entry: CachedGet) {
-  return new Response(entry.body, {
+  return new Response(entry.body.slice(0), {
     status: entry.status,
     statusText: entry.statusText,
     headers: entry.headers,
@@ -103,7 +103,7 @@ export async function apiFetch(input: string, init?: RequestInit, retries = 4) {
 
   const store = (async () => {
     const res = await send();
-    const body = await res.text();
+    const body = await res.arrayBuffer();
     const entry: CachedGet = {
       expires: Date.now() + GET_TTL_MS,
       status: res.status,

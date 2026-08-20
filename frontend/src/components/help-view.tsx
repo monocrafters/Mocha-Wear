@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   ChevronRight,
   Clock,
@@ -14,8 +15,8 @@ import {
   Truck,
   type LucideIcon,
 } from "lucide-react";
+import { API_URL, apiFetch } from "@/lib/api";
 import { DEFAULT_HELP, whatsappHref, type HelpContent } from "@/lib/support";
-import { useCatalog } from "@/components/catalog-provider";
 
 const ICONS: Record<string, LucideIcon> = {
   ruler: Ruler,
@@ -31,8 +32,18 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export function HelpView() {
-  const { help: catalogHelp, ready } = useCatalog();
-  const help = catalogHelp || DEFAULT_HELP;
+  const [help, setHelp] = useState<HelpContent>(DEFAULT_HELP);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`${API_URL}/api/help`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.help) setHelp({ ...DEFAULT_HELP, ...data.help });
+      })
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, []);
 
   const chatHref = whatsappHref(help.whatsapp_number, help.default_message);
   const number = help.whatsapp_display || help.whatsapp_number;

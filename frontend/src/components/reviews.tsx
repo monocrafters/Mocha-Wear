@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCatalog } from "@/components/catalog-provider";
-import { useSiteSettings } from "@/components/site-settings";
+import { API_URL, apiFetch } from "@/lib/api";
 import type { Review } from "@/components/admin-reviews";
+import { useSiteSettings } from "@/components/site-settings";
 
 function initials(name: string) {
   return name
@@ -26,11 +26,18 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function Reviews() {
-  const { reviews: items } = useCatalog();
+  const [items, setItems] = useState<Review[]>([]);
   const settings = useSiteSettings();
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    apiFetch(`${API_URL}/api/reviews`)
+      .then((res) => res.json())
+      .then((data) => setItems(data.items || []))
+      .catch(() => setItems([]));
+  }, []);
 
   const updateArrows = useCallback(() => {
     const el = scroller.current;

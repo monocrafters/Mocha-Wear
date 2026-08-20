@@ -1,24 +1,37 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { API_URL, apiFetch } from "@/lib/api";
+import type { Collection } from "@/components/admin-collections";
+import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { CollectionMedia } from "@/components/collection-media";
 import { SiteFooter } from "@/components/site-footer";
-import { useCatalog } from "@/components/catalog-provider";
 import { collectionBannerSrc } from "@/lib/collection";
 
 export default function CollectionPage() {
   const params = useParams<{ slug: string }>();
-  const { collections, products: allProducts, ready } = useCatalog();
-  const key = String(params.slug || "").trim().toLowerCase();
-  const item =
-    collections.find(
-      (row) =>
-        String(row.slug || "").toLowerCase() === key || String(row.code || "").toLowerCase() === key,
-    ) || null;
-  const products = item ? allProducts.filter((row) => row.collection_id === item.id) : [];
-  const missing = ready && !item;
+  const [item, setItem] = useState<Collection | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    if (!params.slug) return;
+    apiFetch(`${API_URL}/api/collections/${params.slug}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("missing");
+        return res.json();
+      })
+      .then((data) => {
+        setItem(data.item);
+        return apiFetch(`${API_URL}/api/products?collection=${params.slug}`)
+          .then((res) => res.json())
+          .then((productData) => setProducts(productData.items || []))
+          .catch(() => setProducts([]));
+      })
+      .catch(() => setMissing(true));
+  }, [params.slug]);
 
   const kicker = item?.is_on_sale
     ? item.sale_label || item.subtitle || "On sale"
@@ -31,9 +44,9 @@ export default function CollectionPage() {
         {missing ? (
           <section className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
             <h1 className="font-serif text-3xl">Collection not found</h1>
-            <Link href="/collections" className="mt-6 text-[11px] tracking-[0.18em] uppercase underline">
+            <a href="/collections" className="mt-6 text-[11px] tracking-[0.18em] uppercase underline">
               Back to collections
-            </Link>
+            </a>
           </section>
         ) : !item ? (
           <section className="flex flex-1 items-center justify-center px-5 text-sm tracking-[0.16em] text-mocha/45 uppercase">
@@ -80,12 +93,12 @@ export default function CollectionPage() {
               ) : (
                 <div className="mt-10 text-center">
                   <p className="text-sm text-mocha/50">No pieces in this collection yet.</p>
-                  <Link
+                  <a
                     href="/shop"
                     className="mt-6 inline-block bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
                   >
                     Shop the sale
-                  </Link>
+                  </a>
                 </div>
               )}
             </div>

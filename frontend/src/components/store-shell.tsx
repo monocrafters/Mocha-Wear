@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
-import { CatalogProvider } from "@/components/catalog-provider";
 
 export function StoreShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -12,9 +11,9 @@ export function StoreShell({ children }: { children: ReactNode }) {
   if (isAdmin) return children;
 
   return (
-    <CatalogProvider>
+    <>
       <SiteHeader />
       {children}
-    </CatalogProvider>
+    </>
   );
 }

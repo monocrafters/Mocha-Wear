@@ -3,16 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { API_URL, apiFetch } from "@/lib/api";
+import type { Collection } from "@/components/admin-collections";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
-import { useCatalog } from "@/components/catalog-provider";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function CategoryGrid() {
-  const { collections: items } = useCatalog();
+  const [items, setItems] = useState<Collection[]>([]);
   const settings = useSiteSettings();
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    apiFetch(`${API_URL}/api/collections`)
+      .then((res) => res.json())
+      .then((data) => setItems(data.items || []))
+      .catch(() => setItems([]));
+  }, []);
 
   const updateArrows = useCallback(() => {
     const el = scroller.current;

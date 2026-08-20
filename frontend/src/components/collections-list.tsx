@@ -1,16 +1,25 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
 import { CollectionMedia } from "@/components/collection-media";
-import { useCatalog } from "@/components/catalog-provider";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function CollectionsList() {
-  const { collections: items, ready } = useCatalog();
-  const loading = !ready && !items.length;
+  const [items, setItems] = useState<Collection[]>([]);
+  const [loading, setLoading] = useState(true);
   const settings = useSiteSettings();
+
+  useEffect(() => {
+    apiFetch(`${API_URL}/api/collections`)
+      .then((res) => res.json())
+      .then((data) => setItems(data.items || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:max-w-[1440px] lg:w-full lg:px-8 lg:py-12">

@@ -180,7 +180,7 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  prefetch={false}
+                  prefetch
                   onClick={stayIfCurrent(link.href, "home")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center pt-1 ${
@@ -203,7 +203,7 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  prefetch={false}
+                  prefetch
                   onClick={stayIfCurrent(link.href, "cart")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center gap-1 py-2.5 ${
@@ -226,7 +226,7 @@ export function SiteHeader() {
               <Link
                 key={link.id}
                 href={link.href}
-                prefetch={false}
+                prefetch
                 onClick={stayIfCurrent(link.href, link.id)}
                 aria-current={isOn ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 py-2.5 ${
