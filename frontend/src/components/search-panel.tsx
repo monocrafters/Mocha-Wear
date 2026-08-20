@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
@@ -128,14 +127,14 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {collections.map((item) => (
-                    <Link
+                    <a
                       key={item.id}
                       href={collectionHref(item)}
                       onClick={() => onClose?.()}
                       className="border border-mocha/15 px-3 py-2 text-[11px] tracking-[0.12em] text-mocha-deep uppercase"
                     >
                       {item.name}
-                    </Link>
+                    </a>
                   ))}
                 </div>
               </section>
@@ -149,7 +148,7 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                   Collections
                 </p>
                 {collectionHits.map((item) => (
-                  <Link
+                  <a
                     key={item.id}
                     href={collectionHref(item)}
                     onClick={() => onClose?.()}
@@ -157,7 +156,7 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                   >
                     <span>{item.name}</span>
                     <span className="text-[10px] tracking-[0.14em] text-mocha/40 uppercase">Collection</span>
-                  </Link>
+                  </a>
                 ))}
               </section>
             ) : null}
@@ -169,7 +168,7 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                 </p>
                 <div className="space-y-1">
                   {productHits.map((product) => (
-                    <Link
+                    <a
                       key={product.id}
                       href={productHref(product)}
                       onClick={() => {
@@ -193,7 +192,7 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                         </span>
                         <span className="mt-1 block text-sm">{formatPkr(product.price)}</span>
                       </span>
-                    </Link>
+                    </a>
                   ))}
                 </div>
               </section>

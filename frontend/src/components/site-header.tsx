@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Headset, Home, LayoutGrid, Package, Search, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
@@ -57,14 +56,6 @@ export function SiteHeader() {
     setSearchOpen(false);
   }, [pathname]);
 
-  function stayIfCurrent(href: string, tab?: TabId) {
-    return (event: MouseEvent<HTMLAnchorElement>) => {
-      if (tab) setActive(tab);
-      const path = href.split("#")[0] || "/";
-      if (pathname === path && !href.includes("#")) event.preventDefault();
-    };
-  }
-
   useEffect(() => {
     if (!searchOpen) return;
     const onKey = (event: KeyboardEvent) => {
@@ -89,30 +80,29 @@ export function SiteHeader() {
 
         <div className="w-full min-w-0 bg-mocha-deep">
           <div className="mx-auto flex h-14 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-[72px] sm:px-8">
-            <Link href="/" onClick={stayIfCurrent("/")} className="group flex min-w-0 items-baseline gap-2">
+            <a href="/" className="group flex min-w-0 items-baseline gap-2">
               <span className="font-serif truncate text-[1.45rem] leading-none tracking-[0.12em] text-ivory transition-colors duration-300 group-hover:text-gold sm:text-[1.7rem]">
                 {settings.brand_name}
               </span>
               {settings.brand_suffix ? (
                 <span className="shrink-0 text-[10px] font-semibold tracking-[0.38em] text-gold uppercase">{settings.brand_suffix}</span>
               ) : null}
-            </Link>
+            </a>
 
             <nav className="hidden items-center gap-1 lg:flex">
               {links.map((link) =>
                 link.sale ? (
-                  <Link
+                  <a
                     key={link.href}
                     href={link.href}
                     className="mx-1 rounded-full bg-sale px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.18em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep"
                   >
                     {link.label}
-                  </Link>
+                  </a>
                 ) : (
-                  <Link
+                  <a
                     key={link.href}
                     href={link.href}
-                    onClick={stayIfCurrent(link.href)}
                     className={`nav-link px-3 py-2 text-[11px] font-medium tracking-[0.18em] uppercase transition-colors duration-300 hover:text-white ${
                       pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))
                         ? "text-white"
@@ -120,7 +110,7 @@ export function SiteHeader() {
                     }`}
                   >
                     {link.label}
-                  </Link>
+                  </a>
                 ),
               )}
             </nav>
@@ -141,20 +131,18 @@ export function SiteHeader() {
               >
                 <Search size={18} strokeWidth={1.6} />
               </button>
-              <Link
+              <a
                 href="/help"
                 aria-label="Support"
-                onClick={stayIfCurrent("/help")}
                 className={`grid h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:hidden ${
                   pathname.startsWith("/help") ? "bg-white/10 text-gold" : "text-ivory/90"
                 }`}
               >
                 <Headset size={18} strokeWidth={1.6} />
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/cart"
                 aria-label="Bag"
-                onClick={stayIfCurrent("/cart")}
                 className="relative hidden h-10 w-10 place-items-center rounded-full text-ivory/90 transition-all duration-300 hover:bg-white/10 hover:text-white lg:grid"
               >
                 <ShoppingBag size={18} strokeWidth={1.6} />
@@ -163,7 +151,7 @@ export function SiteHeader() {
                     {count}
                   </span>
                 ) : null}
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -177,11 +165,10 @@ export function SiteHeader() {
             const isOn = active === link.id;
             if (link.id === "home") {
               return (
-                <Link
+                <a
                   key={link.id}
                   href={link.href}
-                  prefetch
-                  onClick={stayIfCurrent(link.href, "home")}
+                  onClick={() => setActive("home")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center pt-1 ${
                     isOn ? "text-white" : "text-ivory/55"
@@ -195,16 +182,15 @@ export function SiteHeader() {
                     <Icon size={18} strokeWidth={1.8} className="text-white" />
                   </span>
                   <span className="mt-1 text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
-                </Link>
+                </a>
               );
             }
             if (link.id === "cart") {
               return (
-                <Link
+                <a
                   key={link.id}
                   href={link.href}
-                  prefetch
-                  onClick={stayIfCurrent(link.href, "cart")}
+                  onClick={() => setActive("cart")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center gap-1 py-2.5 ${
                     isOn ? "text-ivory" : "text-ivory/55"
@@ -219,15 +205,14 @@ export function SiteHeader() {
                     ) : null}
                   </span>
                   <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
-                </Link>
+                </a>
               );
             }
             return (
-              <Link
+              <a
                 key={link.id}
                 href={link.href}
-                prefetch
-                onClick={stayIfCurrent(link.href, link.id)}
+                onClick={() => setActive(link.id)}
                 aria-current={isOn ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 py-2.5 ${
                   isOn ? "text-ivory" : "text-ivory/55"
@@ -235,7 +220,7 @@ export function SiteHeader() {
               >
                 <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                 <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
-              </Link>
+              </a>
             );
           })}
         </div>

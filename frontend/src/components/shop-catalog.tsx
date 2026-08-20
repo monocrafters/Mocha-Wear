@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
@@ -39,9 +38,9 @@ export function ShopCatalog() {
   return (
     <section className="mx-auto max-w-[1440px] px-4 py-10 sm:px-8 sm:py-14">
       <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">
-        <Link href="/" className="hover:text-mocha-deep">
+        <a href="/" className="hover:text-mocha-deep">
           Home
-        </Link>
+        </a>
         <span className="mx-2">/</span>
         <span className="text-mocha-deep">Shop</span>
       </p>

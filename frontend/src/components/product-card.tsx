@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { formatPkr } from "@/lib/money";
 import { productHref } from "@/lib/product";
 import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-sale";
@@ -22,7 +21,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <article className="group">
-      <Link href={productHref(product)} className="block">
+      <a href={productHref(product)} className="block">
         <div className="relative aspect-[3/4] overflow-hidden bg-sand">
           {coverOf(product) ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -62,7 +61,7 @@ export function ProductCard({ product }: { product: Product }) {
             ) : null}
           </p>
         </div>
-      </Link>
+      </a>
     </article>
   );
 }

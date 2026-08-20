@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Bodoni_Moda, Inter, Manrope } from "next/font/google";
 import { CartProvider } from "@/components/cart-provider";
 import { SiteSettingsProvider } from "@/components/site-settings";
-import { StoreShell } from "@/components/store-shell";
 import { API_URL } from "@/lib/api";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import "./globals.css";
@@ -45,9 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${manrope.variable} ${bodoni.variable} ${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full min-w-0 max-w-full flex-col bg-ivory text-mocha-deep">
         <CartProvider>
-          <SiteSettingsProvider>
-            <StoreShell>{children}</StoreShell>
-          </SiteSettingsProvider>
+          <SiteSettingsProvider>{children}</SiteSettingsProvider>
         </CartProvider>
       </body>
     </html>

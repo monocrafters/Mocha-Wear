@@ -8,6 +8,7 @@ import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { CollectionMedia } from "@/components/collection-media";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
 import { collectionBannerSrc } from "@/lib/collection";
 
 export default function CollectionPage() {
@@ -40,6 +41,7 @@ export default function CollectionPage() {
 
   return (
     <>
+      <SiteHeader />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-ivory">
         {missing ? (
           <section className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">

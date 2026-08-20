@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import type { AppNotification } from "@/lib/notifications";
@@ -141,7 +140,7 @@ export function StoreNotifications() {
   }, [pathname]);
 
   return (
-    <Link
+    <a
       href="/notifications"
       aria-label="Notifications"
       className={`relative grid h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white ${
@@ -154,6 +153,6 @@ export function StoreNotifications() {
           {unread > 9 ? "9+" : unread}
         </span>
       ) : null}
-    </Link>
+    </a>
   );
 }

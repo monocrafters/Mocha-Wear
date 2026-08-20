@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
@@ -50,12 +49,12 @@ export function CollectionsList() {
             <p className="mt-3 max-w-sm text-sm leading-6 text-mocha/55">
               New collections will appear here as soon as they drop.
             </p>
-            <Link
+            <a
               href="/shop"
               className="mt-8 inline-block bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
             >
               Shop the sale
-            </Link>
+            </a>
           </div>
         )}
       </div>
@@ -81,7 +80,7 @@ function CollectionCard({ collection, index }: { collection: Collection; index: 
   const srcs = collectionCardSrc(collection);
 
   return (
-    <Link
+    <a
       href={href}
       className={`group relative block aspect-[4/5] w-full overflow-hidden bg-mocha-deep lg:aspect-[21/9] ${cardFrame(index)}`}
     >
@@ -113,6 +112,6 @@ function CollectionCard({ collection, index }: { collection: Collection; index: 
           Shop
         </span>
       </div>
-    </Link>
+    </a>
   );
 }

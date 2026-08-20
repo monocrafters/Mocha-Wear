@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSiteSettings } from "@/components/site-settings";
 import { copyrightLine, instagramHref } from "@/lib/settings";
 
@@ -50,9 +49,9 @@ export function SiteFooter({ showOnMobile = false }: { showOnMobile?: boolean })
             <ul className="mt-5 space-y-2.5 text-sm text-ivory/65">
               {visitLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="hover:text-ivory">
+                  <a href={link.href} className="hover:text-ivory">
                     {link.label}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
