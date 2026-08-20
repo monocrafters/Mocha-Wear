@@ -1,27 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { API_URL, apiFetch } from "@/lib/api";
 import type { HeroSlide } from "@/components/admin-hero";
 import { HeroSaleTimer } from "@/components/hero-sale-timer";
+import { useCatalog } from "@/components/catalog-provider";
 import { useActiveSale } from "@/lib/active-sale";
 
+function heroHref(value?: string, fallback = "/") {
+  const raw = String(value || "").trim() || fallback;
+  if (raw.startsWith("#")) return `/${raw}`;
+  return raw;
+}
+
+function HeroCta({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className: string;
+  children: ReactNode;
+}) {
+  const target = heroHref(href);
+  if (/^https?:\/\//i.test(target) || target.startsWith("mailto:") || target.startsWith("tel:")) {
+    return (
+      <a href={target} className={className}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={target} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export function SaleHero() {
-  const [slides, setSlides] = useState<HeroSlide[]>([]);
+  const { heroSlides } = useCatalog();
   const [index, setIndex] = useState(0);
+  const slides = heroSlides;
 
   useEffect(() => {
-    apiFetch(`${API_URL}/api/hero`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.hero?.slides?.length) {
-          setSlides(data.hero.slides);
-          setIndex(0);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
+    setIndex(0);
+  }, [slides.length]);
 
   useEffect(() => {
     if (slides.length < 2) return;
@@ -220,20 +243,20 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
         style={{ transitionDelay: "360ms" }}
       >
         {slide.primary_cta_label ? (
-          <Link
-            href={slide.primary_cta_link || "#shop"}
+          <HeroCta
+            href={slide.primary_cta_link || "/#shop"}
             className="flex min-h-8 items-center justify-center bg-sale px-1.5 py-1.5 text-center text-[8px] font-semibold leading-tight tracking-[0.12em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep lg:min-h-0 lg:px-7 lg:py-3.5 lg:text-[11px] lg:tracking-[0.2em]"
           >
             {slide.primary_cta_label}
-          </Link>
+          </HeroCta>
         ) : null}
         {slide.secondary_cta_label ? (
-          <Link
-            href={slide.secondary_cta_link || "#collections"}
+          <HeroCta
+            href={slide.secondary_cta_link || "/#collections"}
             className="flex min-h-8 items-center justify-center border border-mocha-deep px-1.5 py-1.5 text-center text-[8px] font-semibold leading-tight tracking-[0.12em] text-mocha-deep uppercase transition-colors hover:bg-mocha-deep hover:text-ivory lg:min-h-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:text-[11px] lg:tracking-[0.18em] lg:underline lg:decoration-mocha/25 lg:underline-offset-8 lg:hover:bg-transparent lg:hover:text-sale lg:hover:decoration-sale"
           >
             {slide.secondary_cta_label}
-          </Link>
+          </HeroCta>
         ) : null}
       </div>
       {endsAt ? <HeroSaleTimer endsAt={endsAt} /> : null}

@@ -4,13 +4,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
-import { API_URL, apiFetch } from "@/lib/api";
 import { productHref } from "@/lib/product";
-import type { Collection } from "@/components/admin-collections";
-import type { Product } from "@/components/admin-products";
 import { SearchBar } from "@/components/search-bar";
 import { formatPkr } from "@/lib/money";
 import { collectionHref } from "@/lib/collection";
+import { useCatalog } from "@/components/catalog-provider";
 import {
   clearRecentSearches,
   normalizeQuery,
@@ -29,29 +27,13 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const { products, collections } = useCatalog();
   const [recent, setRecent] = useState<string[]>([]);
 
   useEffect(() => {
     setRecent(readRecentSearches());
     const id = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch(`${API_URL}/api/products`).then((res) => res.json()),
-      apiFetch(`${API_URL}/api/collections`).then((res) => res.json()),
-    ])
-      .then(([productData, collectionData]) => {
-        setProducts(productData.items || []);
-        setCollections(collectionData.items || []);
-      })
-      .catch(() => {
-        setProducts([]);
-        setCollections([]);
-      });
   }, []);
 
   const q = normalizeQuery(query);

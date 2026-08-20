@@ -2,56 +2,41 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
 import { collectionHref } from "@/lib/collection";
 import { productHref } from "@/lib/product";
-import type { Collection } from "@/components/admin-collections";
 import type { Product, ProductImage, ProductLabel } from "@/components/admin-products";
 import { ProductBuyActions } from "@/components/product-buy-actions";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { SaleTimerProduct } from "@/components/sale-timer";
 import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-sale";
 import { SiteFooter } from "@/components/site-footer";
+import { useCatalog } from "@/components/catalog-provider";
 
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
   const sale = useActiveSale();
-  const [item, setItem] = useState<Product | null>(null);
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [related, setRelated] = useState<Product[]>([]);
-  const [missing, setMissing] = useState(false);
+  const { products, collections, ready } = useCatalog();
+  const key = String(params.slug || "").trim().toLowerCase();
+  const item =
+    products.find(
+      (row) =>
+        String(row.slug || "").toLowerCase() === key || String(row.code || "").toLowerCase() === key,
+    ) || null;
+  const collection = item?.collection_id
+    ? collections.find((row) => row.id === item.collection_id) || null
+    : null;
+  const related = item
+    ? products.filter((row) => row.collection_id === item.collection_id && row.id !== item.id).slice(0, 6)
+    : [];
+  const missing = ready && !item;
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!params.slug) return;
-    apiFetch(`${API_URL}/api/products/${params.slug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("missing");
-        return res.json();
-      })
-      .then(async (data) => {
-        const product = data.item as Product;
-        setItem(product);
-        setActive(0);
-        setHovered(null);
-        const [collectionsRes, relatedRes] = await Promise.all([
-          apiFetch(`${API_URL}/api/collections`),
-          product.collection_id
-            ? apiFetch(`${API_URL}/api/products?collection=${product.collection_id}`)
-            : Promise.resolve(null),
-        ]);
-        const collectionsData = await collectionsRes.json().catch(() => ({ items: [] }));
-        const match = (collectionsData.items || []).find((row: Collection) => row.id === product.collection_id);
-        setCollection(match || null);
-        if (relatedRes) {
-          const relatedData = await relatedRes.json().catch(() => ({ items: [] }));
-          setRelated((relatedData.items || []).filter((row: Product) => row.id !== product.id).slice(0, 6));
-        }
-      })
-      .catch(() => setMissing(true));
-  }, [params.slug]);
+    setActive(0);
+    setHovered(null);
+  }, [item?.id]);
 
   const images = item?.images || [];
   const off = useMemo(() => {

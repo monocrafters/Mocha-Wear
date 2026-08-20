@@ -1,24 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
 import { useSiteSettings } from "@/components/site-settings";
 import { whatsappChatHref } from "@/lib/settings";
+import { useCatalog } from "@/components/catalog-provider";
 
 export function HomeWhatsAppButton() {
   const settings = useSiteSettings();
-  const [helpNumber, setHelpNumber] = useState("");
-  const [helpMessage, setHelpMessage] = useState("");
-
-  useEffect(() => {
-    apiFetch(`${API_URL}/api/help`)
-      .then((res) => res.json())
-      .then((data) => {
-        setHelpNumber(data.help?.whatsapp_number || data.help?.whatsapp_display || "");
-        setHelpMessage(data.help?.default_message || "");
-      })
-      .catch(() => undefined);
-  }, []);
+  const { help } = useCatalog();
+  const helpNumber = help.whatsapp_number || help.whatsapp_display || "";
+  const helpMessage = help.default_message || "";
 
   if (settings.floating_whatsapp_enabled === false) return null;
 

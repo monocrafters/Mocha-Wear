@@ -1,35 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { API_URL, apiFetch } from "@/lib/api";
-import type { Collection } from "@/components/admin-collections";
-import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function ShopCatalog() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const { products, collections, ready } = useCatalog();
   const [active, setActive] = useState("all");
-  const [loading, setLoading] = useState(true);
   const settings = useSiteSettings();
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch(`${API_URL}/api/products`).then((res) => res.json()),
-      apiFetch(`${API_URL}/api/collections`).then((res) => res.json()),
-    ])
-      .then(([productData, collectionData]) => {
-        setProducts(productData.items || []);
-        setCollections(collectionData.items || []);
-      })
-      .catch(() => {
-        setProducts([]);
-        setCollections([]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = !ready && !products.length;
 
   const items = useMemo(() => {
     if (active === "all") return products;
