@@ -26,7 +26,7 @@ const empty: Catalog = {
   ready: false,
 };
 
-const STORAGE_KEY = "mocha-catalog-v1";
+const STORAGE_KEY = "mocha-catalog-v2";
 const CatalogContext = createContext<Catalog>(empty);
 let pending: Promise<Catalog> | null = null;
 
@@ -66,12 +66,16 @@ function loadCatalog() {
       apiFetch(`${API_URL}/api/reviews`).then((res) => res.json()).catch(() => ({ items: [] })),
       apiFetch(`${API_URL}/api/help`).then((res) => res.json()).catch(() => ({ help: null })),
     ]).then(([products, collections, hero, reviews, help]) => {
+      const cached = readSession();
+      const heroSlides = hero.hero?.slides?.length
+        ? hero.hero.slides
+        : cached.heroSlides || [];
       const catalog: Catalog = {
-        products: products.items || [],
-        collections: collections.items || [],
-        heroSlides: hero.hero?.slides || [],
-        reviews: reviews.items || [],
-        help: { ...DEFAULT_HELP, ...(help.help || {}) },
+        products: products.items?.length ? products.items : cached.products || [],
+        collections: collections.items?.length ? collections.items : cached.collections || [],
+        heroSlides,
+        reviews: reviews.items?.length ? reviews.items : cached.reviews || [],
+        help: { ...DEFAULT_HELP, ...(help.help || cached.help || {}) },
         ready: true,
       };
       writeSession(catalog);
