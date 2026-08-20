@@ -13,6 +13,7 @@ import {
   type Order,
 } from "@/lib/orders";
 import type { AdminCustomer } from "@/lib/admin-customers";
+import { AdminFormSkeleton, AdminListSkeleton } from "@/components/skeletons";
 
 function whatsappHref(phone: string) {
   const digits = phone.replace(/\D/g, "").replace(/^0/, "92");
@@ -43,7 +44,12 @@ export function AdminCustomerDetail() {
   }, [params.id]);
 
   if (loading) {
-    return <p className="mt-10 text-sm text-slate-500">Loading customer…</p>;
+    return (
+      <div>
+        <AdminFormSkeleton />
+        <AdminListSkeleton rows={3} />
+      </div>
+    );
   }
 
   if (!item) {

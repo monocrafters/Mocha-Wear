@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CheckoutView } from "@/components/checkout-view";
+import { CheckoutSkeleton } from "@/components/skeletons";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -14,13 +15,7 @@ export default function CheckoutPage() {
     <>
       <SiteHeader />
       <main className="min-w-0 max-w-full flex-1 overflow-x-clip bg-ivory pb-24 lg:pb-0">
-        <Suspense
-          fallback={
-            <section className="px-5 py-24 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">
-              Loading…
-            </section>
-          }
-        >
+        <Suspense fallback={<CheckoutSkeleton />}>
           <CheckoutView />
         </Suspense>
       </main>

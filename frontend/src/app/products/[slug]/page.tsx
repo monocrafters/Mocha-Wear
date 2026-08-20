@@ -14,6 +14,7 @@ import { SaleTimerProduct } from "@/components/sale-timer";
 import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-sale";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { ProductPageSkeleton } from "@/components/skeletons";
 
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
@@ -72,9 +73,7 @@ export default function ProductPage() {
             </a>
           </section>
         ) : !item ? (
-          <section className="px-5 py-24 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">
-            Loading…
-          </section>
+          <ProductPageSkeleton />
         ) : (
           <>
             <section className="mx-auto grid max-w-[1440px] gap-5 px-4 py-4 sm:px-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:gap-12 lg:py-10">

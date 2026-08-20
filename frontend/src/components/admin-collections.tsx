@@ -5,6 +5,7 @@ import { GripVertical } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { ImageCropperModal } from "@/components/image-cropper-modal";
 import { AdminConfirm } from "@/components/admin-confirm";
+import { AdminListSkeleton } from "@/components/skeletons";
 
 export type Collection = {
   id: string;
@@ -328,7 +329,7 @@ export function AdminCollections() {
       {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
       {loading ? (
-        <p className="mt-10 text-sm text-slate-500">Loading collections…</p>
+        <AdminListSkeleton />
       ) : items.length === 0 ? (
         <div className="mt-10 border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500">
           No collections yet. Add Lawn, Formals, Pret, or Unstitched to start.

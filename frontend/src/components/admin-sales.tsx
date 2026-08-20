@@ -6,6 +6,7 @@ import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
 import { AdminConfirm } from "@/components/admin-confirm";
 import { SaleProductPicker } from "@/components/sale-product-picker";
+import { AdminListSkeleton } from "@/components/skeletons";
 
 export type Sale = {
   id: string;
@@ -205,7 +206,7 @@ export function AdminSales() {
   }
 
   if (loading) {
-    return <p className="mt-10 text-sm text-slate-500">Loading sales…</p>;
+    return <AdminListSkeleton />;
   }
 
   return (

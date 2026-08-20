@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
+import { ProductGridSkeleton, Skeleton } from "@/components/skeletons";
 import { SearchBar } from "@/components/search-bar";
 import { SearchPanel } from "@/components/search-panel";
 import { pushRecentSearch, searchProducts } from "@/lib/search";
@@ -60,10 +61,14 @@ export function SearchResults() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4 lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-8">
         <p className="mb-4 text-[12px] text-mocha/45">
-          {loading ? "Searching…" : `${items.length} result${items.length === 1 ? "" : "s"}`}
+          {loading ? (
+            <Skeleton className="inline-block h-3 w-24 align-middle" />
+          ) : (
+            `${items.length} result${items.length === 1 ? "" : "s"}`
+          )}
         </p>
         {loading ? (
-          <p className="py-16 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">Searching…</p>
+          <ProductGridSkeleton />
         ) : items.length ? (
           <div className={productGridClass}>
             {items.map((product) => (

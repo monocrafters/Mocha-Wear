@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AdminShell } from "@/components/admin-shell";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
+import { AdminStatsSkeleton } from "@/components/skeletons";
 
 type Stats = {
   total: number;
@@ -49,14 +50,18 @@ export function AdminDashboard() {
       title="Dashboard"
       copy="Orders, catalog, and storefront settings in one place."
     >
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {cards.map((card) => (
-          <article key={card.label} className="rounded-xl border border-slate-200 bg-white px-5 py-5">
-            <p className="text-sm text-slate-500">{card.label}</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{card.value}</p>
-          </article>
-        ))}
-      </div>
+      {stats ? (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {cards.map((card) => (
+            <article key={card.label} className="rounded-xl border border-slate-200 bg-white px-5 py-5">
+              <p className="text-sm text-slate-500">{card.label}</p>
+              <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{card.value}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <AdminStatsSkeleton />
+      )}
       <div className="mt-6 flex flex-wrap gap-4">
         <Link href="/admin/orders" className="text-sm font-medium text-blue-600 hover:text-blue-700">
           Open orders →

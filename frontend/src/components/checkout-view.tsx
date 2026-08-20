@@ -20,6 +20,7 @@ import {
 } from "@/lib/customer";
 import { formatPkr } from "@/lib/money";
 import { placeOrderRequest, readOrdersCache, rememberOrderPhone } from "@/lib/orders";
+import { CheckoutSkeleton } from "@/components/skeletons";
 
 const fieldClass =
   "mt-1.5 w-full border border-mocha/15 bg-ivory px-3 py-2.5 text-sm outline-none focus:border-mocha-deep";
@@ -152,11 +153,7 @@ export function CheckoutView() {
   }
 
   if (!checkoutReady || !items.length) {
-    return (
-      <section className="px-5 py-24 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">
-        Loading…
-      </section>
-    );
+    return <CheckoutSkeleton />;
   }
 
   return (

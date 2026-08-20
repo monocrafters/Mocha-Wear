@@ -2,11 +2,16 @@
 
 import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
+import { CartSkeleton } from "@/components/skeletons";
 import { cartLineId } from "@/lib/cart";
 import { formatPkr } from "@/lib/money";
 
 export function CartView() {
-  const { items, count, subtotal, total, setQty, remove } = useCart();
+  const { items, count, subtotal, total, setQty, remove, ready } = useCart();
+
+  if (!ready) {
+    return <CartSkeleton />;
+  }
 
   if (!items.length) {
     return (

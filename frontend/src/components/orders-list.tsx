@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Package, Search, Truck } from "lucide-react";
 import { formatPkr } from "@/lib/money";
+import { OrderListSkeleton, Skeleton } from "@/components/skeletons";
 import {
   CUSTOMER_CANCEL_REASONS,
   ORDERS_EVENT,
@@ -154,7 +155,7 @@ export function OrdersList() {
           </h1>
         </div>
         <p className="text-[10px] tracking-[0.14em] text-mocha/45 uppercase lg:text-[11px] lg:tracking-[0.16em]">
-          {loading ? "Loading" : `${orders.length} order${orders.length === 1 ? "" : "s"}`}
+          {loading ? <Skeleton className="inline-block h-3 w-16 align-middle" /> : `${orders.length} order${orders.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
@@ -208,7 +209,7 @@ export function OrdersList() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:overflow-visible lg:px-0 lg:pt-4 lg:pb-0">
         {loading ? (
-          <p className="py-10 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase lg:py-16">Loading orders…</p>
+          <OrderListSkeleton />
         ) : items.length ? (
           <div className="space-y-2 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             {items.map((order) => (

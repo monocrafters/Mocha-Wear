@@ -5,6 +5,7 @@ import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
+import { ProductGridSkeleton, Skeleton } from "@/components/skeletons";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function ShopCatalog() {
@@ -50,11 +51,17 @@ export function ShopCatalog() {
           <h1 className="font-serif mt-2 text-4xl tracking-[-0.03em] text-mocha-deep sm:text-5xl">{settings.shop_heading}</h1>
         </div>
         <p className="text-[12px] tracking-[0.16em] text-mocha/45 uppercase">
-          {loading ? "Loading" : `${items.length} piece${items.length === 1 ? "" : "s"}`}
+          {loading ? <Skeleton className="inline-block h-3 w-16 align-middle" /> : `${items.length} piece${items.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
-      {collections.length ? (
+      {loading ? (
+        <div className="mt-8 flex gap-2" aria-hidden>
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-8 w-20" />
+        </div>
+      ) : collections.length ? (
         <div className="hide-scrollbar mt-8 flex gap-2 overflow-x-auto overscroll-x-contain">
           <FilterChip label="All" active={active === "all"} onClick={() => setActive("all")} />
           {collections.map((collection) => (
@@ -69,7 +76,9 @@ export function ShopCatalog() {
       ) : null}
 
       {loading ? (
-        <p className="mt-16 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">Loading suits…</p>
+        <div className="mt-8">
+          <ProductGridSkeleton />
+        </div>
       ) : items.length ? (
         <div className={`mt-8 ${productGridClass}`}>
           {items.map((product) => (

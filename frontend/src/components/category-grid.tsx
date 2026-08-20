@@ -5,10 +5,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Collection } from "@/components/admin-collections";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
+import { CollectionRowSkeleton } from "@/components/skeletons";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function CategoryGrid() {
   const [items, setItems] = useState<Collection[]>([]);
+  const [loading, setLoading] = useState(true);
   const settings = useSiteSettings();
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
@@ -18,7 +20,8 @@ export function CategoryGrid() {
     apiFetch(`${API_URL}/api/collections`)
       .then((res) => res.json())
       .then((data) => setItems(data.items || []))
-      .catch(() => setItems([]));
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const updateArrows = useCallback(() => {
@@ -48,7 +51,7 @@ export function CategoryGrid() {
     el.scrollBy({ left: direction * amount, behavior: "smooth" });
   }
 
-  if (!items.length) return null;
+  if (!loading && !items.length) return null;
 
   return (
     <section id="collections" className="w-full py-12 sm:py-14">
@@ -87,6 +90,9 @@ export function CategoryGrid() {
         </div>
       </div>
 
+      {loading ? (
+        <CollectionRowSkeleton />
+      ) : (
       <div
         ref={scroller}
         className="hide-scrollbar flex w-full gap-3 overflow-x-auto overscroll-x-contain lg:mx-auto lg:grid lg:max-w-[1440px] lg:grid-cols-4 lg:gap-5 lg:overflow-visible lg:px-8"
@@ -125,6 +131,7 @@ export function CategoryGrid() {
         })}
         <div className="w-5 shrink-0 sm:w-8 lg:hidden" aria-hidden />
       </div>
+      )}
     </section>
   );
 }

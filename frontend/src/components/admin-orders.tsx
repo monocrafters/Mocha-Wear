@@ -14,6 +14,7 @@ import {
   type Order,
   type OrderStatus,
 } from "@/lib/orders";
+import { AdminListSkeleton, AdminStatsSkeleton } from "@/components/skeletons";
 
 function adminTone(status: OrderStatus) {
   if (status === "processing") return "bg-amber-50 text-amber-800";
@@ -184,7 +185,12 @@ export function AdminOrders() {
   }
 
   if (loading) {
-    return <p className="mt-10 text-sm text-slate-500">Loading orders…</p>;
+    return (
+      <div>
+        <AdminStatsSkeleton count={6} />
+        <AdminListSkeleton />
+      </div>
+    );
   }
 
   const cards = [

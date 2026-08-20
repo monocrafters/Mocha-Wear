@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Product } from "@/components/admin-products";
 import { AdminConfirm } from "@/components/admin-confirm";
+import { AdminListSkeleton } from "@/components/skeletons";
 
 export type Review = {
   id: string;
@@ -156,7 +157,7 @@ export function AdminReviews() {
       {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
       {loading ? (
-        <p className="mt-10 text-sm text-slate-500">Loading reviews…</p>
+        <AdminListSkeleton />
       ) : items.length === 0 ? (
         <div className="mt-10 border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500">
           No reviews yet. Add a customer note to show on the homepage.

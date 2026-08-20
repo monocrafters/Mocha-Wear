@@ -8,6 +8,7 @@ import { PRODUCT_BADGES, PRODUCT_SIZE_PRESETS, productSizes } from "@/lib/produc
 import type { Collection } from "@/components/admin-collections";
 import { CollectionPicker } from "@/components/collection-picker";
 import { AdminConfirm } from "@/components/admin-confirm";
+import { AdminProductGridSkeleton } from "@/components/skeletons";
 
 export type ProductImage = {
   id: string;
@@ -419,7 +420,7 @@ export function AdminProducts() {
       ) : null}
 
       {loading ? (
-        <p className="mt-10 text-sm text-slate-500">Loading products…</p>
+        <AdminProductGridSkeleton />
       ) : items.length === 0 ? (
         <div className="mt-10 border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500">
           No products yet. Add a cotton or lawn suit with multiple photos to start.

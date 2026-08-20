@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { Review } from "@/components/admin-reviews";
 import { useSiteSettings } from "@/components/site-settings";
+import { ReviewRowSkeleton } from "@/components/skeletons";
 
 function initials(name: string) {
   return name
@@ -27,6 +28,7 @@ function Stars({ rating }: { rating: number }) {
 
 export function Reviews() {
   const [items, setItems] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
   const settings = useSiteSettings();
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
@@ -36,7 +38,8 @@ export function Reviews() {
     apiFetch(`${API_URL}/api/reviews`)
       .then((res) => res.json())
       .then((data) => setItems(data.items || []))
-      .catch(() => setItems([]));
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const updateArrows = useCallback(() => {
@@ -66,7 +69,7 @@ export function Reviews() {
     el.scrollBy({ left: direction * amount, behavior: "smooth" });
   }
 
-  if (!items.length) return null;
+  if (!loading && !items.length) return null;
 
   return (
     <section id="reviews" className="w-full border-t border-sand bg-cream/70 py-12 sm:py-14">
@@ -102,6 +105,9 @@ export function Reviews() {
         </div>
       </div>
 
+      {loading ? (
+        <ReviewRowSkeleton />
+      ) : (
       <div
         ref={scroller}
         className="hide-scrollbar flex w-full gap-3 overflow-x-auto overscroll-x-contain"
@@ -112,6 +118,7 @@ export function Reviews() {
         ))}
         <div className="w-5 shrink-0 sm:w-8" aria-hidden />
       </div>
+      )}
     </section>
   );
 }

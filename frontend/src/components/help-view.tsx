@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { DEFAULT_HELP, whatsappHref, type HelpContent } from "@/lib/support";
+import { HelpSkeleton } from "@/components/skeletons";
 
 const ICONS: Record<string, LucideIcon> = {
   ruler: Ruler,
@@ -49,9 +50,7 @@ export function HelpView() {
   const number = help.whatsapp_display || help.whatsapp_number;
 
   if (!ready) {
-    return (
-      <p className="px-5 py-16 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">Loading support…</p>
-    );
+    return <HelpSkeleton />;
   }
 
   return (

@@ -9,6 +9,7 @@ import {
   markUserReadAll,
   notificationTime,
 } from "@/lib/notifications";
+import { NotificationListSkeleton, Skeleton } from "@/components/skeletons";
 
 export function NotificationsView() {
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -54,7 +55,7 @@ export function NotificationsView() {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <p className="text-[11px] tracking-[0.16em] text-mocha/45 uppercase">
-            {loading ? "Loading" : unread ? `${unread} new` : `${items.length} total`}
+            {loading ? <Skeleton className="inline-block h-3 w-16 align-middle" /> : unread ? `${unread} new` : `${items.length} total`}
           </p>
           {unread ? (
             <button
@@ -70,7 +71,7 @@ export function NotificationsView() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:overflow-visible lg:px-0 lg:pb-0">
         {loading ? (
-          <p className="py-16 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">Loading notifications…</p>
+          <NotificationListSkeleton />
         ) : items.length ? (
           <div className="space-y-2 lg:mx-auto lg:max-w-2xl">
             {items.map((item) => (

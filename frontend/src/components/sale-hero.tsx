@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { HeroSlide } from "@/components/admin-hero";
 import { HeroSaleTimer } from "@/components/hero-sale-timer";
+import { HeroSkeleton } from "@/components/skeletons";
 import { useActiveSale } from "@/lib/active-sale";
 
 export function SaleHero() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [index, setIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     apiFetch(`${API_URL}/api/hero`)
@@ -19,7 +21,8 @@ export function SaleHero() {
           setIndex(0);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -30,6 +33,7 @@ export function SaleHero() {
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  if (loading) return <HeroSkeleton />;
   if (!slides.length) return null;
 
   const active = slides[index];

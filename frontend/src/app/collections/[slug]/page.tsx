@@ -10,6 +10,7 @@ import { CollectionMedia } from "@/components/collection-media";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { collectionBannerSrc } from "@/lib/collection";
+import { CollectionPageSkeleton } from "@/components/skeletons";
 
 export default function CollectionPage() {
   const params = useParams<{ slug: string }>();
@@ -24,12 +25,13 @@ export default function CollectionPage() {
         if (!res.ok) throw new Error("missing");
         return res.json();
       })
-      .then((data) => {
-        setItem(data.item);
-        return apiFetch(`${API_URL}/api/products?collection=${params.slug}`)
+      .then(async (data) => {
+        const collection = data.item as Collection;
+        const productData = await apiFetch(`${API_URL}/api/products?collection=${params.slug}`)
           .then((res) => res.json())
-          .then((productData) => setProducts(productData.items || []))
-          .catch(() => setProducts([]));
+          .catch(() => ({ items: [] }));
+        setItem(collection);
+        setProducts(productData.items || []);
       })
       .catch(() => setMissing(true));
   }, [params.slug]);
@@ -51,9 +53,7 @@ export default function CollectionPage() {
             </a>
           </section>
         ) : !item ? (
-          <section className="flex flex-1 items-center justify-center px-5 text-sm tracking-[0.16em] text-mocha/45 uppercase">
-            Loading…
-          </section>
+          <CollectionPageSkeleton />
         ) : (
           <section className="flex min-h-0 flex-1 flex-col">
             <div className="relative aspect-[2/1] w-full shrink-0 overflow-hidden bg-sand lg:aspect-[3/1]">

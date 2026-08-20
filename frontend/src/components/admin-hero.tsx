@@ -11,6 +11,7 @@ import type { Product } from "@/components/admin-products";
 import { ImageCropperModal } from "@/components/image-cropper-modal";
 import { SaleProductPicker } from "@/components/sale-product-picker";
 import { AdminConfirm } from "@/components/admin-confirm";
+import { AdminListSkeleton } from "@/components/skeletons";
 
 export type HeroLabel = {
   id: string;
@@ -390,7 +391,7 @@ export function AdminHero() {
   }
 
   if (loading) {
-    return <p className="mt-10 text-sm text-slate-500">Loading hero…</p>;
+    return <AdminListSkeleton rows={3} />;
   }
 
   return (

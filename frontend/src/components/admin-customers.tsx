@@ -5,6 +5,7 @@ import Link from "next/link";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
 import type { AdminCustomer } from "@/lib/admin-customers";
+import { AdminListSkeleton, AdminStatsSkeleton } from "@/components/skeletons";
 
 type Stats = {
   total: number;
@@ -46,7 +47,12 @@ export function AdminCustomers() {
   }, [items, query]);
 
   if (loading) {
-    return <p className="mt-10 text-sm text-slate-500">Loading customers…</p>;
+    return (
+      <div>
+        <AdminStatsSkeleton count={3} />
+        <AdminListSkeleton />
+      </div>
+    );
   }
 
   const cards = [

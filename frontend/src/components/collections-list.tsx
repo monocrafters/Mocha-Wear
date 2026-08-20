@@ -6,6 +6,7 @@ import type { Collection } from "@/components/admin-collections";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
 import { CollectionMedia } from "@/components/collection-media";
 import { useSiteSettings } from "@/components/site-settings";
+import { CollectionListSkeleton, Skeleton } from "@/components/skeletons";
 
 export function CollectionsList() {
   const [items, setItems] = useState<Collection[]>([]);
@@ -30,13 +31,13 @@ export function CollectionsList() {
           </h1>
         </div>
         <p className="text-[11px] tracking-[0.16em] text-mocha/45 uppercase">
-          {loading ? "Loading" : `${items.length} collection${items.length === 1 ? "" : "s"}`}
+          {loading ? <Skeleton className="inline-block h-3 w-16 align-middle" /> : `${items.length} collection${items.length === 1 ? "" : "s"}`}
         </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:overflow-visible lg:px-0 lg:pb-0">
         {loading ? (
-          <p className="py-16 text-center text-sm tracking-[0.16em] text-mocha/45 uppercase">Loading collections…</p>
+          <CollectionListSkeleton />
         ) : items.length ? (
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-12 lg:gap-5">
             {items.map((collection, index) => (

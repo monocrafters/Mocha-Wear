@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { HELP_ICONS, type HelpContent, type HelpNote, type HelpTopic } from "@/lib/support";
 import { AdminConfirm } from "@/components/admin-confirm";
+import { AdminFormSkeleton } from "@/components/skeletons";
 
 const field =
   "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15";
@@ -228,7 +229,7 @@ export function AdminHelp() {
   }
 
   if (loading) {
-    return <p className="mt-10 text-sm text-slate-500">Loading help…</p>;
+    return <AdminFormSkeleton />;
   }
 
   return (
