@@ -1,39 +1,45 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "notifications.json");
 const LIMIT = 200;
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) writeStore({ items: [] });
-}
-
-function readStore() {
-  ensureFile();
+function readFileStore() {
   try {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    return { items: Array.isArray(data.items) ? data.items : [] };
+    if (!fs.existsSync(DATA_FILE)) return { items: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = { items: [] };
-    writeStore(fallback);
-    return fallback;
+    return { items: [] };
   }
 }
 
-function writeStore(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ items: data.items || [] }, null, 2));
+const store = createDocumentStore("notifications", {
+  empty: { items: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readStore() {
+  const data = await store.read();
+  return { items: Array.isArray(data?.items) ? data.items : [] };
+}
+
+async function writeStore(data) {
+  await store.write({ items: data.items || [] });
 }
 
 function digits(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
-function add(entry = {}) {
-  const store = readStore();
+async function add(entry = {}) {
+  const data = await readStore();
   const item = {
     id: crypto.randomUUID(),
     role: entry.role === "admin" ? "admin" : "user",
@@ -45,38 +51,38 @@ function add(entry = {}) {
     read: false,
     created_at: new Date().toISOString(),
   };
-  store.items.unshift(item);
-  store.items = store.items.slice(0, LIMIT);
-  writeStore(store);
+  data.items.unshift(item);
+  data.items = data.items.slice(0, LIMIT);
+  await writeStore(data);
   return item;
 }
 
-function listAdmin() {
-  return readStore().items.filter((item) => item.role === "admin");
+async function listAdmin() {
+  return (await readStore()).items.filter((item) => item.role === "admin");
 }
 
-function listUser(phone) {
+async function listUser(phone) {
   const mobile = digits(phone);
-  return readStore().items.filter((item) => {
+  return (await readStore()).items.filter((item) => {
     if (item.role !== "user") return false;
     if (!item.phone) return true;
     return Boolean(mobile) && item.phone === mobile;
   });
 }
 
-function markRead(id, role) {
-  const store = readStore();
-  const item = store.items.find((row) => row.id === id && (!role || row.role === role));
+async function markRead(id, role) {
+  const data = await readStore();
+  const item = data.items.find((row) => row.id === id && (!role || row.role === role));
   if (!item) return null;
   item.read = true;
-  writeStore(store);
+  await writeStore(data);
   return item;
 }
 
-function markAllRead(role) {
-  const store = readStore();
-  store.items = store.items.map((item) => (item.role === role ? { ...item, read: true } : item));
-  writeStore(store);
+async function markAllRead(role) {
+  const data = await readStore();
+  data.items = data.items.map((item) => (item.role === role ? { ...item, read: true } : item));
+  await writeStore(data);
   return { ok: true };
 }
 
@@ -84,9 +90,9 @@ function unreadCount(items) {
   return items.filter((item) => !item.read).length;
 }
 
-function notifyNewProduct(product = {}) {
+async function notifyNewProduct(product = {}) {
   if (!product.is_published) return;
-  add({
+  await add({
     role: "user",
     phone: "",
     type: "new_product",
@@ -96,9 +102,9 @@ function notifyNewProduct(product = {}) {
   });
 }
 
-function notifyNewOrder(order = {}) {
+async function notifyNewOrder(order = {}) {
   const name = order.customer?.name || "Customer";
-  add({
+  await add({
     role: "admin",
     type: "new_order",
     title: `New order ${order.id}`,
@@ -107,10 +113,10 @@ function notifyNewOrder(order = {}) {
   });
 }
 
-function notifyCancel(order = {}) {
+async function notifyCancel(order = {}) {
   const reason = [order.cancel_reason, order.cancel_detail].filter(Boolean).join(" — ");
   if (order.cancelled_by === "customer") {
-    add({
+    await add({
       role: "admin",
       type: "order_cancel",
       title: `${order.id} cancelled by customer`,
@@ -119,7 +125,7 @@ function notifyCancel(order = {}) {
     });
     return;
   }
-  add({
+  await add({
     role: "user",
     phone: order.customer?.phone,
     type: "order_cancel",
@@ -129,7 +135,7 @@ function notifyCancel(order = {}) {
   });
 }
 
-function notifyOrderStatus(order = {}) {
+async function notifyOrderStatus(order = {}) {
   const labels = {
     packed: "packed",
     shipped: "on the way",
@@ -137,7 +143,7 @@ function notifyOrderStatus(order = {}) {
   };
   const label = labels[order.status];
   if (!label || !order.customer?.phone) return;
-  add({
+  await add({
     role: "user",
     phone: order.customer.phone,
     type: "order_status",

@@ -1,32 +1,35 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "products.json");
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeStore({ products: [] });
-  }
-}
-
-function readStore() {
-  ensureFile();
+function readFileStore() {
   try {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    return normalize(data);
+    if (!fs.existsSync(DATA_FILE)) return { products: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = { products: [] };
-    writeStore(fallback);
-    return fallback;
+    return { products: [] };
   }
 }
 
-function writeStore(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("products", {
+  empty: { products: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readStore() {
+  return normalize(await store.read());
+}
+
+async function writeStore(data) {
+  await store.write(normalize(data));
 }
 
 function codeify(text) {
@@ -209,24 +212,24 @@ function payloadFromBody(body = {}, existing = {}) {
   });
 }
 
-function listAll() {
-  return readStore().products.sort((a, b) => a.sort_order - b.sort_order);
+async function listAll() {
+  return (await readStore()).products.sort((a, b) => a.sort_order - b.sort_order);
 }
 
-function listPublished(filter = {}) {
+async function listPublished(filter = {}) {
   const collection = String(filter.collection || "").trim();
-  return listAll().filter((item) => {
+  return (await listAll()).filter((item) => {
     if (!item.is_published) return false;
     if (!collection) return true;
     return item.collection_id === collection;
   });
 }
 
-function getBySlug(slug) {
+async function getBySlug(slug) {
   const key = String(slug || "").trim().toLowerCase();
   if (!key) return null;
   return (
-    listAll().find(
+    (await listAll()).find(
       (item) =>
         item.is_published &&
         (String(item.slug || "").toLowerCase() === key || String(item.code || "").toLowerCase() === key),
@@ -234,12 +237,12 @@ function getBySlug(slug) {
   );
 }
 
-function getById(id) {
-  return listAll().find((item) => item.id === id) || null;
+async function getById(id) {
+  return (await listAll()).find((item) => item.id === id) || null;
 }
 
-function createOne(body) {
-  const data = readStore();
+async function createOne(body) {
+  const data = await readStore();
   const product = payloadFromBody(body, {
     id: crypto.randomUUID(),
     created_at: new Date().toISOString(),
@@ -252,12 +255,12 @@ function createOne(body) {
     throw err;
   }
   data.products.push(product);
-  writeStore(data);
+  await writeStore(data);
   return product;
 }
 
-function updateOne(id, body) {
-  const data = readStore();
+async function updateOne(id, body) {
+  const data = await readStore();
   const index = data.products.findIndex((item) => item.id === id);
   if (index < 0) {
     const err = new Error("Product not found");
@@ -271,49 +274,49 @@ function updateOne(id, body) {
     throw err;
   }
   data.products[index] = { ...product, id };
-  writeStore(data);
+  await writeStore(data);
   return data.products[index];
 }
 
-function removeOne(id) {
-  const data = readStore();
+async function removeOne(id) {
+  const data = await readStore();
   if (!data.products.some((item) => item.id === id)) {
     const err = new Error("Product not found");
     err.status = 404;
     throw err;
   }
-  writeStore({ products: data.products.filter((item) => item.id !== id) });
+  await writeStore({ products: data.products.filter((item) => item.id !== id) });
   return { ok: true };
 }
 
-function markSaleFlags(ids = [], on = true) {
+async function markSaleFlags(ids = [], on = true) {
   const set = new Set((ids || []).map(String).filter(Boolean));
   if (!set.size) return;
-  const data = readStore();
+  const data = await readStore();
   data.products = data.products.map((item) =>
     set.has(item.id)
       ? { ...item, is_on_sale: Boolean(on), updated_at: new Date().toISOString() }
       : item,
   );
-  writeStore(data);
+  await writeStore(data);
 }
 
-function resolveSaleProductIds(productIds = [], collectionIds = []) {
+async function resolveSaleProductIds(productIds = [], collectionIds = []) {
   const ids = new Set((productIds || []).map(String).filter(Boolean));
   const collections = new Set((collectionIds || []).map(String).filter(Boolean));
   if (collections.size) {
-    listAll().forEach((item) => {
+    (await listAll()).forEach((item) => {
       if (collections.has(item.collection_id)) ids.add(item.id);
     });
   }
   return [...ids];
 }
 
-function syncSaleProducts(previousIds = [], nextIds = []) {
+async function syncSaleProducts(previousIds = [], nextIds = []) {
   const prev = new Set((previousIds || []).map(String));
   const next = new Set((nextIds || []).map(String));
-  markSaleFlags([...next], true);
-  markSaleFlags([...prev].filter((id) => !next.has(id)), false);
+  await markSaleFlags([...next], true);
+  await markSaleFlags([...prev].filter((id) => !next.has(id)), false);
 }
 
 function sendError(res, error) {

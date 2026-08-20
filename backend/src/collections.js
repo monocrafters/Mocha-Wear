@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { getSupabase } = require("./db");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "collections.json");
@@ -53,7 +53,8 @@ function readFileStore() {
   ensureDirs();
   if (!fs.existsSync(DATA_FILE)) return [];
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
@@ -62,6 +63,17 @@ function readFileStore() {
 function writeFileStore(items) {
   ensureDirs();
   fs.writeFileSync(DATA_FILE, JSON.stringify(items, null, 2));
+}
+
+const store = createDocumentStore("collections", {
+  empty: [],
+  readFile: readFileStore,
+  writeFile: writeFileStore,
+});
+
+async function readItems() {
+  const items = await store.read();
+  return Array.isArray(items) ? items : [];
 }
 
 function isMissingTable(error) {
@@ -139,35 +151,9 @@ function payloadFromBody(body, existing = {}) {
   };
 }
 
-async function withStore(runSupabase, runFile) {
-  const fileItems = readFileStore();
-  if (fileItems.length) {
-    return runFile();
-  }
-  try {
-    const supabase = getSupabase();
-    return await runSupabase(supabase);
-  } catch {
-    return runFile();
-  }
-}
-
 async function listAll() {
-  return withStore(
-    async (supabase) => {
-      const { data, error } = await supabase
-        .from("collections")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return { items: (data || []).map(shape), source: "supabase", needsSetup: false };
-    },
-    async () => {
-      const items = readFileStore();
-      return { items: items.map(shape), source: "file" };
-    },
-  );
+  const items = await readItems();
+  return { items: items.map(shape), source: "supabase", needsSetup: false };
 }
 
 async function listPublished() {
@@ -200,74 +186,40 @@ async function createOne(body) {
     id: crypto.randomUUID(),
     created_at: new Date().toISOString(),
   };
-  return withStore(
-    async (supabase) => {
-      const { data, error } = await supabase.from("collections").insert(row).select("*").single();
-      if (error) throw error;
-      return shape(data);
-    },
-    async () => {
-      const items = readFileStore();
-      if (items.some((item) => sameCode(item.code || item.slug, row.code))) {
-        const err = new Error("Collection code already exists");
-        err.status = 409;
-        throw err;
-      }
-      items.push(row);
-      writeFileStore(items);
-      return shape(row);
-    },
-  );
+  const items = await readItems();
+  if (items.some((item) => sameCode(item.code || item.slug, row.code))) {
+    const err = new Error("Collection code already exists");
+    err.status = 409;
+    throw err;
+  }
+  items.push(row);
+  await store.write(items);
+  return shape(row);
 }
 
 async function updateOne(id, body) {
-  return withStore(
-    async (supabase) => {
-      const { data: existing, error: findError } = await supabase
-        .from("collections")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (findError) throw findError;
-      const next = payloadFromBody(body, existing);
-      const { data, error } = await supabase.from("collections").update(next).eq("id", id).select("*").single();
-      if (error) throw error;
-      return shape(data);
-    },
-    async () => {
-      const items = readFileStore();
-      const index = items.findIndex((item) => item.id === id);
-      if (index < 0) {
-        const err = new Error("Collection not found");
-        err.status = 404;
-        throw err;
-      }
-      const next = { ...items[index], ...payloadFromBody(body, items[index]) };
-      if (items.some((item) => sameCode(item.code || item.slug, next.code) && item.id !== id)) {
-        const err = new Error("Collection code already exists");
-        err.status = 409;
-        throw err;
-      }
-      items[index] = next;
-      writeFileStore(items);
-      return shape(next);
-    },
-  );
+  const items = await readItems();
+  const index = items.findIndex((item) => item.id === id);
+  if (index < 0) {
+    const err = new Error("Collection not found");
+    err.status = 404;
+    throw err;
+  }
+  const next = { ...items[index], ...payloadFromBody(body, items[index]) };
+  if (items.some((item) => sameCode(item.code || item.slug, next.code) && item.id !== id)) {
+    const err = new Error("Collection code already exists");
+    err.status = 409;
+    throw err;
+  }
+  items[index] = next;
+  await store.write(items);
+  return shape(next);
 }
 
 async function removeOne(id) {
-  return withStore(
-    async (supabase) => {
-      const { error } = await supabase.from("collections").delete().eq("id", id);
-      if (error) throw error;
-      return { ok: true };
-    },
-    async () => {
-      const items = readFileStore();
-      writeFileStore(items.filter((item) => item.id !== id));
-      return { ok: true };
-    },
-  );
+  const items = await readItems();
+  await store.write(items.filter((item) => item.id !== id));
+  return { ok: true };
 }
 
 async function reorder(ids = []) {
@@ -276,44 +228,20 @@ async function reorder(ids = []) {
     err.status = 400;
     throw err;
   }
-  return withStore(
-    async (supabase) => {
-      const { items } = await listAll();
-      const map = new Map(items.map((item) => [item.id, item]));
-      const ordered = [];
-      ids.forEach((id) => {
-        const item = map.get(id);
-        if (item) {
-          ordered.push(item);
-          map.delete(id);
-        }
-      });
-      map.forEach((item) => ordered.push(item));
-      for (let index = 0; index < ordered.length; index += 1) {
-        const sort_order = index + 1;
-        const { error } = await supabase.from("collections").update({ sort_order }).eq("id", ordered[index].id);
-        if (error) throw error;
-      }
-      const next = await listAll();
-      return next.items;
-    },
-    async () => {
-      const items = readFileStore().map(shape);
-      const map = new Map(items.map((item) => [item.id, item]));
-      const ordered = [];
-      ids.forEach((id) => {
-        const item = map.get(id);
-        if (item) {
-          ordered.push(item);
-          map.delete(id);
-        }
-      });
-      map.forEach((item) => ordered.push(item));
-      const next = ordered.map((item, index) => ({ ...item, sort_order: index + 1 }));
-      writeFileStore(next);
-      return next.map(shape);
-    },
-  );
+  const items = (await readItems()).map(shape);
+  const map = new Map(items.map((item) => [item.id, item]));
+  const ordered = [];
+  ids.forEach((id) => {
+    const item = map.get(id);
+    if (item) {
+      ordered.push(item);
+      map.delete(id);
+    }
+  });
+  map.forEach((item) => ordered.push(item));
+  const next = ordered.map((item, index) => ({ ...item, sort_order: index + 1 }));
+  await store.write(next);
+  return next.map(shape);
 }
 
 function publicUploadUrl(req, filename) {

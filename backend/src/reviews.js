@@ -1,31 +1,35 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "reviews.json");
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeStore({ reviews: [] });
-  }
-}
-
-function readStore() {
-  ensureFile();
+function readFileStore() {
   try {
-    return normalize(JSON.parse(fs.readFileSync(DATA_FILE, "utf8")));
+    if (!fs.existsSync(DATA_FILE)) return { reviews: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = normalize({ reviews: [] });
-    writeStore(fallback);
-    return fallback;
+    return { reviews: [] };
   }
 }
 
-function writeStore(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("reviews", {
+  empty: { reviews: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readStore() {
+  return normalize(await store.read());
+}
+
+async function writeStore(data) {
+  await store.write(normalize(data));
 }
 
 function asBool(value, fallback = true) {
@@ -59,16 +63,16 @@ function normalize(data = {}) {
   return { reviews: reviews.map((item, index) => shape(item, index)) };
 }
 
-function listAll() {
-  return readStore().reviews.sort((a, b) => a.sort_order - b.sort_order);
+async function listAll() {
+  return (await readStore()).reviews.sort((a, b) => a.sort_order - b.sort_order);
 }
 
-function listPublished() {
-  return listAll().filter((item) => item.is_published);
+async function listPublished() {
+  return (await listAll()).filter((item) => item.is_published);
 }
 
-function createOne(fields) {
-  const data = readStore();
+async function createOne(fields) {
+  const data = await readStore();
   const review = shape({
     ...fields,
     is_published: asBool(fields.is_published, true),
@@ -82,12 +86,12 @@ function createOne(fields) {
     throw err;
   }
   data.reviews.push(review);
-  writeStore(data);
+  await writeStore(data);
   return review;
 }
 
-function updateOne(id, fields) {
-  const data = readStore();
+async function updateOne(id, fields) {
+  const data = await readStore();
   const index = data.reviews.findIndex((item) => item.id === id);
   if (index < 0) {
     const err = new Error("Review not found");
@@ -107,18 +111,18 @@ function updateOne(id, fields) {
     throw err;
   }
   data.reviews[index] = next;
-  writeStore(data);
+  await writeStore(data);
   return next;
 }
 
-function removeOne(id) {
-  const data = readStore();
+async function removeOne(id) {
+  const data = await readStore();
   if (!data.reviews.some((item) => item.id === id)) {
     const err = new Error("Review not found");
     err.status = 404;
     throw err;
   }
-  writeStore({ reviews: data.reviews.filter((item) => item.id !== id) });
+  await writeStore({ reviews: data.reviews.filter((item) => item.id !== id) });
   return { ok: true };
 }
 

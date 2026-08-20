@@ -1,32 +1,35 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "sales.json");
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeSales({ sales: [] });
-  }
-}
-
-function readSales() {
-  ensureFile();
+function readFileStore() {
   try {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    return normalize(data);
+    if (!fs.existsSync(DATA_FILE)) return { sales: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = { sales: [] };
-    writeSales(fallback);
-    return fallback;
+    return { sales: [] };
   }
 }
 
-function writeSales(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("sales", {
+  empty: { sales: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readSales() {
+  return normalize(await store.read());
+}
+
+async function writeSales(data) {
+  await store.write(normalize(data));
 }
 
 function toIso(value) {
@@ -89,41 +92,41 @@ function isLive(sale, now = Date.now()) {
   return true;
 }
 
-function listAll() {
-  return readSales().sales;
+async function listAll() {
+  return (await readSales()).sales;
 }
 
-function listPublished() {
-  return listAll().filter((sale) => sale.is_published);
+async function listPublished() {
+  return (await listAll()).filter((sale) => sale.is_published);
 }
 
-function getById(id) {
-  return listAll().find((sale) => sale.id === id) || null;
+async function getById(id) {
+  return (await listAll()).find((sale) => sale.id === id) || null;
 }
 
-function getActive() {
+async function getActive() {
   const sale =
-    listPublished()
+    (await listPublished())
       .filter((item) => isLive(item))
       .sort((a, b) => new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime())[0] || null;
   if (!sale) return null;
   const products = require("./products");
   return {
     ...sale,
-    product_ids: products.resolveSaleProductIds(sale.product_ids, sale.collection_ids),
+    product_ids: await products.resolveSaleProductIds(sale.product_ids, sale.collection_ids),
   };
 }
 
-function createOne(fields) {
-  const data = readSales();
+async function createOne(fields) {
+  const data = await readSales();
   const sale = normalizeSale({ ...coerce(fields), id: crypto.randomUUID(), created_at: new Date().toISOString() });
   data.sales.unshift(sale);
-  writeSales(data);
+  await writeSales(data);
   return sale;
 }
 
-function updateOne(id, fields) {
-  const data = readSales();
+async function updateOne(id, fields) {
+  const data = await readSales();
   const index = data.sales.findIndex((sale) => sale.id === id);
   if (index < 0) {
     const err = new Error("Sale not found");
@@ -131,13 +134,13 @@ function updateOne(id, fields) {
     throw err;
   }
   data.sales[index] = normalizeSale({ ...data.sales[index], ...coerce(fields), id });
-  writeSales(data);
+  await writeSales(data);
   return data.sales[index];
 }
 
-function removeOne(id) {
-  const data = readSales();
-  writeSales({ sales: data.sales.filter((sale) => sale.id !== id) });
+async function removeOne(id) {
+  const data = await readSales();
+  await writeSales({ sales: data.sales.filter((sale) => sale.id !== id) });
   return { ok: true };
 }
 

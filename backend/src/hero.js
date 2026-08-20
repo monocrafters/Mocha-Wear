@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "hero.json");
@@ -37,28 +38,30 @@ const EMPTY_IMAGE_COPY = {
   product_id: "",
 };
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeHero({ slides: [] });
-  }
-}
-
-function readHero() {
-  ensureFile();
+function readFileStore() {
   try {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    return normalize(data);
+    if (!fs.existsSync(DATA_FILE)) return { slides: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = { slides: [] };
-    writeHero(fallback);
-    return fallback;
+    return { slides: [] };
   }
 }
 
-function writeHero(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("hero", {
+  empty: { slides: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readHero() {
+  return normalize(await store.read());
+}
+
+async function writeHero(data) {
+  await store.write(normalize(data));
 }
 
 function isAccentValue(value = "") {
@@ -208,47 +211,45 @@ function collectionHref(collection) {
 }
 
 async function getPublic() {
-  const hero = readHero();
+  const hero = await readHero();
   const sales = require("./sales");
   const products = require("./products");
   const collections = require("./collections");
   const { items: collectionItems } = await collections.listAll();
   const collectionById = new Map(collectionItems.map((item) => [item.id, item]));
-  return {
-    slides: hero.slides
-      .filter((slide) => slide.is_published && (slide.image || slide.video))
-      .map((slide) => {
-        const sale = slide.sale_id ? sales.getById(slide.sale_id) : null;
-        const product = slide.product_id ? products.getById(slide.product_id) : null;
-        const liveProduct = product && product.is_published ? product : null;
-        const collection = liveProduct?.collection_id ? collectionById.get(liveProduct.collection_id) : null;
-        return {
-          ...slide,
-          primary_cta_link: liveProduct ? productHref(liveProduct) : slide.primary_cta_link || "#shop",
-          secondary_cta_link: collection
-            ? collectionHref(collection)
-            : slide.secondary_cta_link || "#collections",
-          sale: sale && sale.is_published ? sale : null,
-          product: liveProduct
-            ? {
-                id: liveProduct.id,
-                name: liveProduct.name,
-                code: liveProduct.code || liveProduct.slug || "",
-                collection_id: liveProduct.collection_id || "",
-              }
-            : null,
-        };
-      }),
-  };
+  const slides = [];
+  for (const slide of hero.slides.filter((item) => item.is_published && (item.image || item.video))) {
+    const sale = slide.sale_id ? await sales.getById(slide.sale_id) : null;
+    const product = slide.product_id ? await products.getById(slide.product_id) : null;
+    const liveProduct = product && product.is_published ? product : null;
+    const collection = liveProduct?.collection_id ? collectionById.get(liveProduct.collection_id) : null;
+    slides.push({
+      ...slide,
+      primary_cta_link: liveProduct ? productHref(liveProduct) : slide.primary_cta_link || "#shop",
+      secondary_cta_link: collection
+        ? collectionHref(collection)
+        : slide.secondary_cta_link || "#collections",
+      sale: sale && sale.is_published ? sale : null,
+      product: liveProduct
+        ? {
+            id: liveProduct.id,
+            name: liveProduct.name,
+            code: liveProduct.code || liveProduct.slug || "",
+            collection_id: liveProduct.collection_id || "",
+          }
+        : null,
+    });
+  }
+  return { slides };
 }
 
-function getAdmin() {
+async function getAdmin() {
   return readHero();
 }
 
-function addSlide(fields) {
+async function addSlide(fields) {
   fields = coerce(fields);
-  const hero = readHero();
+  const hero = await readHero();
   const kind = fields.kind === "image" ? "image" : "slide";
   const slide = normalizeSlide(
     {
@@ -262,12 +263,12 @@ function addSlide(fields) {
     hero.slides.length,
   );
   hero.slides.push(slide);
-  writeHero(hero);
+  await writeHero(hero);
   return slide;
 }
 
-function updateSlide(id, fields) {
-  const hero = readHero();
+async function updateSlide(id, fields) {
+  const hero = await readHero();
   const index = hero.slides.findIndex((slide) => slide.id === id);
   if (index < 0) {
     const err = new Error("Slide not found");
@@ -276,13 +277,13 @@ function updateSlide(id, fields) {
   }
   const next = coerce(fields);
   hero.slides[index] = normalizeSlide({ ...hero.slides[index], ...next, id }, index);
-  writeHero(hero);
+  await writeHero(hero);
   return hero.slides[index];
 }
 
-function removeSlide(id) {
-  const hero = readHero();
-  writeHero({
+async function removeSlide(id) {
+  const hero = await readHero();
+  await writeHero({
     slides: hero.slides.filter((slide) => slide.id !== id).map((slide, index) => ({
       ...slide,
       sort_order: index + 1,
@@ -291,13 +292,13 @@ function removeSlide(id) {
   return { ok: true };
 }
 
-function reorderSlides(ids = []) {
+async function reorderSlides(ids = []) {
   if (!Array.isArray(ids) || !ids.length) {
     const err = new Error("Slide order is required");
     err.status = 400;
     throw err;
   }
-  const hero = readHero();
+  const hero = await readHero();
   const map = new Map(hero.slides.map((slide) => [slide.id, slide]));
   const ordered = [];
   ids.forEach((id) => {
@@ -308,10 +309,10 @@ function reorderSlides(ids = []) {
     }
   });
   map.forEach((slide) => ordered.push(slide));
-  writeHero({
+  await writeHero({
     slides: ordered.map((slide, index) => ({ ...slide, sort_order: index + 1 })),
   });
-  return readHero().slides;
+  return (await readHero()).slides;
 }
 
 function sendError(res, error) {

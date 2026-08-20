@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "settings.json");
@@ -57,27 +58,30 @@ function emptySettings() {
   };
 }
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeSettings(emptySettings());
-  }
-}
-
-function readSettings() {
-  ensureFile();
+function readFileStore() {
   try {
-    return normalize(JSON.parse(fs.readFileSync(DATA_FILE, "utf8")));
+    if (!fs.existsSync(DATA_FILE)) return emptySettings();
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = normalize(emptySettings());
-    writeSettings(fallback);
-    return fallback;
+    return emptySettings();
   }
 }
 
-function writeSettings(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("settings", {
+  empty: emptySettings,
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readSettings() {
+  return normalize(await store.read());
+}
+
+async function writeSettings(data) {
+  await store.write(normalize(data));
 }
 
 function toBool(value, fallback = true) {
@@ -163,18 +167,18 @@ function normalize(data = {}) {
   };
 }
 
-function getPublic() {
+async function getPublic() {
   return readSettings();
 }
 
-function getAdmin() {
+async function getAdmin() {
   return readSettings();
 }
 
-function updateSettings(fields = {}) {
-  const current = readSettings();
+async function updateSettings(fields = {}) {
+  const current = await readSettings();
   const next = normalize({ ...current, ...fields });
-  writeSettings(next);
+  await writeSettings(next);
   return next;
 }
 

@@ -142,6 +142,7 @@ app.get("/api/health", async (req, res) => {
       status: "ok",
       message: "Sale API is running",
       database: "connected",
+      catalog: "supabase",
       dbTime,
     });
   } catch (error) {
@@ -233,16 +234,16 @@ app.get("/api/products", async (req, res) => {
       if (!collection) return res.json({ items: [] });
       collectionId = collection.id;
     }
-    const items = products.listPublished({ collection: collectionId });
+    const items = await products.listPublished({ collection: collectionId });
     res.json({ items });
   } catch (error) {
     products.sendError(res, error);
   }
 });
 
-app.get("/api/products/:slug", (req, res) => {
+app.get("/api/products/:slug", async (req, res) => {
   try {
-    const item = products.getBySlug(req.params.slug);
+    const item = await products.getBySlug(req.params.slug);
     if (!item) return res.status(404).json({ message: "Product not found" });
     res.json({ item });
   } catch (error) {
@@ -250,9 +251,9 @@ app.get("/api/products/:slug", (req, res) => {
   }
 });
 
-app.get("/api/admin/products", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/products", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json({ items: products.listAll() });
+    res.json({ items: await products.listAll() });
   } catch (error) {
     products.sendError(res, error);
   }
@@ -261,8 +262,8 @@ app.get("/api/admin/products", adminAuth.requireAdmin, (_req, res) => {
 app.post("/api/admin/products", adminAuth.requireAdmin, productFields, async (req, res) => {
   try {
     const body = await attachProductImages(req, { ...req.body });
-    const item = products.createOne(body);
-    notifications.notifyNewProduct(item);
+    const item = await products.createOne(body);
+    await notifications.notifyNewProduct(item);
     res.status(201).json({ item });
   } catch (error) {
     products.sendError(res, error);
@@ -271,10 +272,10 @@ app.post("/api/admin/products", adminAuth.requireAdmin, productFields, async (re
 
 app.patch("/api/admin/products/:id", adminAuth.requireAdmin, productFields, async (req, res) => {
   try {
-    const before = products.getById(req.params.id);
+    const before = await products.getById(req.params.id);
     const body = await attachProductImages(req, { ...req.body });
-    const item = products.updateOne(req.params.id, body);
-    if (item.is_published && !before?.is_published) notifications.notifyNewProduct(item);
+    const item = await products.updateOne(req.params.id, body);
+    if (item.is_published && !before?.is_published) await notifications.notifyNewProduct(item);
     res.json({ item });
   } catch (error) {
     products.sendError(res, error);
@@ -283,7 +284,7 @@ app.patch("/api/admin/products/:id", adminAuth.requireAdmin, productFields, asyn
 
 app.delete("/api/admin/products/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    products.removeOne(req.params.id);
+    await products.removeOne(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     products.sendError(res, error);
@@ -298,9 +299,9 @@ app.get("/api/hero", async (_req, res) => {
   }
 });
 
-app.get("/api/admin/hero", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/hero", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json({ hero: hero.getAdmin() });
+    res.json({ hero: await hero.getAdmin() });
   } catch (error) {
     hero.sendError(res, error);
   }
@@ -319,16 +320,16 @@ app.post("/api/admin/hero/slides", adminAuth.requireAdmin, mediaFields, async (r
       const uploaded = await cloudinary.uploadMedia(videoFile, "mocha-wear/hero/videos");
       body.video = uploaded.url;
     }
-    const slide = hero.addSlide(body);
+    const slide = await hero.addSlide(body);
     res.status(201).json({ slide });
   } catch (error) {
     hero.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/hero/reorder", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/hero/reorder", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const slides = hero.reorderSlides(req.body?.ids);
+    const slides = await hero.reorderSlides(req.body?.ids);
     res.json({ slides });
   } catch (error) {
     hero.sendError(res, error);
@@ -348,7 +349,7 @@ app.patch("/api/admin/hero/slides/:id", adminAuth.requireAdmin, mediaFields, asy
       const uploaded = await cloudinary.uploadMedia(videoFile, "mocha-wear/hero/videos");
       body.video = uploaded.url;
     }
-    const slide = hero.updateSlide(req.params.id, body);
+    const slide = await hero.updateSlide(req.params.id, body);
     res.json({ slide });
   } catch (error) {
     hero.sendError(res, error);
@@ -364,49 +365,49 @@ app.delete("/api/admin/hero/slides/:id", adminAuth.requireAdmin, async (req, res
   }
 });
 
-app.get("/api/sales", (_req, res) => {
+app.get("/api/sales", async (_req, res) => {
   try {
-    res.json({ items: sales.listPublished() });
+    res.json({ items: await sales.listPublished() });
   } catch (error) {
     sales.sendError(res, error);
   }
 });
 
-app.get("/api/sales/active", (_req, res) => {
+app.get("/api/sales/active", async (_req, res) => {
   try {
-    res.json({ sale: sales.getActive() });
+    res.json({ sale: await sales.getActive() });
   } catch (error) {
     sales.sendError(res, error);
   }
 });
 
-app.get("/api/admin/sales", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/sales", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json({ items: sales.listAll() });
+    res.json({ items: await sales.listAll() });
   } catch (error) {
     sales.sendError(res, error);
   }
 });
 
-app.post("/api/admin/sales", adminAuth.requireAdmin, (req, res) => {
+app.post("/api/admin/sales", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = sales.createOne(req.body);
-    const nextIds = products.resolveSaleProductIds(item.product_ids, item.collection_ids);
-    products.syncSaleProducts([], nextIds);
+    const item = await sales.createOne(req.body);
+    const nextIds = await products.resolveSaleProductIds(item.product_ids, item.collection_ids);
+    await products.syncSaleProducts([], nextIds);
     res.status(201).json({ item });
   } catch (error) {
     sales.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/sales/:id", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/sales/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const existing = sales.getById(req.params.id);
-    const prevIds = products.resolveSaleProductIds(existing?.product_ids, existing?.collection_ids);
-    const item = sales.updateOne(req.params.id, req.body);
-    const nextIds = products.resolveSaleProductIds(item.product_ids, item.collection_ids);
+    const existing = await sales.getById(req.params.id);
+    const prevIds = await products.resolveSaleProductIds(existing?.product_ids, existing?.collection_ids);
+    const item = await sales.updateOne(req.params.id, req.body);
+    const nextIds = await products.resolveSaleProductIds(item.product_ids, item.collection_ids);
     if (req.body.product_ids !== undefined || req.body.collection_ids !== undefined) {
-      products.syncSaleProducts(prevIds, nextIds);
+      await products.syncSaleProducts(prevIds, nextIds);
     }
     res.json({ item });
   } catch (error) {
@@ -414,208 +415,208 @@ app.patch("/api/admin/sales/:id", adminAuth.requireAdmin, (req, res) => {
   }
 });
 
-app.delete("/api/admin/sales/:id", adminAuth.requireAdmin, (req, res) => {
+app.delete("/api/admin/sales/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    sales.removeOne(req.params.id);
+    await sales.removeOne(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     sales.sendError(res, error);
   }
 });
 
-app.get("/api/reviews", (_req, res) => {
+app.get("/api/reviews", async (_req, res) => {
   try {
-    res.json({ items: reviews.listPublished() });
+    res.json({ items: await reviews.listPublished() });
   } catch (error) {
     reviews.sendError(res, error);
   }
 });
 
-app.get("/api/admin/reviews", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/reviews", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json({ items: reviews.listAll() });
+    res.json({ items: await reviews.listAll() });
   } catch (error) {
     reviews.sendError(res, error);
   }
 });
 
-app.post("/api/admin/reviews", adminAuth.requireAdmin, (req, res) => {
+app.post("/api/admin/reviews", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = reviews.createOne(req.body);
+    const item = await reviews.createOne(req.body);
     res.status(201).json({ item });
   } catch (error) {
     reviews.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/reviews/:id", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/reviews/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = reviews.updateOne(req.params.id, req.body);
+    const item = await reviews.updateOne(req.params.id, req.body);
     res.json({ item });
   } catch (error) {
     reviews.sendError(res, error);
   }
 });
 
-app.delete("/api/admin/reviews/:id", adminAuth.requireAdmin, (req, res) => {
+app.delete("/api/admin/reviews/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    reviews.removeOne(req.params.id);
+    await reviews.removeOne(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     reviews.sendError(res, error);
   }
 });
 
-app.get("/api/help", (_req, res) => {
+app.get("/api/help", async (_req, res) => {
   try {
-    res.json({ help: help.getPublic() });
+    res.json({ help: await help.getPublic() });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.get("/api/admin/help", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/help", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json({ help: help.getAdmin() });
+    res.json({ help: await help.getAdmin() });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/help", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/help", adminAuth.requireAdmin, async (req, res) => {
   try {
-    res.json({ help: help.updateSettings(req.body) });
+    res.json({ help: await help.updateSettings(req.body) });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.post("/api/admin/help/topics", adminAuth.requireAdmin, (req, res) => {
+app.post("/api/admin/help/topics", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = help.createTopic(req.body);
+    const item = await help.createTopic(req.body);
     res.status(201).json({ item });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/help/topics/:id", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/help/topics/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = help.updateTopic(req.params.id, req.body);
+    const item = await help.updateTopic(req.params.id, req.body);
     res.json({ item });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.delete("/api/admin/help/topics/:id", adminAuth.requireAdmin, (req, res) => {
+app.delete("/api/admin/help/topics/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    help.removeTopic(req.params.id);
+    await help.removeTopic(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.post("/api/admin/help/notes", adminAuth.requireAdmin, (req, res) => {
+app.post("/api/admin/help/notes", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = help.createNote(req.body);
+    const item = await help.createNote(req.body);
     res.status(201).json({ item });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/help/notes/:id", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/help/notes/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = help.updateNote(req.params.id, req.body);
+    const item = await help.updateNote(req.params.id, req.body);
     res.json({ item });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.delete("/api/admin/help/notes/:id", adminAuth.requireAdmin, (req, res) => {
+app.delete("/api/admin/help/notes/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    help.removeNote(req.params.id);
+    await help.removeNote(req.params.id);
     res.json({ ok: true });
   } catch (error) {
     help.sendError(res, error);
   }
 });
 
-app.post("/api/orders", (req, res) => {
+app.post("/api/orders", async (req, res) => {
   try {
-    const item = orders.createOne(req.body);
-    notifications.notifyNewOrder(item);
+    const item = await orders.createOne(req.body);
+    await notifications.notifyNewOrder(item);
     res.status(201).json({ item });
   } catch (error) {
     orders.sendError(res, error);
   }
 });
 
-app.post("/api/orders/lookup", (req, res) => {
+app.post("/api/orders/lookup", async (req, res) => {
   try {
-    const items = orders.lookup(req.body || {});
+    const items = await orders.lookup(req.body || {});
     res.json({ items });
   } catch (error) {
     orders.sendError(res, error);
   }
 });
 
-app.post("/api/orders/:id/cancel", (req, res) => {
+app.post("/api/orders/:id/cancel", async (req, res) => {
   try {
-    const item = orders.cancelOne(req.params.id, req.body || {}, "customer");
-    notifications.notifyCancel(item);
+    const item = await orders.cancelOne(req.params.id, req.body || {}, "customer");
+    await notifications.notifyCancel(item);
     res.json({ item });
   } catch (error) {
     orders.sendError(res, error);
   }
 });
 
-app.get("/api/admin/orders", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/orders", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    const items = customers.attachIds(orders.listAll());
+    const items = await customers.attachIds(await orders.listAll());
     res.json({ items, stats: orders.stats(items) });
   } catch (error) {
     orders.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/orders/:id", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/orders/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const before = orders.getById(req.params.id);
-    const item = orders.updateOne(req.params.id, req.body);
-    if (before && before.status !== item.status) notifications.notifyOrderStatus(item);
+    const before = await orders.getById(req.params.id);
+    const item = await orders.updateOne(req.params.id, req.body);
+    if (before && before.status !== item.status) await notifications.notifyOrderStatus(item);
     res.json({ item });
   } catch (error) {
     orders.sendError(res, error);
   }
 });
 
-app.post("/api/admin/orders/:id/cancel", adminAuth.requireAdmin, (req, res) => {
+app.post("/api/admin/orders/:id/cancel", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = orders.cancelOne(req.params.id, req.body || {}, "admin");
-    notifications.notifyCancel(item);
+    const item = await orders.cancelOne(req.params.id, req.body || {}, "admin");
+    await notifications.notifyCancel(item);
     res.json({ item });
   } catch (error) {
     orders.sendError(res, error);
   }
 });
 
-app.get("/api/admin/customers", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/customers", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    const orderItems = orders.listAll();
-    const items = customers.syncFromOrders(orderItems);
+    const orderItems = await orders.listAll();
+    const items = await customers.syncFromOrders(orderItems);
     res.json({ items, stats: customers.stats(items) });
   } catch (error) {
     customers.sendError(res, error);
   }
 });
 
-app.get("/api/admin/customers/:id", adminAuth.requireAdmin, (req, res) => {
+app.get("/api/admin/customers/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const found = customers.getById(req.params.id, orders.listAll());
+    const found = await customers.getById(req.params.id, await orders.listAll());
     if (!found) {
       res.status(404).json({ message: "Customer not found" });
       return;
@@ -626,18 +627,18 @@ app.get("/api/admin/customers/:id", adminAuth.requireAdmin, (req, res) => {
   }
 });
 
-app.get("/api/notifications", (req, res) => {
+app.get("/api/notifications", async (req, res) => {
   try {
-    const items = notifications.listUser(req.query.phone);
+    const items = await notifications.listUser(req.query.phone);
     res.json({ items, unread: notifications.unreadCount(items.filter((item) => item.phone)) });
   } catch (error) {
     notifications.sendError(res, error);
   }
 });
 
-app.post("/api/notifications/:id/read", (req, res) => {
+app.post("/api/notifications/:id/read", async (req, res) => {
   try {
-    const item = notifications.markRead(req.params.id, "user");
+    const item = await notifications.markRead(req.params.id, "user");
     if (!item) return res.status(404).json({ message: "Notification not found" });
     res.json({ item });
   } catch (error) {
@@ -645,18 +646,18 @@ app.post("/api/notifications/:id/read", (req, res) => {
   }
 });
 
-app.get("/api/admin/notifications", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/notifications", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    const items = notifications.listAdmin();
+    const items = await notifications.listAdmin();
     res.json({ items, unread: notifications.unreadCount(items) });
   } catch (error) {
     notifications.sendError(res, error);
   }
 });
 
-app.post("/api/admin/notifications/:id/read", adminAuth.requireAdmin, (req, res) => {
+app.post("/api/admin/notifications/:id/read", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = notifications.markRead(req.params.id, "admin");
+    const item = await notifications.markRead(req.params.id, "admin");
     if (!item) return res.status(404).json({ message: "Notification not found" });
     res.json({ item });
   } catch (error) {
@@ -664,33 +665,33 @@ app.post("/api/admin/notifications/:id/read", adminAuth.requireAdmin, (req, res)
   }
 });
 
-app.post("/api/admin/notifications/read-all", adminAuth.requireAdmin, (_req, res) => {
+app.post("/api/admin/notifications/read-all", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json(notifications.markAllRead("admin"));
+    res.json(await notifications.markAllRead("admin"));
   } catch (error) {
     notifications.sendError(res, error);
   }
 });
 
-app.get("/api/settings", (_req, res) => {
+app.get("/api/settings", async (_req, res) => {
   try {
-    res.json({ settings: settings.getPublic() });
+    res.json({ settings: await settings.getPublic() });
   } catch (error) {
     settings.sendError(res, error);
   }
 });
 
-app.get("/api/admin/settings", adminAuth.requireAdmin, (_req, res) => {
+app.get("/api/admin/settings", adminAuth.requireAdmin, async (_req, res) => {
   try {
-    res.json({ settings: settings.getAdmin() });
+    res.json({ settings: await settings.getAdmin() });
   } catch (error) {
     settings.sendError(res, error);
   }
 });
 
-app.patch("/api/admin/settings", adminAuth.requireAdmin, (req, res) => {
+app.patch("/api/admin/settings", adminAuth.requireAdmin, async (req, res) => {
   try {
-    res.json({ settings: settings.updateSettings(req.body) });
+    res.json({ settings: await settings.updateSettings(req.body) });
   } catch (error) {
     settings.sendError(res, error);
   }

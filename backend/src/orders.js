@@ -1,32 +1,36 @@
 const fs = require("fs");
 const path = require("path");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "orders.json");
 
 const STATUSES = ["processing", "packed", "shipped", "delivered", "cancelled"];
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeStore({ orders: [] });
-  }
-}
-
-function readStore() {
-  ensureFile();
+function readFileStore() {
   try {
-    return normalize(JSON.parse(fs.readFileSync(DATA_FILE, "utf8")));
+    if (!fs.existsSync(DATA_FILE)) return { orders: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = { orders: [] };
-    writeStore(fallback);
-    return fallback;
+    return { orders: [] };
   }
 }
 
-function writeStore(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("orders", {
+  empty: { orders: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readStore() {
+  return normalize(await store.read());
+}
+
+async function writeStore(data) {
+  await store.write(normalize(data));
 }
 
 function digits(value) {
@@ -129,40 +133,40 @@ function validateCreate(body = {}) {
   return { customer, items };
 }
 
-function listAll() {
-  return readStore().orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+async function listAll() {
+  return (await readStore()).orders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
-function getById(id) {
-  return listAll().find((order) => order.id === id) || null;
+async function getById(id) {
+  return (await listAll()).find((order) => order.id === id) || null;
 }
 
-function listByIds(ids = []) {
+async function listByIds(ids = []) {
   const set = new Set((Array.isArray(ids) ? ids : []).map((id) => String(id).trim()).filter(Boolean));
   if (!set.size) return [];
-  return listAll().filter((order) => set.has(order.id));
+  return (await listAll()).filter((order) => set.has(order.id));
 }
 
-function listByPhone(phone) {
+async function listByPhone(phone) {
   const mobile = digits(phone);
   if (mobile.length !== 11) return [];
-  return listAll().filter((order) => order.customer.phone === mobile || order.customer.whatsapp === mobile);
+  return (await listAll()).filter((order) => order.customer.phone === mobile || order.customer.whatsapp === mobile);
 }
 
-function lookup({ ids, phone } = {}) {
-  const byId = listByIds(ids);
-  const byPhone = listByPhone(phone);
+async function lookup({ ids, phone } = {}) {
+  const byId = await listByIds(ids);
+  const byPhone = await listByPhone(phone);
   const map = new Map();
   [...byId, ...byPhone].forEach((order) => map.set(order.id, order));
   return [...map.values()].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
-function createOne(body = {}) {
+async function createOne(body = {}) {
   const { customer, items } = validateCreate(body);
   const customers = require("./customers");
-  const store = readStore();
+  const data = await readStore();
   const order = normalizeOrder({
-    id: nextId(store.orders),
+    id: nextId(data.orders),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     status: "processing",
@@ -173,10 +177,10 @@ function createOne(body = {}) {
     items,
     note: "",
   });
-  const record = customers.upsertFromOrder(order);
+  const record = await customers.upsertFromOrder(order);
   if (record?.id) order.customer_id = record.id;
-  store.orders.unshift(order);
-  writeStore(store);
+  data.orders.unshift(order);
+  await writeStore(data);
   return order;
 }
 
@@ -216,15 +220,15 @@ function cancelPayload(body = {}, by) {
   };
 }
 
-function cancelOne(id, body = {}, by = "customer") {
-  const store = readStore();
-  const index = store.orders.findIndex((order) => order.id === id);
+async function cancelOne(id, body = {}, by = "customer") {
+  const data = await readStore();
+  const index = data.orders.findIndex((order) => order.id === id);
   if (index < 0) {
     const err = new Error("Order not found");
     err.status = 404;
     throw err;
   }
-  const current = store.orders[index];
+  const current = data.orders[index];
   if (current.status === "cancelled") {
     const err = new Error("This order is already cancelled.");
     err.status = 400;
@@ -248,32 +252,32 @@ function cancelOne(id, body = {}, by = "customer") {
   }
 
   const cancelled = normalizeOrder({ ...current, ...cancelPayload(body, by) }, index);
-  store.orders[index] = cancelled;
-  writeStore(store);
+  data.orders[index] = cancelled;
+  await writeStore(data);
   return cancelled;
 }
 
-function updateOne(id, fields = {}) {
-  const store = readStore();
-  const index = store.orders.findIndex((order) => order.id === id);
+async function updateOne(id, fields = {}) {
+  const data = await readStore();
+  const index = data.orders.findIndex((order) => order.id === id);
   if (index < 0) {
     const err = new Error("Order not found");
     err.status = 404;
     throw err;
   }
-  const current = store.orders[index];
+  const current = data.orders[index];
   const next = {
     ...current,
     status: fields.status !== undefined ? normalizeStatus(fields.status) : current.status,
     note: fields.note !== undefined ? String(fields.note || "").trim() : current.note,
     updated_at: new Date().toISOString(),
   };
-  store.orders[index] = normalizeOrder(next, index);
-  writeStore(store);
-  return store.orders[index];
+  data.orders[index] = normalizeOrder(next, index);
+  await writeStore(data);
+  return data.orders[index];
 }
 
-function stats(orders = listAll()) {
+function stats(orders = []) {
   const counts = {
     total: orders.length,
     processing: 0,

@@ -1,32 +1,35 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "customers.json");
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeStore({ customers: [] });
-  }
-}
-
-function readStore() {
-  ensureFile();
+function readFileStore() {
   try {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-    return normalize(data);
+    if (!fs.existsSync(DATA_FILE)) return { customers: [] };
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = { customers: [] };
-    writeStore(fallback);
-    return fallback;
+    return { customers: [] };
   }
 }
 
-function writeStore(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("customers", {
+  empty: { customers: [] },
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readStore() {
+  return normalize(await store.read());
+}
+
+async function writeStore(data) {
+  await store.write(normalize(data));
 }
 
 function digits(value) {
@@ -73,14 +76,14 @@ function applyDetails(row, details = {}, at) {
   });
 }
 
-function upsertFromOrder(order = {}) {
+async function upsertFromOrder(order = {}) {
   const details = order.customer || {};
   const phone = digits(details.phone);
   if (!phone) return null;
 
-  const store = readStore();
+  const data = await readStore();
   const at = order.created_at || new Date().toISOString();
-  const index = store.customers.findIndex((item) => item.phone === phone);
+  const index = data.customers.findIndex((item) => item.phone === phone);
   if (index < 0) {
     const created = shape({
       ...details,
@@ -88,16 +91,16 @@ function upsertFromOrder(order = {}) {
       created_at: at,
       last_order_at: at,
     });
-    store.customers.unshift(created);
-    writeStore(store);
+    data.customers.unshift(created);
+    await writeStore(data);
     return created;
   }
 
-  const current = store.customers[index];
+  const current = data.customers[index];
   const newer = !current.last_order_at || new Date(at).getTime() >= new Date(current.last_order_at).getTime();
   const next = newer ? applyDetails(current, details, at) : current;
-  store.customers[index] = next;
-  writeStore(store);
+  data.customers[index] = next;
+  await writeStore(data);
   return next;
 }
 
@@ -124,16 +127,16 @@ function enrich(customer, orderList = []) {
   };
 }
 
-function syncFromOrders(orderList = []) {
-  const store = readStore();
-  const known = new Set(store.customers.map((item) => item.phone));
+async function syncFromOrders(orderList = []) {
+  const data = await readStore();
+  const known = new Set(data.customers.map((item) => item.phone));
   let added = false;
 
   (Array.isArray(orderList) ? orderList : []).forEach((order) => {
     const phone = digits(order.customer?.phone);
     if (!phone || known.has(phone)) return;
     known.add(phone);
-    store.customers.push(
+    data.customers.push(
       shape({
         ...order.customer,
         phone,
@@ -144,15 +147,15 @@ function syncFromOrders(orderList = []) {
     added = true;
   });
 
-  if (added) writeStore(store);
+  if (added) await writeStore(data);
 
-  return store.customers
+  return data.customers
     .map((item) => enrich(item, orderList))
     .sort((a, b) => String(b.last_order_at || "").localeCompare(String(a.last_order_at || "")));
 }
 
-function getById(id, orderList = []) {
-  const items = syncFromOrders(orderList);
+async function getById(id, orderList = []) {
+  const items = await syncFromOrders(orderList);
   const item = items.find((row) => row.id === id) || null;
   if (!item) return null;
   return {
@@ -161,8 +164,8 @@ function getById(id, orderList = []) {
   };
 }
 
-function attachIds(orderList = []) {
-  const people = syncFromOrders(orderList);
+async function attachIds(orderList = []) {
+  const people = await syncFromOrders(orderList);
   const byPhone = new Map(people.map((item) => [item.phone, item.id]));
   return (Array.isArray(orderList) ? orderList : []).map((order) => ({
     ...order,

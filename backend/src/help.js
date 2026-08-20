@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "help.json");
@@ -52,27 +53,30 @@ function emptyHelp() {
   };
 }
 
-function ensureFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) {
-    writeHelp(emptyHelp());
-  }
-}
-
-function readHelp() {
-  ensureFile();
+function readFileStore() {
   try {
-    return normalize(JSON.parse(fs.readFileSync(DATA_FILE, "utf8")));
+    if (!fs.existsSync(DATA_FILE)) return emptyHelp();
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch {
-    const fallback = normalize(emptyHelp());
-    writeHelp(fallback);
-    return fallback;
+    return emptyHelp();
   }
 }
 
-function writeHelp(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(normalize(data), null, 2));
+const store = createDocumentStore("help", {
+  empty: emptyHelp,
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+async function readHelp() {
+  return normalize(await store.read());
+}
+
+async function writeHelp(data) {
+  await store.write(normalize(data));
 }
 
 function normalizePhone(value) {
@@ -149,8 +153,8 @@ function withDisplay(help) {
   };
 }
 
-function getPublic() {
-  const help = readHelp();
+async function getPublic() {
+  const help = await readHelp();
   return withDisplay({
     ...help,
     topics: help.topics.filter((topic) => topic.is_published),
@@ -158,29 +162,29 @@ function getPublic() {
   });
 }
 
-function getAdmin() {
-  return withDisplay(readHelp());
+async function getAdmin() {
+  return withDisplay(await readHelp());
 }
 
-function updateSettings(fields = {}) {
-  const help = readHelp();
+async function updateSettings(fields = {}) {
+  const help = await readHelp();
   SETTING_KEYS.forEach((key) => {
     if (fields[key] !== undefined) help[key] = fields[key];
   });
-  writeHelp(help);
+  await writeHelp(help);
   return getAdmin();
 }
 
-function createTopic(fields = {}) {
-  const help = readHelp();
+async function createTopic(fields = {}) {
+  const help = await readHelp();
   const topic = normalizeTopic({ ...fields, id: crypto.randomUUID(), sort_order: help.topics.length + 1 }, help.topics.length);
   help.topics.push(topic);
-  writeHelp(help);
+  await writeHelp(help);
   return topic;
 }
 
-function updateTopic(id, fields = {}) {
-  const help = readHelp();
+async function updateTopic(id, fields = {}) {
+  const help = await readHelp();
   const index = help.topics.findIndex((topic) => topic.id === id);
   if (index < 0) {
     const err = new Error("Topic not found");
@@ -188,13 +192,13 @@ function updateTopic(id, fields = {}) {
     throw err;
   }
   help.topics[index] = normalizeTopic({ ...help.topics[index], ...fields, id }, index);
-  writeHelp(help);
+  await writeHelp(help);
   return help.topics[index];
 }
 
-function removeTopic(id) {
-  const help = readHelp();
-  writeHelp({
+async function removeTopic(id) {
+  const help = await readHelp();
+  await writeHelp({
     ...help,
     topics: help.topics.filter((topic) => topic.id !== id).map((topic, index) => ({
       ...topic,
@@ -204,16 +208,16 @@ function removeTopic(id) {
   return { ok: true };
 }
 
-function createNote(fields = {}) {
-  const help = readHelp();
+async function createNote(fields = {}) {
+  const help = await readHelp();
   const note = normalizeNote({ ...fields, id: crypto.randomUUID(), sort_order: help.notes.length + 1 }, help.notes.length);
   help.notes.push(note);
-  writeHelp(help);
+  await writeHelp(help);
   return note;
 }
 
-function updateNote(id, fields = {}) {
-  const help = readHelp();
+async function updateNote(id, fields = {}) {
+  const help = await readHelp();
   const index = help.notes.findIndex((note) => note.id === id);
   if (index < 0) {
     const err = new Error("Note not found");
@@ -221,13 +225,13 @@ function updateNote(id, fields = {}) {
     throw err;
   }
   help.notes[index] = normalizeNote({ ...help.notes[index], ...fields, id }, index);
-  writeHelp(help);
+  await writeHelp(help);
   return help.notes[index];
 }
 
-function removeNote(id) {
-  const help = readHelp();
-  writeHelp({
+async function removeNote(id) {
+  const help = await readHelp();
+  await writeHelp({
     ...help,
     notes: help.notes.filter((note) => note.id !== id).map((note, index) => ({
       ...note,
