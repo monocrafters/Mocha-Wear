@@ -136,9 +136,9 @@ export function StoreNotifications() {
         .catch(() => undefined);
     }
     load();
-    const timer = window.setInterval(load, 15000);
+    const timer = window.setInterval(load, 30000);
     return () => window.clearInterval(timer);
-  }, [pathname]);
+  }, []);
 
   return (
     <Link
