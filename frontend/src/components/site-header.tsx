@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Headset, Home, LayoutGrid, Package, Search, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
 import { SearchOverlay } from "@/components/search-overlay";
@@ -39,18 +39,10 @@ function tabFromLocation(pathname: string, hash: string): TabId | null {
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const { count } = useCart();
   const settings = useSiteSettings();
   const [active, setActive] = useState<TabId | null>("home");
   const [searchOpen, setSearchOpen] = useState(false);
-
-  useEffect(() => {
-    const hrefs = [...bottomLinks.map((link) => link.href), ...links.map((link) => link.href), "/help", "/cart"];
-    hrefs.forEach((href) => {
-      if (!href.includes("#")) router.prefetch(href);
-    });
-  }, [router]);
 
   useEffect(() => {
     function sync() {
@@ -188,7 +180,7 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  prefetch
+                  prefetch={false}
                   onClick={stayIfCurrent(link.href, "home")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center pt-1 ${
@@ -211,7 +203,7 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  prefetch
+                  prefetch={false}
                   onClick={stayIfCurrent(link.href, "cart")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center gap-1 py-2.5 ${
@@ -234,7 +226,7 @@ export function SiteHeader() {
               <Link
                 key={link.id}
                 href={link.href}
-                prefetch
+                prefetch={false}
                 onClick={stayIfCurrent(link.href, link.id)}
                 aria-current={isOn ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 py-2.5 ${
