@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Headset, Home, LayoutGrid, Package, Search, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
@@ -46,6 +47,30 @@ function tabFromLocation(pathname: string, hash: string): TabId | null {
   return null;
 }
 
+const PILL_KEY = "mocha-nav-pill";
+let pillMemory = { left: 0, width: 0 };
+
+function readPill() {
+  if (pillMemory.width) return pillMemory;
+  if (typeof window === "undefined") return pillMemory;
+  try {
+    const saved = sessionStorage.getItem(PILL_KEY);
+    if (saved) pillMemory = JSON.parse(saved);
+  } catch {
+    /* ignore */
+  }
+  return pillMemory;
+}
+
+function writePill(next: { left: number; width: number }) {
+  pillMemory = next;
+  try {
+    sessionStorage.setItem(PILL_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
   const { count } = useCart();
@@ -53,7 +78,7 @@ export function SiteHeader() {
   const [active, setActive] = useState<TabId | null>("home");
   const [searchOpen, setSearchOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
-  const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
+  const [pill, setPill] = useState({ left: 0, width: 0, ready: false, visible: false });
 
   useEffect(() => {
     function sync() {
@@ -72,28 +97,47 @@ export function SiteHeader() {
     const nav = navRef.current;
     if (!nav) return;
 
-    function place() {
-      const root = navRef.current;
-      if (!root) return;
-      const current = root.querySelector("[data-nav-active='true']");
-      if (!(current instanceof HTMLElement)) {
-        setPill((prev) => ({ ...prev, width: 0, ready: true }));
-        return;
-      }
-      setPill({
-        left: current.offsetLeft,
-        width: current.offsetWidth,
-        ready: true,
-      });
+    function measure() {
+      const current = navRef.current?.querySelector("[data-nav-active='true']");
+      if (!(current instanceof HTMLElement)) return null;
+      return { left: current.offsetLeft, width: current.offsetWidth };
     }
 
-    place();
-    const observer = new ResizeObserver(place);
+    const next = measure();
+    const from = readPill();
+    if (from.width) {
+      setPill({ left: from.left, width: from.width, ready: true, visible: true });
+    }
+
+    let skipResize = true;
+    const frame = requestAnimationFrame(() => {
+      if (!next) {
+        setPill((prev) => ({ ...prev, visible: false, ready: true }));
+        return;
+      }
+      writePill(next);
+      setPill({ left: next.left, width: next.width, ready: from.width > 0, visible: true });
+      if (!from.width) {
+        requestAnimationFrame(() => setPill((prev) => ({ ...prev, ready: true })));
+      }
+    });
+
+    const observer = new ResizeObserver(() => {
+      if (skipResize) return;
+      const now = measure();
+      if (!now) return;
+      writePill(now);
+      setPill({ ...now, ready: true, visible: true });
+    });
     observer.observe(nav);
-    window.addEventListener("resize", place);
+    const enableResize = requestAnimationFrame(() => {
+      skipResize = false;
+    });
+
     return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(enableResize);
       observer.disconnect();
-      window.removeEventListener("resize", place);
     };
   }, [pathname]);
 
@@ -121,32 +165,32 @@ export function SiteHeader() {
 
         <div className="w-full min-w-0 bg-mocha-deep">
           <div className="mx-auto flex h-14 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-[72px] sm:px-8">
-            <a href="/" className="group flex min-w-0 items-baseline gap-2">
+            <Link href="/" className="group flex min-w-0 items-baseline gap-2">
               <span className="font-serif truncate text-[1.45rem] leading-none tracking-[0.12em] text-ivory transition-colors duration-300 group-hover:text-gold sm:text-[1.7rem]">
                 {settings.brand_name}
               </span>
               {settings.brand_suffix ? (
                 <span className="shrink-0 text-[10px] font-semibold tracking-[0.38em] text-gold uppercase">{settings.brand_suffix}</span>
               ) : null}
-            </a>
+            </Link>
 
             <nav ref={navRef} className="relative hidden items-center lg:flex">
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 h-8 -translate-y-1/2 rounded-full bg-sale"
+                className="pointer-events-none absolute top-1/2 left-0 h-8 -translate-y-1/2 rounded-full bg-sale"
                 style={{
-                  left: pill.left,
                   width: pill.width,
-                  opacity: pill.width ? 1 : 0,
+                  opacity: pill.visible && pill.width ? 1 : 0,
+                  transform: `translateX(${pill.left}px)`,
                   transition: pill.ready
-                    ? "left 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease"
+                    ? "transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease"
                     : "none",
                 }}
               />
               {links.map((link) => {
                 const on = headerActive(pathname, link.href, link.sale);
                 return (
-                  <a
+                  <Link
                     key={link.href}
                     href={link.href}
                     data-nav-active={on ? "true" : undefined}
@@ -155,7 +199,7 @@ export function SiteHeader() {
                     }`}
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>
@@ -176,7 +220,7 @@ export function SiteHeader() {
               >
                 <Search size={18} strokeWidth={1.6} />
               </button>
-              <a
+              <Link
                 href="/help"
                 aria-label="Support"
                 className={`grid h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:hidden ${
@@ -184,8 +228,8 @@ export function SiteHeader() {
                 }`}
               >
                 <Headset size={18} strokeWidth={1.6} />
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/cart"
                 aria-label="Bag"
                 className={`relative hidden h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:grid ${
@@ -198,7 +242,7 @@ export function SiteHeader() {
                     {count}
                   </span>
                 ) : null}
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -212,7 +256,7 @@ export function SiteHeader() {
             const isOn = active === link.id;
             if (link.id === "home") {
               return (
-                <a
+                <Link
                   key={link.id}
                   href={link.href}
                   onClick={() => setActive("home")}
@@ -229,12 +273,12 @@ export function SiteHeader() {
                     <Icon size={18} strokeWidth={1.8} className="text-white" />
                   </span>
                   <span className="mt-1 text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
-                </a>
+                </Link>
               );
             }
             if (link.id === "cart") {
               return (
-                <a
+                <Link
                   key={link.id}
                   href={link.href}
                   onClick={() => setActive("cart")}
@@ -252,11 +296,11 @@ export function SiteHeader() {
                     ) : null}
                   </span>
                   <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
-                </a>
+                </Link>
               );
             }
             return (
-              <a
+              <Link
                 key={link.id}
                 href={link.href}
                 onClick={() => setActive(link.id)}
@@ -269,7 +313,7 @@ export function SiteHeader() {
                   <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                 </span>
                 <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
-              </a>
+              </Link>
             );
           })}
         </div>
