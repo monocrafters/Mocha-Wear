@@ -232,31 +232,31 @@ body {
   transform: translateY(0);
 }
 
-@keyframes skeleton-shimmer {
-  100% {
-    transform: translateX(100%);
+@keyframes skeleton-breathe {
+  50% {
+    background-color: #d4cbbd;
+  }
+}
+
+@keyframes skeleton-breathe-admin {
+  50% {
+    background-color: #d5dde5;
   }
 }
 
 .skeleton {
-  position: relative;
-  overflow: hidden;
-  background: var(--sand);
-}
-
-.skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(251, 250, 247, 0.62), transparent);
-  animation: skeleton-shimmer 1.15s ease-in-out infinite;
+  background-color: #e4ddd2;
+  animation: skeleton-breathe 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  animation-delay: var(--skeleton-delay, 0ms);
 }
 
 .skeleton-admin {
-  background: #e2e8f0;
+  background-color: #e7ecf1;
+  animation-name: skeleton-breathe-admin;
 }
 
-.skeleton-admin::after {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
 }

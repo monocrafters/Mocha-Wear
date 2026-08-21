@@ -55,13 +55,7 @@ export function ShopCatalog() {
         </p>
       </div>
 
-      {loading ? (
-        <div className="mt-8 flex gap-2" aria-hidden>
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="h-8 w-20" />
-        </div>
-      ) : collections.length ? (
+      {collections.length ? (
         <div className="hide-scrollbar mt-8 flex gap-2 overflow-x-auto overscroll-x-contain">
           <FilterChip label="All" active={active === "all"} onClick={() => setActive("all")} />
           {collections.map((collection) => (
