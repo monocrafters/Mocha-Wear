@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function ShopNotes() {
@@ -30,12 +31,13 @@ export function ShopNotes() {
           ))}
         </div>
         {settings.notes_cta ? (
-          <a
+          <Link
             href="/help"
+            prefetch
             className="mt-8 inline-block text-[11px] font-semibold tracking-[0.18em] text-mocha-deep uppercase underline decoration-gold underline-offset-8"
           >
             {settings.notes_cta}
-          </a>
+          </Link>
         ) : null}
       </div>
     </section>

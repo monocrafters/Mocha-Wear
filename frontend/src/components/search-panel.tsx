@@ -1,12 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { useCatalog } from "@/components/catalog-provider";
 import { productHref } from "@/lib/product";
-import type { Collection } from "@/components/admin-collections";
-import type { Product } from "@/components/admin-products";
 import { SearchBar } from "@/components/search-bar";
 import { formatPkr } from "@/lib/money";
 import { collectionHref } from "@/lib/collection";
@@ -28,29 +27,13 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const { products, collections } = useCatalog();
   const [recent, setRecent] = useState<string[]>([]);
 
   useEffect(() => {
     setRecent(readRecentSearches());
     const id = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(id);
-  }, []);
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch(`${API_URL}/api/products`).then((res) => res.json()),
-      apiFetch(`${API_URL}/api/collections`).then((res) => res.json()),
-    ])
-      .then(([productData, collectionData]) => {
-        setProducts(productData.items || []);
-        setCollections(collectionData.items || []);
-      })
-      .catch(() => {
-        setProducts([]);
-        setCollections([]);
-      });
   }, []);
 
   const q = normalizeQuery(query);
@@ -127,14 +110,15 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {collections.map((item) => (
-                    <a
+                    <Link
                       key={item.id}
                       href={collectionHref(item)}
+                      prefetch
                       onClick={() => onClose?.()}
                       className="border border-mocha/15 px-3 py-2 text-[11px] tracking-[0.12em] text-mocha-deep uppercase"
                     >
                       {item.name}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </section>
@@ -148,15 +132,16 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                   Collections
                 </p>
                 {collectionHits.map((item) => (
-                  <a
+                  <Link
                     key={item.id}
                     href={collectionHref(item)}
+                    prefetch
                     onClick={() => onClose?.()}
                     className="flex items-center justify-between py-2.5 text-sm text-mocha-deep"
                   >
                     <span>{item.name}</span>
                     <span className="text-[10px] tracking-[0.14em] text-mocha/40 uppercase">Collection</span>
-                  </a>
+                  </Link>
                 ))}
               </section>
             ) : null}
@@ -168,9 +153,10 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                 </p>
                 <div className="space-y-1">
                   {productHits.map((product) => (
-                    <a
+                    <Link
                       key={product.id}
                       href={productHref(product)}
+                      prefetch
                       onClick={() => {
                         pushRecentSearch(q);
                         onClose?.();
@@ -192,7 +178,7 @@ export function SearchPanel({ onClose, initialQuery = "" }: SearchPanelProps) {
                         </span>
                         <span className="mt-1 block text-sm">{formatPkr(product.price)}</span>
                       </span>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </section>

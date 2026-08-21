@@ -1,35 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { Collection } from "@/components/admin-collections";
-import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { ProductGridSkeleton, Skeleton } from "@/components/skeletons";
+import { useCatalog } from "@/components/catalog-provider";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function ShopCatalog() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const { products, collections, loading } = useCatalog();
   const [active, setActive] = useState("all");
-  const [loading, setLoading] = useState(true);
   const settings = useSiteSettings();
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch(`${API_URL}/api/products`).then((res) => res.json()),
-      apiFetch(`${API_URL}/api/collections`).then((res) => res.json()),
-    ])
-      .then(([productData, collectionData]) => {
-        setProducts(productData.items || []);
-        setCollections(collectionData.items || []);
-      })
-      .catch(() => {
-        setProducts([]);
-        setCollections([]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
 
   const items = useMemo(() => {
     if (active === "all") return products;
@@ -39,9 +21,9 @@ export function ShopCatalog() {
   return (
     <section className="mx-auto max-w-[1440px] px-4 py-10 sm:px-8 sm:py-14">
       <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">
-        <a href="/" className="hover:text-mocha-deep">
+        <Link href="/" className="hover:text-mocha-deep">
           Home
-        </a>
+        </Link>
         <span className="mx-2">/</span>
         <span className="text-mocha-deep">Shop</span>
       </p>
@@ -64,7 +46,7 @@ export function ShopCatalog() {
       ) : collections.length ? (
         <div className="hide-scrollbar mt-8 flex gap-2 overflow-x-auto overscroll-x-contain">
           <FilterChip label="All" active={active === "all"} onClick={() => setActive("all")} />
-          {collections.map((collection) => (
+          {collections.map((collection: Collection) => (
             <FilterChip
               key={collection.id}
               label={collection.name}

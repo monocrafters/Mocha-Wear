@@ -3,6 +3,7 @@ require("dotenv").config();
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const multer = require("multer");
 const { ping } = require("./db");
 const adminAuth = require("./adminAuth");
@@ -17,6 +18,7 @@ const orders = require("./orders");
 const customers = require("./customers");
 const notifications = require("./notifications");
 const settings = require("./settings");
+const httpCache = require("./httpCache");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -41,6 +43,7 @@ const allowedOrigins = new Set(
     .filter(Boolean),
 );
 
+app.use(compression());
 app.use(
   cors({
     origin(origin, callback) {
@@ -68,6 +71,11 @@ app.use(
   }),
 );
 app.use(express.json());
+
+app.use("/api/admin", httpCache.noStore);
+app.use("/api/orders", httpCache.noStore);
+app.use("/api/notifications", httpCache.noStore);
+app.use("/api/health", httpCache.noStore);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -159,7 +167,7 @@ app.post("/api/admin/login", adminAuth.login);
 app.get("/api/admin/me", adminAuth.me);
 app.post("/api/admin/logout", adminAuth.logout);
 
-app.get("/api/collections", async (_req, res) => {
+app.get("/api/collections", httpCache.publicCatalog, async (_req, res) => {
   try {
     const items = await collections.listPublished();
     res.json({ items });
@@ -168,7 +176,7 @@ app.get("/api/collections", async (_req, res) => {
   }
 });
 
-app.get("/api/collections/:slug", async (req, res) => {
+app.get("/api/collections/:slug", httpCache.publicCatalog, async (req, res) => {
   try {
     const item = await collections.getBySlug(req.params.slug);
     if (!item) return res.status(404).json({ message: "Collection not found" });
@@ -225,7 +233,7 @@ app.delete("/api/admin/collections/:id", adminAuth.requireAdmin, async (req, res
   }
 });
 
-app.get("/api/products", async (req, res) => {
+app.get("/api/products", httpCache.publicCatalog, async (req, res) => {
   try {
     const requested = String(req.query.collection || "").trim();
     let collectionId = requested;
@@ -241,7 +249,7 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
-app.get("/api/products/:slug", async (req, res) => {
+app.get("/api/products/:slug", httpCache.publicCatalog, async (req, res) => {
   try {
     const item = await products.getBySlug(req.params.slug);
     if (!item) return res.status(404).json({ message: "Product not found" });
@@ -291,7 +299,7 @@ app.delete("/api/admin/products/:id", adminAuth.requireAdmin, async (req, res) =
   }
 });
 
-app.get("/api/hero", async (_req, res) => {
+app.get("/api/hero", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ hero: await hero.getPublic() });
   } catch (error) {
@@ -365,7 +373,7 @@ app.delete("/api/admin/hero/slides/:id", adminAuth.requireAdmin, async (req, res
   }
 });
 
-app.get("/api/sales", async (_req, res) => {
+app.get("/api/sales", httpCache.publicSale, async (_req, res) => {
   try {
     res.json({ items: await sales.listPublished() });
   } catch (error) {
@@ -373,7 +381,7 @@ app.get("/api/sales", async (_req, res) => {
   }
 });
 
-app.get("/api/sales/active", async (_req, res) => {
+app.get("/api/sales/active", httpCache.publicSale, async (_req, res) => {
   try {
     res.json({ sale: await sales.getActive() });
   } catch (error) {
@@ -424,7 +432,7 @@ app.delete("/api/admin/sales/:id", adminAuth.requireAdmin, async (req, res) => {
   }
 });
 
-app.get("/api/reviews", async (_req, res) => {
+app.get("/api/reviews", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ items: await reviews.listPublished() });
   } catch (error) {
@@ -467,7 +475,7 @@ app.delete("/api/admin/reviews/:id", adminAuth.requireAdmin, async (req, res) =>
   }
 });
 
-app.get("/api/help", async (_req, res) => {
+app.get("/api/help", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ help: await help.getPublic() });
   } catch (error) {
@@ -673,7 +681,7 @@ app.post("/api/admin/notifications/read-all", adminAuth.requireAdmin, async (_re
   }
 });
 
-app.get("/api/settings", async (_req, res) => {
+app.get("/api/settings", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ settings: await settings.getPublic() });
   } catch (error) {

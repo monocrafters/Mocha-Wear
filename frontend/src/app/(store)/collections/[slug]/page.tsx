@@ -1,40 +1,83 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiJson, peekApiCache, primeApiCache } from "@/lib/api-cache";
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { CollectionMedia } from "@/components/collection-media";
+import { useCatalogCollection } from "@/components/catalog-provider";
 import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { collectionBannerSrc } from "@/lib/collection";
 import { CollectionPageSkeleton } from "@/components/skeletons";
 
+function readCollectionCache(slug: string) {
+  return peekApiCache<{ item: Collection }>(`/api/collections/${slug}`)?.item || null;
+}
+
+function readCollectionProductsCache(slug: string) {
+  return peekApiCache<{ items?: Product[] }>(`/api/products?collection=${slug}`)?.items || null;
+}
+
 export default function CollectionPage() {
   const params = useParams<{ slug: string }>();
+  const slug = params.slug || "";
+  const {
+    collection: catalogCollection,
+    products: catalogProducts,
+    catalogLoading,
+  } = useCatalogCollection(slug);
+
+  // Always empty on first paint so SSR matches hydration.
   const [item, setItem] = useState<Collection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
-    if (!params.slug) return;
-    apiFetch(`${API_URL}/api/collections/${params.slug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("missing");
-        return res.json();
-      })
-      .then(async (data) => {
-        const collection = data.item as Collection;
-        const productData = await apiFetch(`${API_URL}/api/products?collection=${params.slug}`)
-          .then((res) => res.json())
-          .catch(() => ({ items: [] }));
-        setItem(collection);
+    if (!catalogCollection) return;
+    setItem(catalogCollection);
+    setProducts(catalogProducts);
+    setMissing(false);
+    primeApiCache(`/api/collections/${slug}`, { item: catalogCollection }, { memoryOnly: true });
+    primeApiCache(`/api/products?collection=${slug}`, { items: catalogProducts }, { memoryOnly: true });
+  }, [catalogCollection, catalogProducts, slug]);
+
+  useEffect(() => {
+    if (!slug || catalogCollection || catalogLoading) return;
+
+    const cachedItem = readCollectionCache(slug);
+    const cachedProducts = readCollectionProductsCache(slug);
+    if (cachedItem) {
+      setItem(cachedItem);
+      setProducts(cachedProducts || []);
+      setMissing(false);
+      return;
+    }
+
+    let live = true;
+    (async () => {
+      try {
+        const [collectionData, productData] = await Promise.all([
+          apiJson<{ item: Collection }>(`/api/collections/${slug}`),
+          apiJson<{ items?: Product[] }>(`/api/products?collection=${slug}`),
+        ]);
+        if (!live) return;
+        setItem(collectionData.item);
         setProducts(productData.items || []);
-      })
-      .catch(() => setMissing(true));
-  }, [params.slug]);
+        setMissing(false);
+        primeApiCache(`/api/collections/${slug}`, collectionData, { memoryOnly: true });
+        primeApiCache(`/api/products?collection=${slug}`, productData, { memoryOnly: true });
+      } catch {
+        if (live) setMissing(true);
+      }
+    })();
+
+    return () => {
+      live = false;
+    };
+  }, [slug, catalogCollection, catalogLoading]);
 
   const kicker = item?.is_on_sale
     ? item.sale_label || item.subtitle || "On sale"
@@ -43,14 +86,13 @@ export default function CollectionPage() {
 
   return (
     <>
-      <SiteHeader />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-ivory">
         {missing ? (
           <section className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
             <h1 className="font-serif text-3xl">Collection not found</h1>
-            <a href="/collections" className="mt-6 text-[11px] tracking-[0.18em] uppercase underline">
+            <Link href="/collections" prefetch className="mt-6 text-[11px] tracking-[0.18em] uppercase underline">
               Back to collections
-            </a>
+            </Link>
           </section>
         ) : !item ? (
           <CollectionPageSkeleton />
@@ -95,12 +137,13 @@ export default function CollectionPage() {
               ) : (
                 <div className="mt-10 text-center">
                   <p className="text-sm text-mocha/50">No pieces in this collection yet.</p>
-                  <a
+                  <Link
                     href="/shop"
+                    prefetch
                     className="mt-6 inline-block bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
                   >
                     Shop the sale
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>

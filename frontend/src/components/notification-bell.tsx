@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import type { AppNotification } from "@/lib/notifications";
@@ -103,8 +104,17 @@ export function AdminNotifications() {
 
   useEffect(() => {
     load();
-    const timer = window.setInterval(load, 15000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60_000);
+    function onVisible() {
+      if (document.visibilityState === "visible") load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [load]);
 
   return (
@@ -130,21 +140,27 @@ export function StoreNotifications() {
 
   useEffect(() => {
     function load() {
+      if (document.visibilityState !== "visible") return;
       fetchUserNotifications()
         .then((items) => setUnread(items.filter((item) => !item.read).length))
         .catch(() => undefined);
     }
     load();
-    const timer = window.setInterval(load, 15000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(load, 60_000);
+    document.addEventListener("visibilitychange", load);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", load);
+    };
   }, [pathname]);
 
   return (
-    <a
+    <Link
       href="/notifications"
+      prefetch
       aria-label="Notifications"
-      className={`relative grid h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white ${
-        active ? "bg-white/10 text-gold" : "text-ivory/90"
+      className={`header-icon-btn relative grid h-10 w-10 place-items-center rounded-full ${
+        active ? "is-gold" : ""
       }`}
     >
       <Bell size={18} strokeWidth={1.6} />
@@ -153,6 +169,6 @@ export function StoreNotifications() {
           {unread > 9 ? "9+" : unread}
         </span>
       ) : null}
-    </a>
+    </Link>
   );
 }

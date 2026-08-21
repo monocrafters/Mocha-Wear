@@ -1,20 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiJson, peekApiCache } from "@/lib/api-cache";
 import type { HeroSlide } from "@/components/admin-hero";
 import { HeroSaleTimer } from "@/components/hero-sale-timer";
 import { HeroSkeleton } from "@/components/skeletons";
+import { StoreImage } from "@/components/store-image";
 import { useActiveSale } from "@/lib/active-sale";
 
 export function SaleHero() {
-  const [slides, setSlides] = useState<HeroSlide[]>([]);
+  const cached = peekApiCache<{ hero?: { slides?: HeroSlide[] } }>("/api/hero");
+  const [slides, setSlides] = useState<HeroSlide[]>(cached?.hero?.slides || []);
   const [index, setIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached?.hero?.slides?.length);
 
   useEffect(() => {
-    apiFetch(`${API_URL}/api/hero`)
-      .then((res) => res.json())
+    apiJson<{ hero?: { slides?: HeroSlide[] } }>("/api/hero", {
+      staleWhileRevalidate: true,
+      onUpdate: (data) => {
+        if (data.hero?.slides?.length) {
+          setSlides(data.hero.slides);
+          setIndex(0);
+        }
+      },
+    })
       .then((data) => {
         if (data.hero?.slides?.length) {
           setSlides(data.hero.slides);
@@ -69,14 +78,16 @@ export function SaleHero() {
                 loop
                 playsInline
               />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={slide.image || ""}
+            ) : slide.image ? (
+              <StoreImage
+                src={slide.image}
                 alt={slide.alt || slide.heading}
-                className="absolute inset-0 h-full w-full object-cover object-[center_18%] lg:object-center"
+                className="object-cover object-[center_18%] lg:object-center"
+                sizes="100vw"
+                cloudWidth={1600}
+                priority={i === 0}
               />
-            )}
+            ) : null}
             {slide.sale_tag_visible && slide.sale_tag_value ? (
               <div className="absolute right-2 top-2 z-20 rotate-3 bg-ivory px-1.5 py-1 text-center shadow-md lg:right-5 lg:top-5 lg:px-3 lg:py-2">
                 <p className="text-[8px] font-semibold tracking-[0.18em] text-sale uppercase lg:text-[10px]">

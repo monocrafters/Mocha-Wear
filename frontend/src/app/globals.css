@@ -148,27 +148,186 @@ body {
   animation-delay: 0.48s;
 }
 
-.nav-link {
-  position: relative;
-  padding-bottom: 4px;
-}
+@layer components {
+  .header-link {
+    position: relative;
+  }
 
-.nav-link::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 6px;
-  height: 1px;
-  width: calc(100% - 1.75rem);
-  margin-left: 0.875rem;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
+  .header-link::after {
+    content: "";
+    position: absolute;
+    left: 22%;
+    right: 22%;
+    bottom: 5px;
+    height: 1px;
+    background: var(--gold);
+    pointer-events: none;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-.nav-link:hover::after {
-  transform: scaleX(1);
+  .header-pill {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    z-index: 0;
+    height: 2rem;
+    width: var(--pill-w, 0px);
+    pointer-events: none;
+    opacity: var(--pill-opacity, 0);
+    transform: translate3d(var(--pill-x, 0px), -50%, 0);
+    transition:
+      transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.18s ease;
+  }
+
+  .header-pill.is-instant {
+    transition: none;
+  }
+
+  .header-pill-fill {
+    display: block;
+    height: 100%;
+    width: 100%;
+    border-radius: 999px;
+    background: var(--sale);
+    transform: scale3d(var(--pill-sx, 1), var(--pill-sy, 1), 1);
+    transform-origin: var(--pill-origin, center) center;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .header-icon-btn {
+    position: relative;
+    isolation: isolate;
+    color: rgb(251 250 247 / 0.88);
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+    transition: color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .header-icon-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--sale);
+    opacity: 0;
+    transform: scale(0.62);
+    transition:
+      transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease;
+  }
+
+  .header-icon-btn.is-on {
+    color: #fff;
+  }
+
+  .header-icon-btn.is-on::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .header-icon-btn > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .header-icon-btn.is-gold {
+    color: var(--gold);
+  }
+
+  .header-brand-mark {
+    transition: color 0.18s ease;
+  }
+
+  .header-tab {
+    transition: color 0.18s ease;
+  }
+
+  .header-tab-icon {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .header-tab-icon::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--sale);
+    opacity: 0;
+    transform: scale(0.55);
+    transition:
+      transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease;
+  }
+
+  .header-tab-icon.is-on::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .header-tab-icon > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .header-link:not([data-nav-active="true"]):hover {
+      color: var(--gold);
+    }
+
+    .header-link:not([data-nav-active="true"]):hover::after {
+      transform: scaleX(1);
+    }
+
+    .header-icon-btn:hover {
+      color: var(--gold);
+      background-color: transparent;
+      box-shadow: inset 0 0 0 1px rgb(166 138 100 / 0.5);
+    }
+
+    .header-icon-btn.is-on:hover {
+      color: #fff;
+      background-color: transparent;
+      box-shadow: inset 0 0 0 1px transparent;
+    }
+
+    .header-icon-btn.is-gold:hover {
+      color: var(--gold);
+      background-color: transparent;
+      box-shadow: inset 0 0 0 1px rgb(166 138 100 / 0.5);
+    }
+
+    .header-brand:hover .header-brand-mark {
+      color: var(--gold);
+    }
+
+    .header-tab:hover {
+      color: var(--ivory);
+    }
+
+    .header-tab:hover .header-tab-icon:not(.is-on) {
+      color: var(--gold);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .header-link::after,
+    .header-pill,
+    .header-pill-fill,
+    .header-icon-btn,
+    .header-icon-btn::before,
+    .header-brand-mark,
+    .header-tab,
+    .header-tab-icon::before {
+      transition: none;
+    }
+  }
 }
 
 @keyframes hero-media {
@@ -245,6 +404,7 @@ body {
 }
 
 .skeleton {
+  display: block;
   background-color: #e4ddd2;
   animation: skeleton-breathe 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
   animation-delay: var(--skeleton-delay, 0ms);

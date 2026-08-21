@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Headset, Home, LayoutGrid, Package, Search, ShoppingBag, Tag } from "lucide-react";
@@ -78,7 +78,16 @@ export function SiteHeader() {
   const [active, setActive] = useState<TabId | null>("home");
   const [searchOpen, setSearchOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
-  const [pill, setPill] = useState({ left: 0, width: 0, ready: false, visible: false });
+  const settleRef = useRef(0);
+  const [pill, setPill] = useState({
+    x: 0,
+    w: 0,
+    sx: 1,
+    sy: 1,
+    origin: "center",
+    ready: false,
+    visible: false,
+  });
 
   useEffect(() => {
     function sync() {
@@ -103,23 +112,54 @@ export function SiteHeader() {
       return { left: current.offsetLeft, width: current.offsetWidth };
     }
 
+    function settle() {
+      window.clearTimeout(settleRef.current);
+      settleRef.current = window.setTimeout(() => {
+        setPill((prev) => (prev.sx === 1 && prev.sy === 1 ? prev : { ...prev, sx: 1, sy: 1, origin: "center" }));
+      }, 160);
+    }
+
+    function place(next: { left: number; width: number }, animate: boolean) {
+      const from = readPill();
+      const dx = next.left - from.left;
+      const moved = animate && from.width > 0 && (dx !== 0 || from.width !== next.width);
+      writePill(next);
+      setPill({
+        x: next.left,
+        w: next.width,
+        sx: moved ? Math.min(1.18, 1 + Math.abs(dx) / 420) : 1,
+        sy: moved ? 0.92 : 1,
+        origin: dx < 0 ? "right" : "left",
+        ready: animate && from.width > 0,
+        visible: true,
+      });
+      if (moved) settle();
+      else if (!from.width && animate) {
+        requestAnimationFrame(() => setPill((prev) => ({ ...prev, ready: true })));
+      }
+    }
+
     const next = measure();
     const from = readPill();
     if (from.width) {
-      setPill({ left: from.left, width: from.width, ready: true, visible: true });
+      setPill((prev) => ({
+        ...prev,
+        x: from.left,
+        w: from.width,
+        ready: true,
+        visible: true,
+        sx: 1,
+        sy: 1,
+      }));
     }
 
     let skipResize = true;
     const frame = requestAnimationFrame(() => {
       if (!next) {
-        setPill((prev) => ({ ...prev, visible: false, ready: true }));
+        setPill((prev) => ({ ...prev, visible: false, ready: true, sx: 1, sy: 1 }));
         return;
       }
-      writePill(next);
-      setPill({ left: next.left, width: next.width, ready: from.width > 0, visible: true });
-      if (!from.width) {
-        requestAnimationFrame(() => setPill((prev) => ({ ...prev, ready: true })));
-      }
+      place(next, true);
     });
 
     const observer = new ResizeObserver(() => {
@@ -127,7 +167,15 @@ export function SiteHeader() {
       const now = measure();
       if (!now) return;
       writePill(now);
-      setPill({ ...now, ready: true, visible: true });
+      setPill((prev) => ({
+        ...prev,
+        x: now.left,
+        w: now.width,
+        sx: 1,
+        sy: 1,
+        ready: true,
+        visible: true,
+      }));
     });
     observer.observe(nav);
     const enableResize = requestAnimationFrame(() => {
@@ -137,6 +185,7 @@ export function SiteHeader() {
     return () => {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(enableResize);
+      window.clearTimeout(settleRef.current);
       observer.disconnect();
     };
   }, [pathname]);
@@ -165,8 +214,8 @@ export function SiteHeader() {
 
         <div className="w-full min-w-0 bg-mocha-deep">
           <div className="mx-auto flex h-14 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-[72px] sm:px-8">
-            <Link href="/" className="group flex min-w-0 items-baseline gap-2">
-              <span className="font-serif truncate text-[1.45rem] leading-none tracking-[0.12em] text-ivory transition-colors duration-300 group-hover:text-gold sm:text-[1.7rem]">
+            <Link href="/" className="header-brand flex min-w-0 items-baseline gap-2">
+              <span className="header-brand-mark font-serif truncate text-[1.45rem] leading-none tracking-[0.12em] text-ivory sm:text-[1.7rem]">
                 {settings.brand_name}
               </span>
               {settings.brand_suffix ? (
@@ -177,16 +226,20 @@ export function SiteHeader() {
             <nav ref={navRef} className="relative hidden items-center lg:flex">
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-1/2 left-0 h-8 -translate-y-1/2 rounded-full bg-sale"
-                style={{
-                  width: pill.width,
-                  opacity: pill.visible && pill.width ? 1 : 0,
-                  transform: `translateX(${pill.left}px)`,
-                  transition: pill.ready
-                    ? "transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease"
-                    : "none",
-                }}
-              />
+                className={`header-pill${pill.ready ? "" : " is-instant"}`}
+                style={
+                  {
+                    "--pill-x": `${pill.x}px`,
+                    "--pill-w": `${pill.w}px`,
+                    "--pill-opacity": pill.visible && pill.w ? 1 : 0,
+                    "--pill-sx": pill.sx,
+                    "--pill-sy": pill.sy,
+                    "--pill-origin": pill.origin,
+                  } as CSSProperties
+                }
+              >
+                <span className="header-pill-fill" />
+              </span>
               {links.map((link) => {
                 const on = headerActive(pathname, link.href, link.sale);
                 return (
@@ -194,9 +247,10 @@ export function SiteHeader() {
                     key={link.href}
                     href={link.href}
                     data-nav-active={on ? "true" : undefined}
-                    className={`relative z-10 rounded-full px-3.5 py-1.5 text-[11px] tracking-[0.18em] uppercase transition-colors duration-300 ${
-                      on ? "font-semibold text-white" : "font-medium text-ivory/90 hover:text-white"
+                    className={`header-link relative z-10 rounded-full px-3.5 py-1.5 text-[11px] tracking-[0.18em] uppercase transition-colors duration-200 ${
+                      on ? "font-semibold text-white" : "font-medium text-ivory/80"
                     }`}
+                    prefetch
                   >
                     {link.label}
                   </Link>
@@ -216,15 +270,15 @@ export function SiteHeader() {
                   }
                   setSearchOpen(true);
                 }}
-                className="grid h-10 w-10 place-items-center rounded-full text-ivory/90 transition-all duration-300 hover:bg-white/10 hover:text-white"
+                className="header-icon-btn grid h-10 w-10 place-items-center rounded-full"
               >
                 <Search size={18} strokeWidth={1.6} />
               </button>
               <Link
                 href="/help"
                 aria-label="Support"
-                className={`grid h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:hidden ${
-                  pathname.startsWith("/help") ? "bg-sale text-white" : "text-ivory/90"
+                className={`header-icon-btn grid h-10 w-10 place-items-center rounded-full lg:hidden ${
+                  pathname.startsWith("/help") ? "is-on" : ""
                 }`}
               >
                 <Headset size={18} strokeWidth={1.6} />
@@ -232,8 +286,8 @@ export function SiteHeader() {
               <Link
                 href="/cart"
                 aria-label="Bag"
-                className={`relative hidden h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:grid ${
-                  pathname.startsWith("/cart") || pathname.startsWith("/checkout") ? "bg-sale text-white" : "text-ivory/90"
+                className={`header-icon-btn relative hidden h-10 w-10 place-items-center rounded-full lg:grid ${
+                  pathname.startsWith("/cart") || pathname.startsWith("/checkout") ? "is-on" : ""
                 }`}
               >
                 <ShoppingBag size={18} strokeWidth={1.6} />
@@ -259,15 +313,23 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  onClick={() => setActive("home")}
+                  prefetch
+                  scroll={false}
+                  onClick={(event) => {
+                    if (isOn) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setActive("home");
+                  }}
                   aria-current={isOn ? "page" : undefined}
-                  className={`relative flex flex-col items-center justify-center pt-1 ${
+                  className={`header-tab relative flex flex-col items-center justify-center pt-1 ${
                     isOn ? "text-white" : "text-ivory/55"
                   }`}
                 >
                   <span
-                    className={`-mt-5 grid h-12 w-12 place-items-center rounded-full shadow-lg ${
-                      isOn ? "bg-sale" : "bg-mocha"
+                    className={`header-tab-icon -mt-5 grid h-12 w-12 place-items-center rounded-full bg-mocha shadow-lg ${
+                      isOn ? "is-on" : ""
                     }`}
                   >
                     <Icon size={18} strokeWidth={1.8} className="text-white" />
@@ -281,13 +343,21 @@ export function SiteHeader() {
                 <Link
                   key={link.id}
                   href={link.href}
-                  onClick={() => setActive("cart")}
+                  prefetch
+                  scroll={false}
+                  onClick={(event) => {
+                    if (isOn) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setActive("cart");
+                  }}
                   aria-current={isOn ? "page" : undefined}
-                  className={`relative flex flex-col items-center justify-center gap-1 py-2.5 ${
+                  className={`header-tab relative flex flex-col items-center justify-center gap-1 py-2.5 ${
                     isOn ? "text-white" : "text-ivory/55"
                   }`}
                 >
-                  <span className={`relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "bg-sale" : ""}`}>
+                  <span className={`header-tab-icon relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
                     <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                     {count ? (
                       <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[8px] font-semibold text-white">
@@ -303,13 +373,21 @@ export function SiteHeader() {
               <Link
                 key={link.id}
                 href={link.href}
-                onClick={() => setActive(link.id)}
+                prefetch
+                scroll={false}
+                onClick={(event) => {
+                  if (isOn) {
+                    event.preventDefault();
+                    return;
+                  }
+                  setActive(link.id);
+                }}
                 aria-current={isOn ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 ${
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 header-tab ${
                   isOn ? "text-white" : "text-ivory/55"
                 }`}
               >
-                <span className={`grid h-9 w-9 place-items-center rounded-full ${isOn ? "bg-sale" : ""}`}>
+                <span className={`header-tab-icon grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
                   <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                 </span>
                 <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>

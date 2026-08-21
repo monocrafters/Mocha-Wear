@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { formatPkr } from "@/lib/money";
 import { productHref } from "@/lib/product";
 import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-sale";
+import { StoreImage } from "@/components/store-image";
 import type { Product } from "@/components/admin-products";
 
 export const productGridClass =
@@ -18,21 +20,24 @@ export function ProductCard({ product }: { product: Product }) {
   const tag = String(product.badge || "").trim();
   const spec = [product.fabric, product.pieces].filter(Boolean).join(" · ");
   const soldOut = (product.stock ?? 0) <= 0;
+  const cover = coverOf(product);
 
   return (
     <article className="group">
-      <a href={productHref(product)} className="block">
+      <Link href={productHref(product)} prefetch className="block">
         <div className="relative aspect-[3/4] overflow-hidden bg-sand">
-          {coverOf(product) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={coverOf(product)}
+          {cover ? (
+            <StoreImage
+              src={cover}
               alt={product.name}
-              className="h-full w-full object-cover transition duration-[900ms] ease-out group-hover:scale-[1.04]"
+              className="object-cover transition duration-[900ms] ease-out group-hover:scale-[1.04]"
+              sizes="(max-width: 1024px) 50vw, 16vw"
+              cloudWidth={640}
+              cloudHeight={853}
             />
           ) : null}
           {offLabel || tag ? (
-            <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
+            <div className="absolute left-3 top-3 z-[1] flex flex-col items-start gap-1">
               {offLabel ? (
                 <span className="bg-sale px-2.5 py-1 text-[9px] tracking-[0.18em] text-white uppercase">
                   {offLabel}
@@ -46,7 +51,7 @@ export function ProductCard({ product }: { product: Product }) {
             </div>
           ) : null}
           {soldOut ? (
-            <span className="absolute right-3 top-3 bg-mocha-deep/85 px-2.5 py-1 text-[9px] tracking-[0.18em] text-ivory uppercase">
+            <span className="absolute right-3 top-3 z-[1] bg-mocha-deep/85 px-2.5 py-1 text-[9px] tracking-[0.18em] text-ivory uppercase">
               Sold out
             </span>
           ) : null}
@@ -61,7 +66,7 @@ export function ProductCard({ product }: { product: Product }) {
             ) : null}
           </p>
         </div>
-      </a>
+      </Link>
     </article>
   );
 }

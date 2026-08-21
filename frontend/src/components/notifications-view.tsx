@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Bell } from "lucide-react";
 import type { AppNotification } from "@/lib/notifications";
 import {
@@ -75,9 +76,10 @@ export function NotificationsView() {
         ) : items.length ? (
           <div className="space-y-2 lg:mx-auto lg:max-w-2xl">
             {items.map((item) => (
-              <a
+              <Link
                 key={item.id}
                 href={item.href || "/"}
+                prefetch
                 onClick={() => openItem(item)}
                 className={`block border px-4 py-4 ${
                   item.read ? "border-sand bg-white" : "border-mocha-deep/20 bg-cream/70"
@@ -89,7 +91,7 @@ export function NotificationsView() {
                 <p className={`text-sm font-medium text-mocha-deep ${item.read ? "" : "mt-1"}`}>{item.title}</p>
                 {item.message ? <p className="mt-1 text-[13px] leading-6 text-mocha/55">{item.message}</p> : null}
                 <p className="mt-2 text-[10px] tracking-[0.12em] text-mocha/35 uppercase">{notificationTime(item.created_at)}</p>
-              </a>
+              </Link>
             ))}
           </div>
         ) : (
@@ -101,12 +103,13 @@ export function NotificationsView() {
             <p className="mt-3 max-w-sm text-sm leading-6 text-mocha/55">
               Order updates, new arrivals, and sale notes will show up here.
             </p>
-            <a
+            <Link
               href="/shop"
+              prefetch
               className="mt-8 inline-block bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
             >
               Shop the sale
-            </a>
+            </Link>
           </div>
         )}
       </div>

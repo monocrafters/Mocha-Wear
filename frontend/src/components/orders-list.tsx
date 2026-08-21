@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Package, Search, Truck } from "lucide-react";
 import { formatPkr } from "@/lib/money";
 import { OrderListSkeleton, Skeleton } from "@/components/skeletons";
@@ -354,22 +355,24 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: () => void }) 
       <div className="space-y-2 px-3 py-2.5 lg:space-y-2.5 lg:px-5 lg:py-3">
         {order.items.map((item, index) => (
           <div key={`${order.id}-${item.name}-${item.slug || ""}-${item.size || ""}-${index}`} className="flex gap-3">
-            <a
+            <Link
               href={item.slug ? `/products/${item.slug}` : "/shop"}
+              prefetch
               className="relative h-[72px] w-[54px] shrink-0 overflow-hidden bg-sand lg:h-20 lg:w-[60px]"
             >
               {item.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
               ) : null}
-            </a>
+            </Link>
             <div className="flex min-w-0 flex-1 flex-col justify-center">
-              <a
+              <Link
                 href={item.slug ? `/products/${item.slug}` : "/shop"}
+                prefetch
                 className="font-serif truncate text-[1.15rem] leading-tight text-mocha-deep lg:text-[1.35rem]"
               >
                 {item.name}
-              </a>
+              </Link>
               {item.spec ? <p className="mt-0.5 truncate text-[11px] text-mocha/45">{item.spec}</p> : null}
               <p className="mt-1 text-[13px] text-mocha-deep">
                 {item.size ? `Size ${item.size} · ` : ""}Qty {item.qty} · {formatPkr(item.price)}
@@ -385,12 +388,13 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: () => void }) 
           <p className="text-sm font-medium text-mocha-deep">{formatPkr(orderTotal(order))}</p>
         </div>
         {order.status === "delivered" ? (
-          <a
+          <Link
             href="/shop"
+            prefetch
             className="bg-mocha-deep px-3 py-2 text-[10px] font-semibold tracking-[0.14em] text-ivory uppercase"
           >
             Buy again
-          </a>
+          </Link>
         ) : canCancelOrder(order.status) ? (
           <button
             type="button"
@@ -443,13 +447,14 @@ function EmptyOrders({
         </button>
       </form>
       {error ? <p className="mt-2 text-sm text-sale">{error}</p> : null}
-      <a
+      <Link
         href="/shop"
+        prefetch
         className="mt-8 inline-flex items-center gap-2 bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
       >
         <Truck size={14} strokeWidth={1.8} />
         Shop the sale
-      </a>
+      </Link>
     </div>
   );
 }

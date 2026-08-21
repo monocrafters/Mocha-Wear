@@ -1,29 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { API_URL, apiFetch } from "@/lib/api";
-import type { Collection } from "@/components/admin-collections";
+import { useCatalog } from "@/components/catalog-provider";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
 import { CollectionRowSkeleton } from "@/components/skeletons";
+import { StoreImage } from "@/components/store-image";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function CategoryGrid() {
-  const [items, setItems] = useState<Collection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { collections: items, loading } = useCatalog();
   const settings = useSiteSettings();
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    apiFetch(`${API_URL}/api/collections`)
-      .then((res) => res.json())
-      .then((data) => setItems(data.items || []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, []);
-
   const updateArrows = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
@@ -63,12 +54,13 @@ export function CategoryGrid() {
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <a
+          <Link
             href="/collections"
+            prefetch
             className="mr-2 hidden text-[11px] tracking-[0.22em] text-mocha/70 uppercase underline decoration-gold/60 underline-offset-8 sm:inline"
           >
             {settings.collections_all_label}
-          </a>
+          </Link>
           <button
             type="button"
             onClick={() => scrollByCard(-1)}
@@ -104,17 +96,20 @@ export function CategoryGrid() {
             ? collection.sale_label || collection.subtitle || "Sale"
             : collection.subtitle;
           return (
-            <a
+            <Link
               key={collection.id}
               href={collectionHref(collection)}
+              prefetch
               className="group relative aspect-[4/5] w-[min(72vw,280px)] shrink-0 overflow-hidden bg-sand sm:w-[260px] lg:w-full"
             >
               {src ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <StoreImage
                   src={src}
                   alt={collection.name}
-                  className="absolute inset-0 h-full w-full object-cover transition duration-[900ms] ease-out group-hover:scale-[1.04]"
+                  className="object-cover transition duration-[900ms] ease-out group-hover:scale-[1.04]"
+                  sizes="(max-width: 1024px) 72vw, 25vw"
+                  cloudWidth={640}
+                  cloudHeight={800}
                 />
               ) : (
                 <div className="absolute inset-0 bg-sand" />
@@ -126,7 +121,7 @@ export function CategoryGrid() {
                 ) : null}
                 <h3 className="font-serif mt-1.5 text-[1.65rem] leading-none lg:text-[1.85rem]">{collection.name}</h3>
               </div>
-            </a>
+            </Link>
           );
         })}
         <div className="w-5 shrink-0 sm:w-8 lg:hidden" aria-hidden />

@@ -1,24 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
-import type { Product } from "@/components/admin-products";
+import { useCatalog } from "@/components/catalog-provider";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { ProductGridSkeleton } from "@/components/skeletons";
 import { useSiteSettings } from "@/components/site-settings";
 
 export function ProductGrid() {
-  const [items, setItems] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products: items, loading } = useCatalog();
   const settings = useSiteSettings();
-
-  useEffect(() => {
-    apiFetch(`${API_URL}/api/products`)
-      .then((res) => res.json())
-      .then((data) => setItems(data.items || []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, []);
 
   if (!loading && !items.length) return null;
 

@@ -15,7 +15,7 @@ import {
   Truck,
   type LucideIcon,
 } from "lucide-react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiJson, peekApiCache } from "@/lib/api-cache";
 import { DEFAULT_HELP, whatsappHref, type HelpContent } from "@/lib/support";
 import { HelpSkeleton } from "@/components/skeletons";
 
@@ -37,8 +37,18 @@ export function HelpView() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    apiFetch(`${API_URL}/api/help`)
-      .then((res) => res.json())
+    const cached = peekApiCache<{ help?: HelpContent }>("/api/help");
+    if (cached?.help) {
+      setHelp({ ...DEFAULT_HELP, ...cached.help });
+      setReady(true);
+    }
+
+    apiJson<{ help?: HelpContent }>("/api/help", {
+      staleWhileRevalidate: true,
+      onUpdate: (data) => {
+        if (data.help) setHelp({ ...DEFAULT_HELP, ...data.help });
+      },
+    })
       .then((data) => {
         if (data.help) setHelp({ ...DEFAULT_HELP, ...data.help });
       })

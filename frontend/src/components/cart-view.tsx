@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
 import { CartSkeleton } from "@/components/skeletons";
@@ -23,12 +24,13 @@ export function CartView() {
         <p className="mt-3 max-w-sm text-sm leading-6 text-mocha/55">
           Add a lawn or pret suit from the sale, then check out with cash on delivery.
         </p>
-        <a
+        <Link
           href="/shop"
+          prefetch
           className="mt-8 inline-block bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
         >
           Shop the sale
-        </a>
+        </Link>
       </section>
     );
   }
@@ -51,18 +53,18 @@ export function CartView() {
         <div className="space-y-2">
           {items.map((line) => (
             <article key={cartLineId(line)} className="flex gap-3 bg-white p-3">
-              <a href={`/products/${line.slug}`} className="relative h-[92px] w-[68px] shrink-0 overflow-hidden bg-sand">
+              <Link href={`/products/${line.slug}`} prefetch className="relative h-[92px] w-[68px] shrink-0 overflow-hidden bg-sand">
                 {line.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={line.image} alt={line.name} className="h-full w-full object-cover" />
                 ) : null}
-              </a>
+              </Link>
               <div className="flex min-w-0 flex-1 flex-col justify-between">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <a href={`/products/${line.slug}`} className="font-serif block truncate text-[1.2rem] leading-tight text-mocha-deep">
+                    <Link href={`/products/${line.slug}`} prefetch className="font-serif block truncate text-[1.2rem] leading-tight text-mocha-deep">
                       {line.name}
-                    </a>
+                    </Link>
                     <p className="mt-0.5 truncate text-[11px] text-mocha/45">
                       {[line.size ? `Size ${line.size}` : "", line.spec].filter(Boolean).join(" · ")}
                     </p>
@@ -112,12 +114,13 @@ export function CartView() {
           <span className="text-mocha/50">Total · COD · Free delivery</span>
           <span className="font-medium text-mocha-deep">{formatPkr(total)}</span>
         </div>
-        <a
+        <Link
           href="/checkout"
+          prefetch
           className="mt-3 flex w-full items-center justify-center bg-sale py-3 text-[11px] font-semibold tracking-[0.16em] text-white uppercase"
         >
           Proceed to checkout
-        </a>
+        </Link>
       </div>
     </section>
   );
@@ -148,12 +151,13 @@ function SummaryBody({ subtotal, total }: { subtotal: number; total: number }) {
         </p>
         <p className="mt-1 text-[12px] leading-5 text-mocha/50">Pay the rider in cash when your order arrives.</p>
       </div>
-      <a
+      <Link
         href="/checkout"
+        prefetch
         className="mt-5 flex w-full items-center justify-center bg-sale px-4 py-3.5 text-[12px] font-semibold tracking-[0.16em] text-white uppercase hover:bg-sale-deep"
       >
         Proceed to checkout
-      </a>
+      </Link>
     </>
   );
 }

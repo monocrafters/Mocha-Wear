@@ -1,24 +1,39 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiJson, peekApiCache, primeApiCache } from "@/lib/api-cache";
 import { formatPkr } from "@/lib/money";
 import { collectionHref } from "@/lib/collection";
-import { productHref } from "@/lib/product";
 import type { Collection } from "@/components/admin-collections";
 import type { Product, ProductImage, ProductLabel } from "@/components/admin-products";
 import { ProductBuyActions } from "@/components/product-buy-actions";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { SaleTimerProduct } from "@/components/sale-timer";
+import { StoreImage } from "@/components/store-image";
 import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-sale";
+import { useCatalog, useCatalogProduct } from "@/components/catalog-provider";
 import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
 import { ProductPageSkeleton } from "@/components/skeletons";
+
+function readProductCache(slug: string) {
+  return peekApiCache<{ item: Product }>(`/api/products/${slug}`)?.item || null;
+}
 
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
+  const slug = params.slug || "";
   const sale = useActiveSale();
+  const { products, collections } = useCatalog();
+  const {
+    product: catalogProduct,
+    collection: catalogCollection,
+    related: catalogRelated,
+    catalogLoading,
+  } = useCatalogProduct(slug);
+
+  // Always null on first paint so SSR HTML matches client hydration.
   const [item, setItem] = useState<Product | null>(null);
   const [collection, setCollection] = useState<Collection | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
@@ -26,34 +41,105 @@ export default function ProductPage() {
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState<number | null>(null);
 
+  useLayoutEffect(() => {
+    setActive(0);
+    setHovered(null);
+
+    const cached = catalogProduct || (slug ? readProductCache(slug) : null);
+    if (cached) {
+      setItem(cached);
+      setMissing(false);
+      const col =
+        catalogCollection ||
+        (cached.collection_id ? collections.find((row) => row.id === cached.collection_id) || null : null);
+      setCollection(col);
+      setRelated(
+        catalogRelated.length
+          ? catalogRelated
+          : products
+              .filter((row) => row.collection_id === cached.collection_id && row.id !== cached.id)
+              .slice(0, 6),
+      );
+      return;
+    }
+
+    if (!catalogLoading) setItem(null);
+  }, [slug, catalogProduct, catalogCollection, catalogRelated, catalogLoading, products, collections]);
+
   useEffect(() => {
-    if (!params.slug) return;
-    apiFetch(`${API_URL}/api/products/${params.slug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("missing");
-        return res.json();
-      })
-      .then(async (data) => {
-        const product = data.item as Product;
-        setItem(product);
+    if (!catalogProduct) return;
+    setItem(catalogProduct);
+    setCollection(catalogCollection);
+    setRelated(catalogRelated);
+    setMissing(false);
+    primeApiCache(`/api/products/${slug}`, { item: catalogProduct }, { memoryOnly: true });
+  }, [catalogProduct, catalogCollection, catalogRelated, slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    if (catalogProduct) return;
+
+    const cached = readProductCache(slug);
+    if (cached) {
+      setItem(cached);
+      setMissing(false);
+      if (cached.collection_id) {
+        setCollection((prev) => prev || collections.find((row) => row.id === cached.collection_id) || null);
+        setRelated((prev) =>
+          prev.length
+            ? prev
+            : products.filter((row) => row.collection_id === cached.collection_id && row.id !== cached.id).slice(0, 6),
+        );
+      }
+      return;
+    }
+
+    if (catalogLoading) return;
+
+    let live = true;
+    (async () => {
+      try {
+        const data = await apiJson<{ item: Product }>(`/api/products/${slug}`);
+        if (!live) return;
+        setItem(data.item);
         setActive(0);
         setHovered(null);
-        const [collectionsRes, relatedRes] = await Promise.all([
-          apiFetch(`${API_URL}/api/collections`),
-          product.collection_id
-            ? apiFetch(`${API_URL}/api/products?collection=${product.collection_id}`)
-            : Promise.resolve(null),
-        ]);
-        const collectionsData = await collectionsRes.json().catch(() => ({ items: [] }));
-        const match = (collectionsData.items || []).find((row: Collection) => row.id === product.collection_id);
-        setCollection(match || null);
-        if (relatedRes) {
-          const relatedData = await relatedRes.json().catch(() => ({ items: [] }));
-          setRelated((relatedData.items || []).filter((row: Product) => row.id !== product.id).slice(0, 6));
+        setMissing(false);
+        primeApiCache(`/api/products/${slug}`, data, { memoryOnly: true });
+
+        const col =
+          collections.find((row) => row.id === data.item.collection_id) ||
+          (
+            await apiJson<{ items?: Collection[] }>("/api/collections").catch(() => ({ items: [] as Collection[] }))
+          ).items?.find((row) => row.id === data.item.collection_id) ||
+          null;
+        if (!live) return;
+        setCollection(col || null);
+
+        const fromCatalog = products
+          .filter((row) => row.collection_id === data.item.collection_id && row.id !== data.item.id)
+          .slice(0, 6);
+        if (fromCatalog.length) {
+          setRelated(fromCatalog);
+          return;
         }
-      })
-      .catch(() => setMissing(true));
-  }, [params.slug]);
+
+        if (data.item.collection_id) {
+          const relatedData = await apiJson<{ items?: Product[] }>(
+            `/api/products?collection=${data.item.collection_id}`,
+          );
+          if (!live) return;
+          setRelated((relatedData.items || []).filter((row) => row.id !== data.item.id).slice(0, 6));
+        }
+      } catch {
+        if (live) setMissing(true);
+      }
+    })();
+
+    return () => {
+      live = false;
+    };
+  }, [slug, catalogProduct, catalogLoading, products, collections]);
 
   const images = item?.images || [];
   const off = useMemo(() => {
@@ -63,14 +149,13 @@ export default function ProductPage() {
 
   return (
     <>
-      <SiteHeader />
-      <main className="bg-ivory pb-[calc(7.25rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <main className="bg-ivory pb-[calc(9.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         {missing ? (
           <section className="mx-auto max-w-3xl px-5 py-24 text-center">
             <h1 className="font-serif text-4xl">Product not found</h1>
-            <a href="/shop" className="mt-6 inline-block text-sm uppercase tracking-[0.18em] underline">
+            <Link href="/shop" prefetch className="mt-6 inline-block text-sm uppercase tracking-[0.18em] underline">
               Back to shop
-            </a>
+            </Link>
           </section>
         ) : !item ? (
           <ProductPageSkeleton />
@@ -91,18 +176,18 @@ export default function ProductPage() {
 
               <div className="px-1 lg:pt-1">
                 <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">
-                  <a href="/" className="hover:text-mocha-deep">
+                  <Link href="/" prefetch className="hover:text-mocha-deep">
                     Home
-                  </a>
+                  </Link>
                   <span className="mx-2">/</span>
                   {collection ? (
-                    <a href={collectionHref(collection)} className="hover:text-mocha-deep">
+                    <Link href={collectionHref(collection)} prefetch className="hover:text-mocha-deep">
                       {collection.name}
-                    </a>
+                    </Link>
                   ) : (
-                      <a href="/shop" className="hover:text-mocha-deep">
+                      <Link href="/shop" prefetch className="hover:text-mocha-deep">
                       Shop
-                    </a>
+                    </Link>
                   )}
                   <span className="mx-2">/</span>
                   <span className="text-mocha-deep">{item.name}</span>
@@ -155,12 +240,13 @@ export default function ProductPage() {
                   </dl>
                 ) : null}
 
-                <a
+                <Link
                   href={collection ? collectionHref(collection) : "/shop"}
+                  prefetch
                   className="mt-8 inline-block text-[11px] tracking-[0.18em] text-mocha/50 uppercase underline decoration-mocha/20 underline-offset-8 hover:text-sale hover:decoration-sale"
                 >
                   Continue shopping
-                </a>
+                </Link>
               </div>
             </section>
 
@@ -237,8 +323,7 @@ function AmazonGallery({
                   </span>
                 </>
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt="" className="h-full w-full object-cover" />
+                <StoreImage src={item.url} alt="" className="object-cover" sizes="68px" cloudWidth={136} cloudHeight={136} />
               )}
             </button>
           ))}
@@ -254,11 +339,15 @@ function AmazonGallery({
             playsInline
           />
         ) : shown?.url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <StoreImage
             src={shown.url}
             alt={name}
+            fill={false}
+            width={900}
+            height={1120}
+            cloudWidth={900}
             className="mx-auto h-[300px] w-full object-contain sm:h-[460px] lg:h-[560px]"
+            sizes="(max-width: 1024px) 100vw, 55vw"
           />
         ) : (
           <div className="h-[300px] bg-sand lg:h-[560px]" />

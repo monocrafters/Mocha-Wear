@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
+import Link from "next/link";
+import { useCatalog } from "@/components/catalog-provider";
 import type { Collection } from "@/components/admin-collections";
 import { collectionCardSrc, collectionHref } from "@/lib/collection";
 import { CollectionMedia } from "@/components/collection-media";
@@ -9,17 +9,8 @@ import { useSiteSettings } from "@/components/site-settings";
 import { CollectionListSkeleton, Skeleton } from "@/components/skeletons";
 
 export function CollectionsList() {
-  const [items, setItems] = useState<Collection[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { collections: items, loading } = useCatalog();
   const settings = useSiteSettings();
-
-  useEffect(() => {
-    apiFetch(`${API_URL}/api/collections`)
-      .then((res) => res.json())
-      .then((data) => setItems(data.items || []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, []);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:max-w-[1440px] lg:w-full lg:px-8 lg:py-12">
@@ -50,12 +41,13 @@ export function CollectionsList() {
             <p className="mt-3 max-w-sm text-sm leading-6 text-mocha/55">
               New collections will appear here as soon as they drop.
             </p>
-            <a
+            <Link
               href="/shop"
+              prefetch
               className="mt-8 inline-block bg-mocha-deep px-5 py-3 text-[11px] font-semibold tracking-[0.18em] text-ivory uppercase"
             >
               Shop the sale
-            </a>
+            </Link>
           </div>
         )}
       </div>
@@ -81,8 +73,9 @@ function CollectionCard({ collection, index }: { collection: Collection; index: 
   const srcs = collectionCardSrc(collection);
 
   return (
-    <a
+    <Link
       href={href}
+      prefetch
       className={`group relative block aspect-[4/5] w-full overflow-hidden bg-mocha-deep lg:aspect-[21/9] ${cardFrame(index)}`}
     >
       {srcs.mobile || srcs.desktop ? (
@@ -113,6 +106,6 @@ function CollectionCard({ collection, index }: { collection: Collection; index: 
           Shop
         </span>
       </div>
-    </a>
+    </Link>
   );
 }

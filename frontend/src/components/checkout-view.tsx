@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/cart-provider";
 import {
@@ -159,24 +160,24 @@ export function CheckoutView() {
   return (
     <section className="mx-auto w-full min-w-0 max-w-[1440px] px-4 py-10 sm:px-8 sm:py-14">
       <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">
-        <a href="/" className="hover:text-mocha-deep">
+        <Link href="/" prefetch className="hover:text-mocha-deep">
           Home
-        </a>
+        </Link>
         <span className="mx-2">/</span>
         {buyNow ? (
           items[0]?.slug ? (
-            <a href={`/products/${items[0].slug}`} className="hover:text-mocha-deep">
+            <Link href={`/products/${items[0].slug}`} prefetch className="hover:text-mocha-deep">
               Product
-            </a>
+            </Link>
           ) : (
-            <a href="/shop" className="hover:text-mocha-deep">
+            <Link href="/shop" prefetch className="hover:text-mocha-deep">
               Shop
-            </a>
+            </Link>
           )
         ) : (
-          <a href="/cart" className="hover:text-mocha-deep">
+          <Link href="/cart" prefetch className="hover:text-mocha-deep">
             Cart
-          </a>
+          </Link>
         )}
         <span className="mx-2">/</span>
         <span className="text-mocha-deep">Checkout</span>
@@ -353,12 +354,12 @@ export function CheckoutView() {
           <div className="mt-5 space-y-3">
             {items.map((line) => (
               <div key={cartLineId(line)} className="flex gap-3">
-                <a href={`/products/${line.slug}`} className="relative h-16 w-12 shrink-0 overflow-hidden bg-sand">
+                <Link href={`/products/${line.slug}`} prefetch className="relative h-16 w-12 shrink-0 overflow-hidden bg-sand">
                   {line.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={line.image} alt={line.name} className="h-full w-full object-cover" />
                   ) : null}
-                </a>
+                </Link>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-mocha-deep">{line.name}</p>
                   <p className="mt-0.5 text-[12px] text-mocha/45">
@@ -386,12 +387,13 @@ export function CheckoutView() {
           <p className="mt-3 text-[12px] leading-5 text-mocha/45">
             Pay the rider in cash when your order arrives.
           </p>
-          <a
+          <Link
             href={buyNow && items[0]?.slug ? `/products/${items[0].slug}` : "/cart"}
+            prefetch
             className="mt-6 inline-block text-[11px] tracking-[0.16em] text-mocha/50 uppercase underline decoration-mocha/20 underline-offset-8 hover:text-mocha-deep"
           >
             {buyNow ? "Back to product" : "Back to cart"}
-          </a>
+          </Link>
         </aside>
       </div>
     </section>

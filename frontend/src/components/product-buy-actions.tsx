@@ -65,8 +65,8 @@ export function ProductBuyActions({ product }: { product: Product }) {
         {soldOut ? <span className="text-sale">Sold out</span> : <span className="text-mocha/45">{stock} in stock</span>}
       </p>
 
-      <div className="fixed inset-x-0 bottom-0 z-[60] border-t border-sand bg-ivory px-2.5 pt-1.5 pb-[calc(3.85rem+env(safe-area-inset-bottom))] lg:hidden">
-        <div className="flex items-center gap-1.5">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-[75] border-t border-sand bg-ivory px-3 py-2 shadow-[0_-6px_20px_rgba(31,22,18,0.08)] lg:hidden">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
           <QtyControl qty={qty} soldOut={soldOut} maxQty={maxQty} onChange={setQty} size="sm" />
           <AddButton soldOut={soldOut} added={added} onClick={() => start("add")} compact />
           <BuyButton soldOut={soldOut} onClick={() => start("buy")} compact />
@@ -159,24 +159,24 @@ function QtyControl({
   const compact = size === "sm";
   return (
     <div
-      className={`flex shrink-0 items-center border border-mocha/15 ${compact ? "" : "mb-0 w-fit"}`}
+      className={`flex shrink-0 items-center self-stretch border border-mocha/15 ${compact ? "" : "mb-0 w-fit"}`}
     >
       <button
         type="button"
         aria-label="Decrease quantity"
         disabled={soldOut}
         onClick={() => onChange(Math.max(1, qty - 1))}
-        className={`grid place-items-center text-mocha-deep disabled:opacity-30 ${compact ? "h-8 w-7 text-sm" : "h-11 w-11"}`}
+        className={`grid place-items-center text-mocha-deep disabled:opacity-30 ${compact ? "h-10 w-8 text-base" : "h-11 w-11"}`}
       >
         −
       </button>
-      <span className={`text-center text-sm tabular-nums ${compact ? "w-5 text-[12px]" : "w-10"}`}>{soldOut ? 0 : qty}</span>
+      <span className={`text-center text-sm tabular-nums ${compact ? "w-6 text-[13px]" : "w-10"}`}>{soldOut ? 0 : qty}</span>
       <button
         type="button"
         aria-label="Increase quantity"
         disabled={soldOut}
         onClick={() => onChange(Math.min(maxQty, qty + 1))}
-        className={`grid place-items-center text-mocha-deep disabled:opacity-30 ${compact ? "h-8 w-7 text-sm" : "h-11 w-11"}`}
+        className={`grid place-items-center text-mocha-deep disabled:opacity-30 ${compact ? "h-10 w-8 text-base" : "h-11 w-11"}`}
       >
         +
       </button>
@@ -201,7 +201,7 @@ function AddButton({
       disabled={soldOut}
       onClick={onClick}
       className={`border border-mocha-deep font-semibold tracking-[0.16em] text-mocha-deep uppercase transition-colors hover:bg-mocha-deep hover:text-ivory disabled:cursor-not-allowed disabled:opacity-40 ${
-        compact ? "h-8 min-w-0 flex-1 px-1.5 text-[9px] tracking-[0.12em]" : "px-4 py-3.5 text-[11px] tracking-[0.18em]"
+        compact ? "h-10 min-w-0 px-2 text-[10px] tracking-[0.1em]" : "px-4 py-3.5 text-[11px] tracking-[0.18em]"
       }`}
     >
       {soldOut ? "Sold out" : added ? "Added" : "Add to bag"}
@@ -224,7 +224,7 @@ function BuyButton({
       disabled={soldOut}
       onClick={onClick}
       className={`bg-sale font-semibold tracking-[0.16em] text-white uppercase transition-colors hover:bg-sale-deep disabled:cursor-not-allowed disabled:opacity-40 ${
-        compact ? "h-8 min-w-0 flex-1 px-1.5 text-[9px] tracking-[0.12em]" : "px-4 py-3.5 text-[11px] tracking-[0.18em]"
+        compact ? "h-10 min-w-0 px-2 text-[10px] tracking-[0.1em]" : "px-4 py-3.5 text-[11px] tracking-[0.18em]"
       }`}
     >
       Buy now

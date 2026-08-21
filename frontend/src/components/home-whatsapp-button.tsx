@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiJson } from "@/lib/api-cache";
 import { useSiteSettings } from "@/components/site-settings";
 import { whatsappChatHref } from "@/lib/settings";
 
@@ -11,8 +11,7 @@ export function HomeWhatsAppButton() {
   const [helpMessage, setHelpMessage] = useState("");
 
   useEffect(() => {
-    apiFetch(`${API_URL}/api/help`)
-      .then((res) => res.json())
+    apiJson<{ help?: { whatsapp_number?: string; whatsapp_display?: string; default_message?: string } }>("/api/help")
       .then((data) => {
         setHelpNumber(data.help?.whatsapp_number || data.help?.whatsapp_display || "");
         setHelpMessage(data.help?.default_message || "");

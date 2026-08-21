@@ -215,12 +215,19 @@ async function getPublic() {
   const sales = require("./sales");
   const products = require("./products");
   const collections = require("./collections");
-  const { items: collectionItems } = await collections.listAll();
+  const [{ items: collectionItems }, productItems, saleItems] = await Promise.all([
+    collections.listAll(),
+    products.listAll(),
+    sales.listAll(),
+  ]);
   const collectionById = new Map(collectionItems.map((item) => [item.id, item]));
+  const productById = new Map(productItems.map((item) => [item.id, item]));
+  const saleById = new Map(saleItems.map((item) => [item.id, item]));
+
   const slides = [];
   for (const slide of hero.slides.filter((item) => item.is_published && (item.image || item.video))) {
-    const sale = slide.sale_id ? await sales.getById(slide.sale_id) : null;
-    const product = slide.product_id ? await products.getById(slide.product_id) : null;
+    const sale = slide.sale_id ? saleById.get(slide.sale_id) || null : null;
+    const product = slide.product_id ? productById.get(slide.product_id) || null : null;
     const liveProduct = product && product.is_published ? product : null;
     const collection = liveProduct?.collection_id ? collectionById.get(liveProduct.collection_id) : null;
     slides.push({

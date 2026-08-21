@@ -13,7 +13,8 @@ export function Skeleton({
   delay?: number;
 }) {
   return (
-    <div
+    <span
+      aria-hidden
       className={`skeleton ${tone === "admin" ? "skeleton-admin" : ""} ${className}`}
       style={delay ? ({ "--skeleton-delay": `${delay}ms` } as CSSProperties) : undefined}
     />

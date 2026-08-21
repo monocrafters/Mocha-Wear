@@ -24,7 +24,9 @@ const inter = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const res = await fetch(`${API_URL}/api/settings`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/api/settings`, {
+      next: { revalidate: 300 },
+    });
     const data = await res.json();
     const settings = data.settings || DEFAULT_SETTINGS;
     return {

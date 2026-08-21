@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiJson, peekApiCache } from "@/lib/api-cache";
 import type { Review } from "@/components/admin-reviews";
 import { useSiteSettings } from "@/components/site-settings";
 import { ReviewRowSkeleton } from "@/components/skeletons";
@@ -27,16 +27,19 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function Reviews() {
-  const [items, setItems] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = peekApiCache<{ items?: Review[] }>("/api/reviews");
+  const [items, setItems] = useState<Review[]>(cached?.items || []);
+  const [loading, setLoading] = useState(!cached);
   const settings = useSiteSettings();
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    apiFetch(`${API_URL}/api/reviews`)
-      .then((res) => res.json())
+    apiJson<{ items?: Review[] }>("/api/reviews", {
+      staleWhileRevalidate: true,
+      onUpdate: (data) => setItems(data.items || []),
+    })
       .then((data) => setItems(data.items || []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));

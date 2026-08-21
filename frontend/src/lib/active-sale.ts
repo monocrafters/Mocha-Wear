@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_URL, apiFetch } from "@/lib/api";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { apiJson } from "@/lib/api-cache";
 
 export type ActiveSale = {
   id: string;
@@ -23,12 +23,37 @@ export type SaleTimeLeft = {
 };
 
 let cached: Promise<ActiveSale | null> | null = null;
+let sharedSale: ActiveSale | null = null;
+const saleListeners = new Set<() => void>();
+
+/** Called by CatalogProvider so ProductCards share one sale without N fetches. */
+export function setSharedActiveSale(sale: ActiveSale | null) {
+  sharedSale = sale;
+  saleListeners.forEach((listener) => listener());
+}
+
+function subscribeSale(listener: () => void) {
+  saleListeners.add(listener);
+  return () => {
+    saleListeners.delete(listener);
+  };
+}
+
+function getSharedSale() {
+  return sharedSale;
+}
 
 export function fetchActiveSale() {
   if (!cached) {
-    cached = apiFetch(`${API_URL}/api/sales/active`)
-      .then((res) => res.json())
-      .then((data) => (data.sale as ActiveSale) || null)
+    cached = apiJson<{ sale?: ActiveSale }>("/api/sales/active", {
+      softTtlMs: 30_000,
+      staleWhileRevalidate: true,
+    })
+      .then((data) => {
+        const sale = data.sale || null;
+        setSharedActiveSale(sale);
+        return sale;
+      })
       .catch(() => {
         cached = null;
         return null;
@@ -38,19 +63,21 @@ export function fetchActiveSale() {
 }
 
 export function useActiveSale() {
-  const [sale, setSale] = useState<ActiveSale | null>(null);
+  const shared = useSyncExternalStore(subscribeSale, getSharedSale, () => null);
+  const [fallback, setFallback] = useState<ActiveSale | null>(null);
 
   useEffect(() => {
+    if (shared) return;
     let live = true;
     fetchActiveSale().then((next) => {
-      if (live) setSale(next);
+      if (live) setFallback(next);
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [shared]);
 
-  return sale;
+  return shared ?? fallback;
 }
 
 export function useSaleCountdown(endsAt?: string | null): SaleTimeLeft {

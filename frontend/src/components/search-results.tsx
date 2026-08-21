@@ -2,8 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { API_URL, apiFetch } from "@/lib/api";
-import type { Product } from "@/components/admin-products";
+import { useCatalog } from "@/components/catalog-provider";
 import { ProductCard, productGridClass } from "@/components/product-card";
 import { ProductGridSkeleton, Skeleton } from "@/components/skeletons";
 import { SearchBar } from "@/components/search-bar";
@@ -15,20 +14,11 @@ export function SearchResults() {
   const params = useSearchParams();
   const q = params.get("q") || "";
   const [value, setValue] = useState(q);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading } = useCatalog();
 
   useEffect(() => {
     setValue(q);
   }, [q]);
-
-  useEffect(() => {
-    apiFetch(`${API_URL}/api/products`)
-      .then((res) => res.json())
-      .then((data) => setProducts(data.items || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
-  }, []);
 
   const items = useMemo(() => searchProducts(products, q), [products, q]);
 
