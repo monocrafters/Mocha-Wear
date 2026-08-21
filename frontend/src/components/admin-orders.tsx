@@ -187,7 +187,7 @@ export function AdminOrders() {
   if (loading) {
     return (
       <div>
-        <AdminStatsSkeleton />
+        <AdminStatsSkeleton count={6} />
         <AdminListSkeleton />
       </div>
     );

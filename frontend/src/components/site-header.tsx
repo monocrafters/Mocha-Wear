@@ -27,6 +27,16 @@ const bottomLinks = [
 
 type TabId = (typeof bottomLinks)[number]["id"];
 
+function headerActive(pathname: string, href: string, sale?: boolean) {
+  if (sale) return pathname === "/";
+  if (href === "/shop") return pathname === "/shop" || pathname.startsWith("/products");
+  if (href === "/collections") return pathname.startsWith("/collections");
+  if (href === "/orders") return pathname.startsWith("/orders");
+  if (href === "/help") return pathname.startsWith("/help");
+  if (href === "/cart") return pathname.startsWith("/cart") || pathname.startsWith("/checkout");
+  return pathname === href;
+}
+
 function tabFromLocation(pathname: string, hash: string): TabId | null {
   if (pathname === "/shop" || pathname.startsWith("/products")) return "shop";
   if (pathname.startsWith("/collections") || hash === "#collections") return "collections";
@@ -90,29 +100,22 @@ export function SiteHeader() {
             </a>
 
             <nav className="hidden items-center gap-1 lg:flex">
-              {links.map((link) =>
-                link.sale ? (
+              {links.map((link) => {
+                const on = Boolean(link.sale) || headerActive(pathname, link.href, link.sale);
+                return (
                   <a
                     key={link.href}
                     href={link.href}
-                    className="mx-1 rounded-full bg-sale px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.18em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep"
+                    className={
+                      on
+                        ? "mx-1 rounded-full bg-sale px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.18em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep"
+                        : "nav-link px-3 py-2 text-[11px] font-medium tracking-[0.18em] text-ivory/90 uppercase transition-colors duration-300 hover:text-white"
+                    }
                   >
                     {link.label}
                   </a>
-                ) : (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    className={`nav-link px-3 py-2 text-[11px] font-medium tracking-[0.18em] uppercase transition-colors duration-300 hover:text-white ${
-                      pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))
-                        ? "text-white"
-                        : "text-ivory/90"
-                    }`}
-                  >
-                    {link.label}
-                  </a>
-                ),
-              )}
+                );
+              })}
             </nav>
 
             <div className="flex shrink-0 items-center gap-1">
@@ -135,7 +138,7 @@ export function SiteHeader() {
                 href="/help"
                 aria-label="Support"
                 className={`grid h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:hidden ${
-                  pathname.startsWith("/help") ? "bg-white/10 text-gold" : "text-ivory/90"
+                  pathname.startsWith("/help") ? "bg-sale text-white" : "text-ivory/90"
                 }`}
               >
                 <Headset size={18} strokeWidth={1.6} />
@@ -143,7 +146,9 @@ export function SiteHeader() {
               <a
                 href="/cart"
                 aria-label="Bag"
-                className="relative hidden h-10 w-10 place-items-center rounded-full text-ivory/90 transition-all duration-300 hover:bg-white/10 hover:text-white lg:grid"
+                className={`relative hidden h-10 w-10 place-items-center rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white lg:grid ${
+                  pathname.startsWith("/cart") || pathname.startsWith("/checkout") ? "bg-sale text-white" : "text-ivory/90"
+                }`}
               >
                 <ShoppingBag size={18} strokeWidth={1.6} />
                 {count ? (
@@ -193,10 +198,10 @@ export function SiteHeader() {
                   onClick={() => setActive("cart")}
                   aria-current={isOn ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center gap-1 py-2.5 ${
-                    isOn ? "text-ivory" : "text-ivory/55"
+                    isOn ? "text-white" : "text-ivory/55"
                   }`}
                 >
-                  <span className="relative">
+                  <span className={`relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "bg-sale" : ""}`}>
                     <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                     {count ? (
                       <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[8px] font-semibold text-white">
@@ -215,10 +220,12 @@ export function SiteHeader() {
                 onClick={() => setActive(link.id)}
                 aria-current={isOn ? "page" : undefined}
                 className={`flex flex-col items-center justify-center gap-1 py-2.5 ${
-                  isOn ? "text-ivory" : "text-ivory/55"
+                  isOn ? "text-white" : "text-ivory/55"
                 }`}
               >
-                <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
+                <span className={`grid h-9 w-9 place-items-center rounded-full ${isOn ? "bg-sale" : ""}`}>
+                  <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
+                </span>
                 <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
               </a>
             );
