@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Headset, Home, LayoutGrid, Package, Search, ShoppingBag, Tag } from "lucide-react";
 import { useCart } from "@/components/cart-provider";
@@ -52,6 +52,8 @@ export function SiteHeader() {
   const settings = useSiteSettings();
   const [active, setActive] = useState<TabId | null>("home");
   const [searchOpen, setSearchOpen] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
 
   useEffect(() => {
     function sync() {
@@ -64,6 +66,35 @@ export function SiteHeader() {
 
   useEffect(() => {
     setSearchOpen(false);
+  }, [pathname]);
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    function place() {
+      const root = navRef.current;
+      if (!root) return;
+      const current = root.querySelector("[data-nav-active='true']");
+      if (!(current instanceof HTMLElement)) {
+        setPill((prev) => ({ ...prev, width: 0, ready: true }));
+        return;
+      }
+      setPill({
+        left: current.offsetLeft,
+        width: current.offsetWidth,
+        ready: true,
+      });
+    }
+
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(nav);
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
   }, [pathname]);
 
   useEffect(() => {
@@ -99,18 +130,29 @@ export function SiteHeader() {
               ) : null}
             </a>
 
-            <nav className="hidden items-center gap-1 lg:flex">
+            <nav ref={navRef} className="relative hidden items-center lg:flex">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 h-8 -translate-y-1/2 rounded-full bg-sale"
+                style={{
+                  left: pill.left,
+                  width: pill.width,
+                  opacity: pill.width ? 1 : 0,
+                  transition: pill.ready
+                    ? "left 0.45s cubic-bezier(0.22, 1, 0.36, 1), width 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease"
+                    : "none",
+                }}
+              />
               {links.map((link) => {
-                const on = Boolean(link.sale) || headerActive(pathname, link.href, link.sale);
+                const on = headerActive(pathname, link.href, link.sale);
                 return (
                   <a
                     key={link.href}
                     href={link.href}
-                    className={
-                      on
-                        ? "mx-1 rounded-full bg-sale px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.18em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep"
-                        : "nav-link px-3 py-2 text-[11px] font-medium tracking-[0.18em] text-ivory/90 uppercase transition-colors duration-300 hover:text-white"
-                    }
+                    data-nav-active={on ? "true" : undefined}
+                    className={`relative z-10 rounded-full px-3.5 py-1.5 text-[11px] tracking-[0.18em] uppercase transition-colors duration-300 ${
+                      on ? "font-semibold text-white" : "font-medium text-ivory/90 hover:text-white"
+                    }`}
                   >
                     {link.label}
                   </a>
