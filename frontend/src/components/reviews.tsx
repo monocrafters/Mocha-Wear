@@ -19,7 +19,7 @@ function initials(name: string) {
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <p className="text-[13px] tracking-[0.08em] text-gold" aria-label={`${rating} out of 5 stars`}>
+    <p className="text-[11px] tracking-[0.22em] text-gold" aria-label={`${rating} out of 5 stars`}>
       {"★".repeat(rating)}
       <span className="text-mocha/15">{"★".repeat(Math.max(0, 5 - rating))}</span>
     </p>

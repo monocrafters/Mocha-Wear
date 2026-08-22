@@ -170,7 +170,7 @@ export function OrdersList() {
           ] as const
         ).map((card) => (
           <div key={card.label} className="px-1 py-1.5 text-center">
-            <p className="truncate text-[8px] tracking-[0.08em] text-mocha/40 uppercase">{card.label}</p>
+            <p className="truncate text-[10px] tracking-[0.08em] text-mocha/40 uppercase">{card.label}</p>
             <p className="font-serif mt-0.5 text-base leading-none text-mocha-deep">{card.value}</p>
           </div>
         ))}
@@ -198,7 +198,7 @@ export function OrdersList() {
             key={filter.id}
             type="button"
             onClick={() => setActive(filter.id)}
-            className={`shrink-0 px-2.5 py-1.5 text-center text-[8px] font-semibold tracking-[0.06em] uppercase lg:px-3.5 lg:text-[10px] lg:tracking-[0.16em] ${
+            className={`shrink-0 px-2.5 py-1.5 text-center text-[10px] font-semibold tracking-[0.08em] uppercase lg:px-3.5 lg:tracking-[0.16em] ${
               active === filter.id ? "bg-mocha-deep text-ivory" : "border border-mocha/15 text-mocha-deep"
             }`}
           >
@@ -340,7 +340,7 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: () => void }) 
               <div key={step} className="min-w-0">
                 <div className={`h-0.5 ${done ? "bg-mocha-deep" : "bg-sand"}`} />
                 <p
-                  className={`mt-1.5 truncate text-[8px] tracking-[0.1em] uppercase ${
+                  className={`mt-1.5 truncate text-[10px] tracking-[0.1em] uppercase ${
                     done ? "text-mocha-deep" : "text-mocha/30"
                   }`}
                 >

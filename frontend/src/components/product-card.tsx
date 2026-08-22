@@ -39,28 +39,28 @@ export function ProductCard({ product }: { product: Product }) {
           {offLabel || tag ? (
             <div className="absolute left-3 top-3 z-[1] flex flex-col items-start gap-1">
               {offLabel ? (
-                <span className="bg-sale px-2.5 py-1 text-[9px] tracking-[0.18em] text-white uppercase">
+                <span className="bg-sale px-2.5 py-1 text-[10px] tracking-[0.18em] text-white uppercase">
                   {offLabel}
                 </span>
               ) : null}
               {tag ? (
-                <span className="border border-ivory/40 bg-ivory/90 px-2.5 py-1 text-[9px] tracking-[0.18em] text-mocha-deep uppercase backdrop-blur-sm">
+                <span className="border border-ivory/40 bg-ivory/90 px-2.5 py-1 text-[10px] tracking-[0.18em] text-mocha-deep uppercase backdrop-blur-sm">
                   {tag}
                 </span>
               ) : null}
             </div>
           ) : null}
           {soldOut ? (
-            <span className="absolute right-3 top-3 z-[1] bg-mocha-deep/85 px-2.5 py-1 text-[9px] tracking-[0.18em] text-ivory uppercase">
+            <span className="absolute right-3 top-3 z-[1] bg-mocha-deep/85 px-2.5 py-1 text-[10px] tracking-[0.18em] text-ivory uppercase">
               Sold out
             </span>
           ) : null}
         </div>
         <div className="mt-3">
-          <h3 className="font-serif text-[1.35rem] leading-snug text-mocha-deep">{product.name}</h3>
+          <h3 className="font-serif text-[1.05rem] leading-snug text-mocha-deep sm:text-[1.2rem]">{product.name}</h3>
           {spec ? <p className="mt-1 text-[12px] tracking-[0.04em] text-mocha/50">{spec}</p> : null}
-          <p className="mt-2 flex flex-wrap items-baseline gap-2 text-sm">
-            <span className="text-mocha-deep">{formatPkr(product.price)}</span>
+          <p className="mt-2 flex flex-wrap items-baseline gap-2">
+            <span className="font-serif text-[1.05rem] text-mocha-deep">{formatPkr(product.price)}</span>
             {product.compare_at_price > product.price ? (
               <span className="text-[12px] text-mocha/35 line-through">{formatPkr(product.compare_at_price)}</span>
             ) : null}

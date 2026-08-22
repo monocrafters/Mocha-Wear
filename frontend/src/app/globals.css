@@ -149,6 +149,13 @@ body {
 }
 
 @layer components {
+  .store-kicker {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
   .header-link {
     position: relative;
   }
@@ -192,7 +199,7 @@ body {
     height: 100%;
     width: 100%;
     border-radius: 999px;
-    background: var(--sale);
+    background: var(--gold);
     transform: scale3d(var(--pill-sx, 1), var(--pill-sy, 1), 1);
     transform-origin: var(--pill-origin, center) center;
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -213,7 +220,7 @@ body {
     inset: 0;
     z-index: 0;
     border-radius: inherit;
-    background: var(--sale);
+    background: var(--gold);
     opacity: 0;
     transform: scale(0.62);
     transition:
@@ -244,7 +251,19 @@ body {
   }
 
   .header-tab {
+    position: relative;
     transition: color 0.18s ease;
+  }
+
+  .header-tab[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 5px;
+    width: 14px;
+    height: 1.5px;
+    background: var(--gold);
+    transform: translateX(-50%);
   }
 
   .header-tab-icon {
@@ -258,7 +277,7 @@ body {
     inset: 0;
     z-index: 0;
     border-radius: inherit;
-    background: var(--sale);
+    background: var(--gold);
     opacity: 0;
     transform: scale(0.55);
     transition:
@@ -267,7 +286,7 @@ body {
   }
 
   .header-tab-icon.is-on::before {
-    opacity: 1;
+    opacity: 0.28;
     transform: scale(1);
   }
 

@@ -37,7 +37,7 @@ export function HeroSaleTimer({ endsAt }: { endsAt?: string | null }) {
 
   return (
     <p className="hero-copy-item mt-8 hidden leading-none text-mocha-deep/70 lg:block" style={{ transitionDelay: "500ms" }}>
-      <span className="text-[8px] font-semibold tracking-[0.16em] text-sale uppercase lg:text-[13px] lg:tracking-[0.22em]">
+      <span className="store-kicker text-sale lg:text-[13px] lg:tracking-[0.22em]">
         Ends in
       </span>
       {cells.map((cell, index) => (
@@ -46,7 +46,7 @@ export function HeroSaleTimer({ endsAt }: { endsAt?: string | null }) {
           <span className="font-serif text-[0.95rem] text-mocha-deep tabular-nums lg:text-[1.85rem]">
             {pad(cell.value)}
           </span>
-          <span className="ml-px text-[7px] uppercase text-mocha/40 lg:ml-1 lg:text-[12px]">{cell.label}</span>
+          <span className="ml-px text-[11px] uppercase text-mocha/40 lg:ml-1 lg:text-[12px]">{cell.label}</span>
         </span>
       ))}
     </p>

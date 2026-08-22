@@ -87,11 +87,11 @@ export function SaleHero() {
               />
             ) : null}
             {slide.sale_tag_visible && slide.sale_tag_value ? (
-              <div className="absolute right-2 top-2 z-20 rotate-3 bg-ivory px-1.5 py-1 text-center shadow-md lg:right-5 lg:top-5 lg:px-3 lg:py-2">
-                <p className="text-[8px] font-semibold tracking-[0.18em] text-sale uppercase lg:text-[10px]">
+              <div className="absolute right-2 top-2 z-20 bg-ivory/95 px-2 py-1.5 text-center lg:right-5 lg:top-5 lg:px-3 lg:py-2">
+                <p className="store-kicker text-sale">
                   {slide.sale_tag_label || "Sale"}
                 </p>
-                <p className="font-serif text-sm leading-none text-mocha-deep lg:text-2xl">{slide.sale_tag_value}</p>
+                <p className="font-serif mt-0.5 text-sm leading-none text-mocha-deep lg:text-2xl">{slide.sale_tag_value}</p>
               </div>
             ) : null}
           </div>
@@ -156,14 +156,14 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
       {kickerParts.length || slide.sale_badge_enabled ? (
         <div className="hero-copy-item flex flex-wrap items-center justify-center gap-1.5 lg:justify-start lg:gap-2.5" style={{ transitionDelay: "80ms" }}>
           {slide.sale_badge_enabled ? (
-            <span className="bg-sale px-1.5 py-0.5 text-[8px] font-semibold tracking-[0.14em] text-white uppercase lg:px-2.5 lg:py-1 lg:text-[10px] lg:tracking-[0.18em]">
+            <span className="bg-sale px-2 py-0.5 text-[11px] font-semibold tracking-[0.16em] text-white uppercase lg:px-2.5 lg:py-1 lg:text-[10px] lg:tracking-[0.18em]">
               {slide.sale_badge_text || slide.sale?.badge || "SALE"}
             </span>
           ) : null}
           {kickerParts.map((part, i) => (
             <span
               key={part}
-              className={`text-[8px] font-semibold tracking-[0.14em] text-sale uppercase lg:text-[10px] lg:tracking-[0.18em] ${i > 0 ? "hidden sm:inline" : ""}`}
+              className={`store-kicker text-sale ${i > 0 ? "hidden sm:inline" : ""}`}
             >
               {part}
             </span>
@@ -200,7 +200,7 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
         >
           {mobileSpecs.map((item) => (
             <li key={item.id || `${slide.id}-${item.label}`} className="px-2 first:pl-0 last:pr-0">
-              <p className="text-[7px] font-semibold tracking-[0.14em] text-mocha/40 uppercase">{item.label}</p>
+              <p className="text-[11px] font-semibold tracking-[0.14em] text-mocha/40 uppercase">{item.label}</p>
               <p className={`mt-0.5 text-[11px] font-medium leading-none ${item.accent ? "text-sale" : "text-mocha-deep"}`}>
                 {item.value}
               </p>
@@ -215,7 +215,7 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
         >
           {specs.map((item) => (
             <li key={item.id || `${slide.id}-${item.label}`} className="px-4 first:pl-0 last:pr-0">
-              <p className="text-[9px] font-semibold tracking-[0.16em] text-mocha/40 uppercase">{item.label}</p>
+              <p className="store-kicker text-mocha/40">{item.label}</p>
               <p className={`mt-1 text-[13px] font-medium ${item.accent ? "text-sale" : "text-mocha-deep"}`}>
                 {item.value}
               </p>
@@ -232,7 +232,7 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
         {slide.primary_cta_label ? (
           <a
             href={slide.primary_cta_link || "#shop"}
-            className="flex min-h-8 items-center justify-center bg-sale px-1.5 py-1.5 text-center text-[8px] font-semibold leading-tight tracking-[0.12em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep lg:min-h-0 lg:px-7 lg:py-3.5 lg:text-[11px] lg:tracking-[0.2em]"
+            className="flex min-h-10 items-center justify-center bg-sale px-2 py-2 text-center text-[11px] font-semibold leading-tight tracking-[0.14em] text-white uppercase transition-colors duration-300 hover:bg-sale-deep lg:min-h-0 lg:px-7 lg:py-3.5 lg:tracking-[0.2em]"
           >
             {slide.primary_cta_label}
           </a>
@@ -240,7 +240,7 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
         {slide.secondary_cta_label ? (
           <a
             href={slide.secondary_cta_link || "#collections"}
-            className="flex min-h-8 items-center justify-center border border-mocha-deep px-1.5 py-1.5 text-center text-[8px] font-semibold leading-tight tracking-[0.12em] text-mocha-deep uppercase transition-colors hover:bg-mocha-deep hover:text-ivory lg:min-h-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:text-[11px] lg:tracking-[0.18em] lg:underline lg:decoration-mocha/25 lg:underline-offset-8 lg:hover:bg-transparent lg:hover:text-sale lg:hover:decoration-sale"
+            className="flex min-h-10 items-center justify-center border border-mocha-deep px-2 py-2 text-center text-[11px] font-semibold leading-tight tracking-[0.14em] text-mocha-deep uppercase transition-colors hover:bg-mocha-deep hover:text-ivory lg:min-h-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:tracking-[0.18em] lg:underline lg:decoration-mocha/25 lg:underline-offset-8 lg:hover:bg-transparent lg:hover:text-sale lg:hover:decoration-sale"
           >
             {slide.secondary_cta_label}
           </a>

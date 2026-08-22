@@ -211,7 +211,7 @@ export default function ProductPage() {
                     <p className="pb-1 text-[15px] text-mocha-deep/35 line-through">{formatPkr(item.compare_at_price)}</p>
                   ) : null}
                   {off ? (
-                    <span className="mb-0.5 bg-sale px-2 py-1 text-[9px] font-semibold tracking-[0.16em] text-white uppercase">
+                    <span className="mb-0.5 bg-sale px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-white uppercase">
                       Save {off}%
                     </span>
                   ) : null}
@@ -265,7 +265,7 @@ export default function ProductPage() {
           </>
         )}
       </main>
-      <SiteFooter />
+      <SiteFooter showOnMobile />
     </>
   );
 }
@@ -309,15 +309,15 @@ function AmazonGallery({
               onClick={() => onActive(index)}
               onMouseEnter={() => onHover(index)}
               onMouseLeave={() => onHover(null)}
-              className={`relative h-16 w-16 shrink-0 overflow-hidden border bg-white lg:h-[68px] lg:w-[68px] ${
-                selected === index ? "border-sale" : "border-mocha/15 hover:border-mocha/40"
+              className={`relative h-16 w-16 shrink-0 overflow-hidden border bg-sand lg:h-[68px] lg:w-[68px] ${
+                selected === index ? "border-mocha-deep" : "border-mocha/15 hover:border-mocha/40"
               }`}
               aria-label={item.kind === "video" ? "Play video" : `View image ${index + 1}`}
             >
               {item.kind === "video" ? (
                 <>
                   <video src={item.url} className="h-full w-full object-cover" muted playsInline />
-                  <span className="absolute inset-0 grid place-items-center bg-mocha-deep/35 text-[8px] font-semibold tracking-[0.14em] text-white uppercase">
+                  <span className="absolute inset-0 grid place-items-center bg-mocha-deep/35 text-[10px] font-semibold tracking-[0.14em] text-white uppercase">
                     Video
                   </span>
                 </>
@@ -329,7 +329,7 @@ function AmazonGallery({
         </div>
       ) : null}
 
-      <div className="relative order-1 min-h-[300px] flex-1 bg-white lg:order-2 lg:min-h-[560px]">
+      <div className="relative order-1 min-h-[300px] flex-1 bg-sand lg:order-2 lg:min-h-[560px]">
         {shown?.kind === "video" ? (
           <video
             src={shown.url}
@@ -354,12 +354,12 @@ function AmazonGallery({
         {saleBadge || badge ? (
           <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
             {saleBadge ? (
-              <span className="bg-sale px-2.5 py-1 text-[9px] tracking-[0.18em] text-white uppercase shadow-sm">
+              <span className="bg-sale px-2.5 py-1 text-[10px] tracking-[0.18em] text-white uppercase">
                 {saleBadge}
               </span>
             ) : null}
             {badge ? (
-              <span className="bg-ivory px-2.5 py-1 text-[9px] tracking-[0.18em] text-mocha-deep uppercase shadow-sm">
+              <span className="bg-ivory px-2.5 py-1 text-[10px] tracking-[0.18em] text-mocha-deep uppercase">
                 {badge}
               </span>
             ) : null}

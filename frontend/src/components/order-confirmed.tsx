@@ -57,7 +57,7 @@ export function OrderConfirmed() {
         We’ll WhatsApp or call to confirm. Pay the rider in cash when your parcel arrives.
       </p>
 
-      <div className="mt-8 border border-sand bg-white px-5 py-5">
+      <div className="mt-8 border border-sand bg-ivory px-5 py-5">
         <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">Order number</p>
         <p className="mt-1 font-serif text-2xl text-mocha-deep">{order.id}</p>
         <p className="mt-4 text-[10px] tracking-[0.18em] text-mocha/40 uppercase">COD total</p>

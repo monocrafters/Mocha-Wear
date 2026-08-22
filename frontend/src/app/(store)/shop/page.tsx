@@ -13,7 +13,7 @@ export default function ShopPage() {
       <main className="min-w-0 bg-ivory pb-24 lg:pb-0">
         <ShopCatalog />
       </main>
-      <SiteFooter />
+      <SiteFooter showOnMobile />
     </>
   );
 }

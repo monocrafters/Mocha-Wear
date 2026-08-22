@@ -105,7 +105,7 @@ export function ProductBuyActions({ product }: { product: Product }) {
                   key={size}
                   type="button"
                   onClick={() => complete(sheet, size)}
-                  className="min-h-11 min-w-11 border border-mocha/20 bg-white px-4 text-[13px] font-semibold tracking-[0.1em] text-mocha-deep uppercase hover:border-mocha-deep hover:bg-mocha-deep hover:text-ivory"
+                  className="min-h-11 min-w-11 border border-mocha/20 bg-ivory px-4 text-[13px] font-semibold tracking-[0.1em] text-mocha-deep uppercase hover:border-mocha-deep hover:bg-mocha-deep hover:text-ivory"
                 >
                   {size}
                 </button>

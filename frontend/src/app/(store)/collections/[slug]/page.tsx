@@ -150,7 +150,7 @@ export default function CollectionPage() {
           </section>
         )}
       </main>
-      <SiteFooter />
+      <SiteFooter showOnMobile />
     </>
   );
 }

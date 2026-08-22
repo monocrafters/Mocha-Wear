@@ -271,8 +271,8 @@ export function CheckoutView() {
                   setError("");
                   setStep(n);
                 }}
-                className={`grid h-7 w-7 place-items-center ${
-                  step === n ? "bg-mocha-deep text-ivory" : step > n ? "bg-sale text-white" : "bg-sand text-mocha/45"
+                className={`grid h-6 w-6 place-items-center text-[11px] ${
+                  step === n ? "bg-mocha-deep text-ivory" : step > n ? "bg-mocha text-ivory" : "bg-sand text-mocha/45"
                 }`}
               >
                 {n}
@@ -284,7 +284,7 @@ export function CheckoutView() {
         <p className="mt-2 text-sm text-mocha/50 lg:hidden">{hint}</p>
 
         <div className="mt-6 grid w-full min-w-0 gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start">
-          <form id="checkout-form" onSubmit={onFormSubmit} className="min-w-0 border border-sand bg-white p-5 sm:p-6">
+          <form id="checkout-form" onSubmit={onFormSubmit} className="min-w-0 border border-sand bg-ivory p-5 sm:p-6">
             {saved ? (
               <button
                 type="button"
@@ -394,7 +394,7 @@ export function CheckoutView() {
                           className={`min-h-10 border px-3 py-2 text-[12px] ${
                             active
                               ? "border-mocha-deep bg-mocha-deep text-ivory"
-                              : "border-mocha/20 bg-white text-mocha-deep"
+                              : "border-mocha/20 bg-ivory text-mocha-deep"
                           }`}
                         >
                           {item}
@@ -409,7 +409,7 @@ export function CheckoutView() {
                         if (isListedCity(city)) setCity("");
                       }}
                       className={`min-h-10 border px-3 py-2 text-[12px] ${
-                        cityOther ? "border-mocha-deep bg-mocha-deep text-ivory" : "border-mocha/20 bg-white text-mocha-deep"
+                        cityOther ? "border-mocha-deep bg-mocha-deep text-ivory" : "border-mocha/20 bg-ivory text-mocha-deep"
                       }`}
                     >
                       Other
@@ -487,7 +487,7 @@ export function CheckoutView() {
             </button>
           </form>
 
-          <aside className="hidden min-w-0 border border-sand bg-white p-5 sm:p-6 lg:block">
+          <aside className="hidden min-w-0 border border-sand bg-ivory p-5 sm:p-6 lg:block">
             <h2 className="text-[11px] font-semibold tracking-[0.22em] text-mocha-deep uppercase">3 · Review</h2>
             <SummaryBody items={items} subtotal={subtotal} total={total} />
             <ShopWhatsAppLink

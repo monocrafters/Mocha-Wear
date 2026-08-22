@@ -209,7 +209,7 @@ export function SiteHeader() {
     <>
       <header className="sticky top-0 z-50 w-full min-w-0 overflow-x-clip">
         <div className="flex h-7 w-full min-w-0 items-center justify-center overflow-hidden bg-sale text-white sm:h-8">
-          <p className="w-full min-w-0 truncate px-4 text-center text-[10px] font-semibold tracking-[0.16em] uppercase sm:text-[11px] sm:tracking-[0.22em]">
+          <p className="w-full min-w-0 truncate px-4 text-center text-[11px] font-semibold tracking-[0.16em] uppercase sm:tracking-[0.22em]">
             <SaleTimerHeader />
           </p>
         </div>
@@ -250,7 +250,7 @@ export function SiteHeader() {
                     href={link.href}
                     data-nav-active={on ? "true" : undefined}
                     className={`header-link relative z-10 inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] tracking-[0.18em] uppercase transition-colors duration-200 ${
-                      on ? "font-semibold text-white" : "font-medium text-ivory/80"
+                      on ? "font-semibold text-mocha-deep" : "font-medium text-ivory/80"
                     }`}
                     prefetch
                   >
@@ -334,13 +334,13 @@ export function SiteHeader() {
                   }`}
                 >
                   <span
-                    className={`header-tab-icon -mt-5 grid h-12 w-12 place-items-center rounded-full bg-mocha shadow-lg ${
+                    className={`header-tab-icon -mt-3 grid h-10 w-10 place-items-center rounded-full bg-mocha ${
                       isOn ? "is-on" : ""
                     }`}
                   >
-                    <Icon size={18} strokeWidth={1.8} className="text-white" />
+                    <Icon size={17} strokeWidth={1.8} className="text-ivory" />
                   </span>
-                  <span className="mt-1 text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
+                  <span className="mt-1 text-[10px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
                 </Link>
               );
             }
@@ -366,12 +366,12 @@ export function SiteHeader() {
                   <span className={`header-tab-icon relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
                     <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                     {count ? (
-                      <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[8px] font-semibold text-white">
+                      <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-semibold text-white">
                         {count}
                       </span>
                     ) : null}
                   </span>
-                  <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
+                  <span className="text-[10px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
                 </Link>
               );
             }
@@ -396,12 +396,12 @@ export function SiteHeader() {
                 <span className={`header-tab-icon relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
                   <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
                   {link.id === "orders" && openOrders ? (
-                    <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[8px] font-semibold text-white">
+                    <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-semibold text-white">
                       {openOrders > 9 ? "9+" : openOrders}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
+                <span className="text-[10px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
               </Link>
             );
           })}

@@ -52,7 +52,7 @@ export function CartView() {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(10.75rem+env(safe-area-inset-bottom))] lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)] lg:items-start lg:gap-8 lg:overflow-visible lg:px-0 lg:pb-0">
         <div className="space-y-2">
           {items.map((line) => (
-            <article key={cartLineId(line)} className="flex gap-3 bg-white p-3">
+            <article key={cartLineId(line)} className="flex gap-3 border border-sand bg-ivory p-3">
               <Link href={`/products/${line.slug}`} prefetch className="relative h-[92px] w-[68px] shrink-0 overflow-hidden bg-sand">
                 {line.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -105,12 +105,12 @@ export function CartView() {
           ))}
         </div>
 
-        <aside className="mt-3 hidden border border-sand bg-white p-6 lg:mt-0 lg:block">
+        <aside className="mt-3 hidden border border-sand bg-ivory p-6 lg:mt-0 lg:block">
           <SummaryBody subtotal={subtotal} total={total} />
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-[75] border-t border-sand bg-white px-4 py-2.5 lg:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-[75] border-t border-sand bg-ivory px-4 py-2.5 lg:hidden">
         <div className="flex items-center justify-between text-sm">
           <span className="text-mocha/50">Total · COD · Free delivery</span>
           <span className="font-medium text-mocha-deep">{formatPkr(total)}</span>
