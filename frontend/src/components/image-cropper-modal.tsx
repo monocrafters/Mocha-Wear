@@ -63,9 +63,15 @@ export function ImageCropperModal({
     }
   }
 
+  const wide = aspect > 1.15;
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 p-4">
-      <div className="flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 p-3 sm:p-6">
+      <div
+        className={`flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${
+          wide ? "max-w-5xl" : "max-w-xl"
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <div>
             <p className="text-sm text-slate-500">{title}</p>
@@ -76,18 +82,28 @@ export function ImageCropperModal({
           </button>
         </div>
 
-        <div className="relative h-[64vh] min-h-[380px] bg-slate-950">
-          <Cropper
-            image={src}
-            crop={crop}
-            zoom={zoom}
-            aspect={aspect}
-            objectFit="cover"
-            showGrid
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-            onCropComplete={onCropComplete}
-          />
+        <div className="flex justify-center bg-slate-950 px-3 py-3">
+          <div
+            className="relative w-full overflow-hidden"
+            style={{
+              aspectRatio: String(aspect),
+              maxHeight: wide ? "min(52vh, 460px)" : "min(64vh, 560px)",
+            }}
+          >
+            <Cropper
+              image={src}
+              crop={crop}
+              zoom={zoom}
+              minZoom={1}
+              maxZoom={3}
+              aspect={aspect}
+              objectFit="contain"
+              showGrid
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          </div>
         </div>
 
         <div className="space-y-4 px-5 py-4">

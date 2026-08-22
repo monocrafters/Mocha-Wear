@@ -40,7 +40,7 @@ const CROP = {
   coverDesktop: {
     aspect: 21 / 9,
     title: "Card · desktop",
-    hint: "Wide 21:9 for desktop collection cards. Keep the face and neckline in the frame.",
+    hint: "This frame is the same 21:9 as the live desktop card. A 21:9 poster should fill it at zoom 1 — drag only if you need a tighter crop.",
     box: "aspect-[21/9]",
     field: "cover_image_desktop" as const,
     fileName: "cover_desktop",
@@ -60,7 +60,7 @@ const CROP = {
   bannerDesktop: {
     aspect: 3 / 1,
     title: "Page cover · desktop",
-    hint: "Ultra-wide 3:1 for the desktop collection banner. Keep the subject centered.",
+    hint: "This frame is the same 3:1 as the live desktop banner. An ultra-wide poster should fill it at zoom 1.",
     box: "aspect-[3/1]",
     field: "banner_image_desktop" as const,
     fileName: "banner_desktop",
