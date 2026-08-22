@@ -9,6 +9,7 @@ import { SearchOverlay } from "@/components/search-overlay";
 import { StoreNotifications } from "@/components/notification-bell";
 import { SaleTimerHeader } from "@/components/sale-timer";
 import { useSiteSettings } from "@/components/site-settings";
+import { useOpenOrderCount } from "@/lib/use-open-orders";
 
 const links = [
   { href: "/shop", label: "Shop" },
@@ -74,6 +75,7 @@ function writePill(next: { left: number; width: number }) {
 export function SiteHeader() {
   const pathname = usePathname();
   const { count } = useCart();
+  const openOrders = useOpenOrderCount();
   const settings = useSiteSettings();
   const [active, setActive] = useState<TabId | null>("home");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -247,12 +249,17 @@ export function SiteHeader() {
                     key={link.href}
                     href={link.href}
                     data-nav-active={on ? "true" : undefined}
-                    className={`header-link relative z-10 rounded-full px-3.5 py-1.5 text-[11px] tracking-[0.18em] uppercase transition-colors duration-200 ${
+                    className={`header-link relative z-10 inline-flex items-center rounded-full px-3.5 py-1.5 text-[11px] tracking-[0.18em] uppercase transition-colors duration-200 ${
                       on ? "font-semibold text-white" : "font-medium text-ivory/80"
                     }`}
                     prefetch
                   >
                     {link.label}
+                    {link.href === "/orders" && openOrders ? (
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sale px-1 text-[9px] font-semibold text-white">
+                        {openOrders > 9 ? "9+" : openOrders}
+                      </span>
+                    ) : null}
                   </Link>
                 );
               })}
@@ -386,8 +393,13 @@ export function SiteHeader() {
                   isOn ? "text-white" : "text-ivory/55"
                 }`}
               >
-                <span className={`header-tab-icon grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
+                <span className={`header-tab-icon relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
                   <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
+                  {link.id === "orders" && openOrders ? (
+                    <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[8px] font-semibold text-white">
+                      {openOrders > 9 ? "9+" : openOrders}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="text-[8px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
               </Link>

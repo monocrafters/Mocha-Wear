@@ -87,13 +87,9 @@ export function CheckoutView() {
     );
     const next = fromSession || fromOrder;
     setSaved(next);
-    if (next) {
-      applyAddress(next, true);
-      setStep(3);
-    }
   }, []);
 
-  function applyAddress(row: SavedAddress, auto = false) {
+  function applyAddress(row: SavedAddress) {
     setName(row.name);
     setPhone(row.phone);
     setWhatsapp(sameWhatsapp(row) ? "" : row.whatsapp);
@@ -104,10 +100,8 @@ export function CheckoutView() {
     setAddress(row.address);
     setLandmark(row.landmark);
     setUsingSaved(true);
-    if (!auto) {
-      setError("");
-      setStep(3);
-    }
+    setError("");
+    setStep(1);
   }
 
   function markEdited() {
@@ -283,20 +277,26 @@ export function CheckoutView() {
                 type="button"
                 onClick={() => applyAddress(saved)}
                 className={`mb-5 w-full border px-4 py-3.5 text-left transition ${
-                  usingSaved ? "border-mocha-deep bg-cream/70" : "border-sand bg-ivory hover:border-mocha/25"
+                  usingSaved ? "border-mocha-deep bg-cream/70" : "border-sale/40 bg-ivory hover:border-sale"
                 }`}
               >
                 <p className="text-[10px] font-semibold tracking-[0.18em] text-sale uppercase">
-                  {usingSaved ? "Using saved details" : "Saved details · tap to use"}
+                  {usingSaved ? "Using these details" : "Use last delivery?"}
                 </p>
                 <p className="mt-1 truncate text-sm font-medium text-mocha-deep">{saved.name}</p>
+                <p className="mt-0.5 text-[12px] text-mocha/55">{saved.phone}</p>
                 <p className="mt-1 truncate text-[12px] leading-5 text-mocha/50">{addressLine(saved)}</p>
+                <p className="mt-2 text-[10px] tracking-[0.14em] text-mocha/40 uppercase">
+                  {usingSaved ? "You can still edit below" : "Tap to fill · or type a new address below"}
+                </p>
               </button>
             ) : null}
 
             <div className={step === 1 ? "block" : "hidden lg:block"}>
               <h2 className="text-[11px] font-semibold tracking-[0.22em] text-mocha-deep uppercase">1 · Contact</h2>
-              <p className="mt-2 hidden text-sm text-mocha/50 lg:block">Mobile jahan rider call kare.</p>
+              <p className="mt-2 text-sm text-mocha/50">
+                {saved ? "Tap last delivery above, or type a new name and mobile." : "Mobile jahan rider call kare."}
+              </p>
               <div className="mt-4 space-y-3">
                 <label className="block">
                   <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Full name</span>
@@ -492,7 +492,7 @@ export function CheckoutView() {
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-[75] border-t border-sand bg-ivory px-4 py-3 pb-[calc(4.65rem+env(safe-area-inset-bottom))] lg:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-[75] border-t border-sand bg-ivory px-4 py-2.5 lg:hidden">
         <div className="mb-2 flex items-center justify-between text-sm">
           <span className="text-mocha/50">{step < 3 ? `Step ${step} of 3` : "COD · Free delivery"}</span>
           <span className="font-medium text-mocha-deep">{formatPkr(total)}</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/components/admin-products";
 import { useCart } from "@/components/cart-provider";
@@ -13,17 +13,13 @@ type PendingAction = "add" | "buy";
 
 export function ProductBuyActions({ product }: { product: Product }) {
   const router = useRouter();
-  const { addProduct } = useCart();
+  const { addProduct, count } = useCart();
   const sizes = useMemo(() => productSizes(product), [product]);
   const stock = Math.max(0, product.stock ?? 0);
   const soldOut = stock <= 0;
   const maxQty = Math.max(1, Math.min(10, stock || 1));
-  const sizeRef = useRef<HTMLDivElement>(null);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
-  const [picked, setPicked] = useState("");
-  const [needSize, setNeedSize] = useState(false);
-  const [shake, setShake] = useState(false);
   const [sheet, setSheet] = useState<PendingAction | null>(null);
 
   function complete(action: PendingAction, size: string) {
@@ -42,16 +38,11 @@ export function ProductBuyActions({ product }: { product: Product }) {
 
   function start(action: PendingAction) {
     if (soldOut) return;
-    if (sizes.length && !picked) {
-      setNeedSize(true);
-      setShake(true);
-      window.setTimeout(() => setShake(false), 450);
-      sizeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (sizes.length) {
       setSheet(action);
       return;
     }
-    setNeedSize(false);
-    complete(action, sizes.length ? picked : "");
+    complete(action, "");
   }
 
   const sizeHelp = `Hi Mocha Wear, I need help choosing a size for ${product.name}.`;
@@ -59,19 +50,11 @@ export function ProductBuyActions({ product }: { product: Product }) {
   return (
     <>
       <div className="mt-6 lg:mt-8">
-        <div ref={sizeRef} className={shake ? "animate-pulse" : ""}>
-          <SizePicker
-            sizes={sizes}
-            picked={picked}
-            needSize={needSize}
-            soldOut={soldOut}
-            onPick={(size) => {
-              setPicked(size);
-              setNeedSize(false);
-              setSheet(null);
-            }}
-          />
-        </div>
+        {sizes.length ? (
+          <p className="text-[12px] text-mocha/50">
+            Sizes {sizes.join(" · ")}. Tap Add or Buy, then choose your size.
+          </p>
+        ) : null}
         {sizes.length ? (
           <ShopWhatsAppLink
             message={sizeHelp}
@@ -86,7 +69,7 @@ export function ProductBuyActions({ product }: { product: Product }) {
         <div className="hidden lg:block">
           <QtyControl qty={qty} soldOut={soldOut} maxQty={maxQty} onChange={setQty} size="lg" />
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <AddButton soldOut={soldOut} added={added} onClick={() => start("add")} />
+            <AddButton soldOut={soldOut} added={added} count={count} onClick={() => start("add")} />
             <BuyButton soldOut={soldOut} onClick={() => start("buy")} />
           </div>
           <ShopTrustLine className="mt-3" />
@@ -96,38 +79,47 @@ export function ProductBuyActions({ product }: { product: Product }) {
       <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-[75] border-t border-sand bg-ivory px-3 py-2.5 shadow-[0_-6px_20px_rgba(31,22,18,0.08)] lg:hidden">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-2">
           <QtyControl qty={qty} soldOut={soldOut} maxQty={maxQty} onChange={setQty} size="sm" />
-          <AddButton soldOut={soldOut} added={added} onClick={() => start("add")} compact />
+          <AddButton soldOut={soldOut} added={added} count={count} onClick={() => start("add")} compact />
           <BuyButton soldOut={soldOut} onClick={() => start("buy")} compact />
         </div>
       </div>
 
-      {sheet && sizes.length && !picked ? (
+      {sheet ? (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-mocha-deep/45 p-0 lg:hidden"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-mocha-deep/45 p-0 lg:items-center lg:p-6"
           onClick={() => setSheet(null)}
         >
           <div
-            className="w-full bg-ivory px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl"
+            className="w-full bg-ivory px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:max-w-md lg:pb-6"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-mocha/15" />
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-mocha/15 lg:hidden" />
             <p className="text-[11px] font-semibold tracking-[0.18em] text-sale uppercase">Choose size</p>
-            <h2 className="font-serif mt-1 text-2xl text-mocha-deep">{product.name}</h2>
-            <SizePicker
-              sizes={sizes}
-              picked={picked}
-              needSize
-              soldOut={soldOut}
-              onPick={(size) => {
-                setPicked(size);
-                setNeedSize(false);
-                complete(sheet, size);
-              }}
+            <h2 className="font-serif mt-1 text-2xl text-mocha-deep">
+              {sheet === "buy" ? "Select a size to buy" : "Select a size to add"}
+            </h2>
+            <p className="mt-1 text-sm text-mocha/55">{product.name}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {sizes.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => complete(sheet, size)}
+                  className="min-h-11 min-w-11 border border-mocha/20 bg-white px-4 text-[13px] font-semibold tracking-[0.1em] text-mocha-deep uppercase hover:border-mocha-deep hover:bg-mocha-deep hover:text-ivory"
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            <ShopWhatsAppLink
+              message={sizeHelp}
+              label="Size help on WhatsApp"
+              className="mt-4 inline-block text-[11px] tracking-[0.12em] text-mocha/50 uppercase underline decoration-mocha/20 underline-offset-4 hover:text-sale"
             />
             <button
               type="button"
               onClick={() => setSheet(null)}
-              className="mt-4 w-full border border-mocha/20 py-3.5 text-[11px] font-semibold tracking-[0.16em] text-mocha-deep uppercase"
+              className="mt-5 w-full border border-mocha/20 py-3.5 text-[11px] font-semibold tracking-[0.16em] text-mocha-deep uppercase"
             >
               Cancel
             </button>
@@ -135,53 +127,6 @@ export function ProductBuyActions({ product }: { product: Product }) {
         </div>
       ) : null}
     </>
-  );
-}
-
-function SizePicker({
-  sizes,
-  picked,
-  needSize,
-  soldOut,
-  onPick,
-}: {
-  sizes: string[];
-  picked: string;
-  needSize: boolean;
-  soldOut: boolean;
-  onPick: (size: string) => void;
-}) {
-  if (!sizes.length) return null;
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[12px] font-semibold tracking-[0.16em] text-mocha-deep uppercase">Choose size</p>
-        {needSize ? <p className="text-[11px] tracking-[0.12em] text-sale uppercase">Required</p> : null}
-        {picked && !needSize ? <p className="text-[11px] tracking-[0.12em] text-mocha/45 uppercase">{picked}</p> : null}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {sizes.map((size) => {
-          const active = picked === size;
-          return (
-            <button
-              key={size}
-              type="button"
-              disabled={soldOut}
-              onClick={() => onPick(size)}
-              className={`min-h-11 min-w-11 border px-4 text-[13px] font-semibold tracking-[0.1em] uppercase disabled:opacity-40 ${
-                active
-                  ? "border-mocha-deep bg-mocha-deep text-ivory"
-                  : needSize
-                    ? "border-sale bg-white text-mocha-deep"
-                    : "border-mocha/20 bg-white text-mocha-deep hover:border-mocha-deep"
-              }`}
-            >
-              {size}
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -235,11 +180,13 @@ function QtyControl({
 function AddButton({
   soldOut,
   added,
+  count,
   onClick,
   compact,
 }: {
   soldOut: boolean;
   added: boolean;
+  count: number;
   onClick: () => void;
   compact?: boolean;
 }) {
@@ -248,11 +195,16 @@ function AddButton({
       type="button"
       disabled={soldOut}
       onClick={onClick}
-      className={`border border-mocha-deep font-semibold text-mocha-deep uppercase transition-colors hover:bg-mocha-deep hover:text-ivory disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`relative border border-mocha-deep font-semibold text-mocha-deep uppercase transition-colors hover:bg-mocha-deep hover:text-ivory disabled:cursor-not-allowed disabled:opacity-40 ${
         compact ? "h-11 min-w-0 px-2 text-[12px] tracking-[0.1em]" : "px-4 py-3.5 text-[11px] tracking-[0.18em]"
       }`}
     >
       {soldOut ? "Sold out" : added ? "Added" : "Add to bag"}
+      {!soldOut && count ? (
+        <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-semibold text-white">
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : null}
     </button>
   );
 }

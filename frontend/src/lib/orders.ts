@@ -185,6 +185,10 @@ export function orderDate(order: Order) {
   return order.placedAt || "";
 }
 
+export function openOrderCount(orders: { status: OrderStatus }[]) {
+  return orders.filter((order) => order.status === "processing" || order.status === "packed" || order.status === "shipped").length;
+}
+
 export function orderTotal(order: Order) {
   if (typeof order.total === "number") return order.total;
   const goods = order.items.reduce((sum, item) => sum + item.price * item.qty, 0);
