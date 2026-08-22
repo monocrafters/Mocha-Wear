@@ -145,8 +145,7 @@ export function CheckoutView() {
     }
   }
 
-  async function placeOrder(event: FormEvent) {
-    event.preventDefault();
+  async function submitOrder() {
     if (!items.length || placing) return;
 
     const c = contactOk();
@@ -198,6 +197,20 @@ export function CheckoutView() {
       setError(err instanceof Error ? err.message : "Could not place order. Try again.");
       setPlacing(false);
     }
+  }
+
+  function onFormSubmit(event: FormEvent) {
+    event.preventDefault();
+    const desktop = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+    if (desktop) {
+      void submitOrder();
+      return;
+    }
+    if (step < 3) {
+      goNext();
+      return;
+    }
+    void submitOrder();
   }
 
   if (!checkoutReady || !items.length) {
@@ -271,7 +284,7 @@ export function CheckoutView() {
         <p className="mt-2 text-sm text-mocha/50 lg:hidden">{hint}</p>
 
         <div className="mt-6 grid w-full min-w-0 gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start">
-          <form id="checkout-form" onSubmit={placeOrder} className="min-w-0 border border-sand bg-white p-5 sm:p-6">
+          <form id="checkout-form" onSubmit={onFormSubmit} className="min-w-0 border border-sand bg-white p-5 sm:p-6">
             {saved ? (
               <button
                 type="button"
@@ -465,8 +478,9 @@ export function CheckoutView() {
             {error ? <p className="mt-4 text-sm text-sale">{error}</p> : null}
 
             <button
-              type="submit"
+              type="button"
               disabled={placing}
+              onClick={() => void submitOrder()}
               className="mt-6 hidden w-full bg-sale px-4 py-3.5 text-[12px] font-semibold tracking-[0.16em] text-white uppercase hover:bg-sale-deep disabled:opacity-60 lg:block"
             >
               {placing ? "Placing order…" : `Confirm COD · ${formatPkr(total)}`}
@@ -498,10 +512,12 @@ export function CheckoutView() {
           <span className="font-medium text-mocha-deep">{formatPkr(total)}</span>
         </div>
         <button
-          type={step === 3 ? "submit" : "button"}
-          form={step === 3 ? "checkout-form" : undefined}
+          type="button"
           disabled={placing}
-          onClick={step === 3 ? undefined : goNext}
+          onClick={() => {
+            if (step < 3) goNext();
+            else void submitOrder();
+          }}
           className="flex h-11 w-full items-center justify-center bg-sale text-[12px] font-semibold tracking-[0.14em] text-white uppercase disabled:opacity-60"
         >
           {placing ? "Placing order…" : step === 3 ? `Confirm COD · ${formatPkr(total)}` : "Continue"}
