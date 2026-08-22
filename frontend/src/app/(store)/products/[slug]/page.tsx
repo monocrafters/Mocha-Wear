@@ -16,6 +16,7 @@ import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-s
 import { useCatalog, useCatalogProduct } from "@/components/catalog-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { ProductPageSkeleton } from "@/components/skeletons";
+import { HomeWhatsAppButton } from "@/components/home-whatsapp-button";
 
 function readProductCache(slug: string) {
   return peekApiCache<{ item: Product }>(`/api/products/${slug}`)?.item || null;
@@ -149,7 +150,7 @@ export default function ProductPage() {
 
   return (
     <>
-      <main className="bg-ivory pb-[calc(9.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <main className="bg-ivory pb-[calc(13.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         {missing ? (
           <section className="mx-auto max-w-3xl px-5 py-24 text-center">
             <h1 className="font-serif text-4xl">Product not found</h1>
@@ -225,12 +226,11 @@ export default function ProductPage() {
 
                 <ProductBuyActions product={item} />
 
-                {(item.fabric || item.pieces || item.color || item.code || item.sizes?.length || (item.labels || []).length) ? (
+                    {(item.fabric || item.pieces || item.color || item.code || (item.labels || []).length) ? (
                   <dl className="mt-10 divide-y divide-mocha/10 border-y border-mocha/10">
                     {item.fabric ? <DetailRow label="Fabric" value={item.fabric} /> : null}
                     {item.pieces ? <DetailRow label="Set" value={item.pieces} /> : null}
                     {item.color ? <DetailRow label="Color" value={item.color} /> : null}
-                    {item.sizes?.length ? <DetailRow label="Sizes" value={item.sizes.join(" · ")} /> : null}
                     {item.code ? <DetailRow label="Code" value={item.code} /> : null}
                     {(item.labels || []).map((row: ProductLabel) =>
                       row.label || row.value ? (
@@ -267,6 +267,7 @@ export default function ProductPage() {
         )}
       </main>
       <SiteFooter />
+      <HomeWhatsAppButton lift />
     </>
   );
 }

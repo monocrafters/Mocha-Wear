@@ -47,11 +47,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const key = cartLineId({ productId: product.id, size: picked });
       const existing = prev.find((line) => cartLineId(line) === key);
       if (existing) {
+        const maxQty = existing.maxQty || 10;
         return prev.map((line) =>
-          cartLineId(line) === key ? { ...line, qty: Math.min(10, line.qty + qty) } : line,
+          cartLineId(line) === key ? { ...line, qty: Math.min(maxQty, line.qty + qty) } : line,
         );
       }
-      return [...prev, lineFromProduct(product, Math.min(10, qty), picked)];
+      const next = lineFromProduct(product, qty, picked);
+      if ((product.stock ?? 1) <= 0) return prev;
+      return [...prev, next];
     });
   }, []);
 
@@ -60,7 +63,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => {
       if (qty < 1) return prev.filter((line) => cartLineId(line) !== key);
       return prev.map((line) =>
-        cartLineId(line) === key ? { ...line, qty: Math.min(10, qty) } : line,
+        cartLineId(line) === key ? { ...line, qty: Math.min(line.maxQty || 10, qty) } : line,
       );
     });
   }, []);

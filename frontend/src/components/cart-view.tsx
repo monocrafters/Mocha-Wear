@@ -91,8 +91,9 @@ export function CartView() {
                     <button
                       type="button"
                       aria-label="Increase quantity"
+                      disabled={line.qty >= (line.maxQty || 10)}
                       onClick={() => setQty(line.productId, line.qty + 1, line.size)}
-                      className="grid h-8 w-8 place-items-center text-mocha-deep"
+                      className="grid h-8 w-8 place-items-center text-mocha-deep disabled:opacity-30"
                     >
                       +
                     </button>

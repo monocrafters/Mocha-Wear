@@ -15,13 +15,18 @@ import {
 import {
   addressLine,
   asSavedAddress,
+  normalizePkMobile,
   readCustomerSession,
   sameWhatsapp,
   type SavedAddress,
 } from "@/lib/customer";
 import { formatPkr } from "@/lib/money";
 import { placeOrderRequest, readOrdersCache, rememberOrderPhone } from "@/lib/orders";
+import { isListedCity, PK_CITIES } from "@/lib/pk-cities";
 import { CheckoutSkeleton } from "@/components/skeletons";
+import { ShopTrustLine } from "@/components/shop-trust-line";
+import { ShopWhatsAppLink } from "@/components/shop-whatsapp-link";
+import { HomeWhatsAppButton } from "@/components/home-whatsapp-button";
 
 const fieldClass =
   "mt-1.5 w-full border border-mocha/15 bg-ivory px-3 py-2.5 text-sm outline-none focus:border-mocha-deep";
@@ -39,6 +44,7 @@ export function CheckoutView() {
   const [whatsapp, setWhatsapp] = useState("");
   const [sameWhatsappOn, setSameWhatsappOn] = useState(true);
   const [city, setCity] = useState("");
+  const [cityOther, setCityOther] = useState(false);
   const [area, setArea] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
@@ -77,21 +83,23 @@ export function CheckoutView() {
           }
         : null,
     );
-    setSaved(fromSession || fromOrder);
+    const next = fromSession || fromOrder;
+    setSaved(next);
+    if (next) applyAddress(next, true);
   }, []);
 
-  function applySaved() {
-    if (!saved) return;
-    setName(saved.name);
-    setPhone(saved.phone);
-    setWhatsapp(sameWhatsapp(saved) ? "" : saved.whatsapp);
-    setSameWhatsappOn(sameWhatsapp(saved));
-    setCity(saved.city);
-    setArea(saved.area);
-    setAddress(saved.address);
-    setLandmark(saved.landmark);
+  function applyAddress(row: SavedAddress, auto = false) {
+    setName(row.name);
+    setPhone(row.phone);
+    setWhatsapp(sameWhatsapp(row) ? "" : row.whatsapp);
+    setSameWhatsappOn(sameWhatsapp(row));
+    setCity(row.city);
+    setCityOther(!isListedCity(row.city));
+    setArea(row.area);
+    setAddress(row.address);
+    setLandmark(row.landmark);
     setUsingSaved(true);
-    setError("");
+    if (!auto) setError("");
   }
 
   function markEdited() {
@@ -102,19 +110,19 @@ export function CheckoutView() {
     event.preventDefault();
     if (!items.length || placing) return;
 
-    const mobile = phone.replace(/\D/g, "");
-    const wa = (sameWhatsappOn ? phone : whatsapp).replace(/\D/g, "");
+    const mobile = normalizePkMobile(phone);
+    const wa = sameWhatsappOn ? mobile : normalizePkMobile(whatsapp);
 
     if (!name.trim() || !phone.trim() || !city.trim() || !area.trim() || !address.trim()) {
       setError("Full name, mobile, city, area, and complete address are required.");
       return;
     }
-    if (mobile.length !== 11 || !mobile.startsWith("03")) {
-      setError("Enter an 11-digit mobile number starting with 03.");
+    if (!mobile) {
+      setError("Enter a Pakistani mobile like 03xxxxxxxxx or +92 3xx.");
       return;
     }
-    if (!sameWhatsappOn && (wa.length !== 11 || !wa.startsWith("03"))) {
-      setError("Enter an 11-digit WhatsApp number starting with 03.");
+    if (!sameWhatsappOn && !wa) {
+      setError("Enter a Pakistani WhatsApp number like 03xxxxxxxxx or +92 3xx.");
       return;
     }
 
@@ -122,7 +130,7 @@ export function CheckoutView() {
     setError("");
     try {
       rememberOrderPhone(mobile);
-      await placeOrderRequest({
+      const order = await placeOrderRequest({
         city: city.trim(),
         customer: {
           name: name.trim(),
@@ -146,7 +154,7 @@ export function CheckoutView() {
       });
       if (buyNow) clearBuyNow();
       else clear();
-      router.push("/orders");
+      router.push(`/orders/confirmed?id=${encodeURIComponent(order.id)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not place order. Try again.");
       setPlacing(false);
@@ -158,7 +166,8 @@ export function CheckoutView() {
   }
 
   return (
-    <section className="mx-auto w-full min-w-0 max-w-[1440px] px-4 py-10 sm:px-8 sm:py-14">
+    <>
+    <section className="mx-auto w-full min-w-0 max-w-[1440px] px-4 py-10 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:px-8 sm:py-14 lg:pb-14">
       <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">
         <Link href="/" prefetch className="hover:text-mocha-deep">
           Home
@@ -187,6 +196,7 @@ export function CheckoutView() {
         <div className="min-w-0">
           <p className="text-[11px] font-semibold tracking-[0.28em] text-sale uppercase">Cash on delivery</p>
           <h1 className="font-serif mt-2 text-4xl tracking-[-0.03em] text-mocha-deep sm:text-5xl">Checkout</h1>
+          <ShopTrustLine className="mt-2" />
         </div>
         <p className="text-[12px] tracking-[0.16em] text-mocha/45 uppercase">
           {count} piece{count === 1 ? "" : "s"}
@@ -194,18 +204,22 @@ export function CheckoutView() {
       </div>
 
       <div className="mt-8 grid w-full min-w-0 gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:items-start">
-        <form onSubmit={placeOrder} className="min-w-0 border border-sand bg-white p-5 sm:p-6">
+        <form id="checkout-form" onSubmit={placeOrder} className="min-w-0 border border-sand bg-white p-5 sm:p-6">
           <h2 className="text-[11px] font-semibold tracking-[0.22em] text-mocha-deep uppercase">
             Delivery details
           </h2>
           <p className="mt-2 text-sm text-mocha/50">
-            {saved ? "Tap your saved details to fill the form, or enter a new address." : "Enter the address the rider should deliver to."}
+            {saved
+              ? usingSaved
+                ? "Using your last delivery details. Edit anything that changed."
+                : "Tap saved details to fill the form, or enter a new address."
+              : "Enter the address the rider should deliver to."}
           </p>
 
           {saved ? (
             <button
               type="button"
-              onClick={applySaved}
+              onClick={() => applyAddress(saved)}
               className={`mt-5 w-full border px-4 py-3.5 text-left transition ${
                 usingSaved ? "border-mocha-deep bg-cream/70" : "border-sand bg-ivory hover:border-mocha/25"
               }`}
@@ -230,6 +244,8 @@ export function CheckoutView() {
             <label className="block">
               <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Full name</span>
               <input
+                name="name"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => {
                   markEdited();
@@ -242,14 +258,16 @@ export function CheckoutView() {
             <label className="block">
               <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Mobile number</span>
               <input
+                name="tel"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
                 value={phone}
                 onChange={(e) => {
                   markEdited();
                   setPhone(e.target.value);
                 }}
-                inputMode="numeric"
-                placeholder="03xxxxxxxxx"
-                maxLength={11}
+                placeholder="03xxxxxxxxx or +92 3xx"
                 className={fieldClass}
               />
             </label>
@@ -271,35 +289,83 @@ export function CheckoutView() {
               <label className="block">
                 <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">WhatsApp number</span>
                 <input
+                  name="whatsapp"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={whatsapp}
                   onChange={(e) => {
                     markEdited();
                     setWhatsapp(e.target.value);
                   }}
-                  inputMode="numeric"
-                  placeholder="03xxxxxxxxx"
-                  maxLength={11}
+                  placeholder="03xxxxxxxxx or +92 3xx"
                   className={fieldClass}
                 />
               </label>
             ) : null}
 
-            <label className="block">
+            <div>
               <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">City</span>
-              <input
-                value={city}
-                onChange={(e) => {
-                  markEdited();
-                  setCity(e.target.value);
-                }}
-                placeholder="Karachi, Lahore, Islamabad…"
-                className={fieldClass}
-              />
-            </label>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {PK_CITIES.map((item) => {
+                  const active = !cityOther && city === item;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        markEdited();
+                        setCityOther(false);
+                        setCity(item);
+                      }}
+                      className={`border px-3 py-1.5 text-[11px] tracking-[0.06em] ${
+                        active
+                          ? "border-mocha-deep bg-mocha-deep text-ivory"
+                          : "border-mocha/20 bg-white text-mocha-deep hover:border-mocha-deep"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    markEdited();
+                    setCityOther(true);
+                    if (isListedCity(city)) setCity("");
+                  }}
+                  className={`border px-3 py-1.5 text-[11px] tracking-[0.06em] ${
+                    cityOther
+                      ? "border-mocha-deep bg-mocha-deep text-ivory"
+                      : "border-mocha/20 bg-white text-mocha-deep hover:border-mocha-deep"
+                  }`}
+                >
+                  Other
+                </button>
+              </div>
+              {cityOther ? (
+                <input
+                  name="address-level2"
+                  autoComplete="address-level2"
+                  value={city}
+                  onChange={(e) => {
+                    markEdited();
+                    setCity(e.target.value);
+                  }}
+                  placeholder="Your city"
+                  className={fieldClass}
+                />
+              ) : (
+                <input type="hidden" name="address-level2" value={city} />
+              )}
+            </div>
 
             <label className="block">
               <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Area / town</span>
               <input
+                name="address-level3"
+                autoComplete="address-level3"
                 value={area}
                 onChange={(e) => {
                   markEdited();
@@ -313,6 +379,8 @@ export function CheckoutView() {
             <label className="block">
               <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Complete address</span>
               <textarea
+                name="street-address"
+                autoComplete="street-address"
                 value={address}
                 onChange={(e) => {
                   markEdited();
@@ -327,6 +395,7 @@ export function CheckoutView() {
             <label className="block">
               <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Landmark · optional</span>
               <input
+                autoComplete="off"
                 value={landmark}
                 onChange={(e) => {
                   markEdited();
@@ -342,7 +411,7 @@ export function CheckoutView() {
             <button
               type="submit"
               disabled={placing}
-              className="w-full bg-sale px-4 py-3.5 text-[12px] font-semibold tracking-[0.16em] text-white uppercase hover:bg-sale-deep disabled:opacity-60"
+              className="hidden w-full bg-sale px-4 py-3.5 text-[12px] font-semibold tracking-[0.16em] text-white uppercase hover:bg-sale-deep disabled:opacity-60 lg:block"
             >
               {placing ? "Placing order…" : "Confirm order"}
             </button>
@@ -379,23 +448,42 @@ export function CheckoutView() {
               <dd>Free</dd>
             </div>
             <div className="flex justify-between font-medium">
-              <dt>Total</dt>
+              <dt>COD total</dt>
               <dd>{formatPkr(total)}</dd>
             </div>
           </dl>
-          <p className="mt-4 text-[12px] leading-5 text-mocha/45">Free nationwide delivery.</p>
-          <p className="mt-3 text-[12px] leading-5 text-mocha/45">
-            Pay the rider in cash when your order arrives.
-          </p>
+          <p className="mt-4 text-[12px] leading-5 text-mocha/45">Pay the rider in cash when your order arrives. We’ll WhatsApp or call to confirm.</p>
+          <ShopWhatsAppLink
+            message="Hi Mocha Wear, I have a question before I place my COD order."
+            label="Question? WhatsApp us"
+            className="mt-4 inline-block text-[11px] tracking-[0.14em] text-mocha/50 uppercase underline decoration-mocha/20 underline-offset-8 hover:text-sale"
+          />
           <Link
             href={buyNow && items[0]?.slug ? `/products/${items[0].slug}` : "/cart"}
             prefetch
-            className="mt-6 inline-block text-[11px] tracking-[0.16em] text-mocha/50 uppercase underline decoration-mocha/20 underline-offset-8 hover:text-mocha-deep"
+            className="mt-6 block text-[11px] tracking-[0.16em] text-mocha/50 uppercase underline decoration-mocha/20 underline-offset-8 hover:text-mocha-deep"
           >
             {buyNow ? "Back to product" : "Back to cart"}
           </Link>
         </aside>
       </div>
     </section>
+
+    <div className="fixed inset-x-0 bottom-0 z-[75] border-t border-sand bg-ivory px-4 py-3 pb-[calc(4.65rem+env(safe-area-inset-bottom))] lg:hidden">
+      <div className="mb-2 flex items-center justify-between text-sm">
+        <span className="text-mocha/50">COD · Free delivery</span>
+        <span className="font-medium text-mocha-deep">{formatPkr(total)}</span>
+      </div>
+      <button
+        type="submit"
+        form="checkout-form"
+        disabled={placing}
+        className="flex w-full items-center justify-center bg-sale py-3 text-[11px] font-semibold tracking-[0.16em] text-white uppercase disabled:opacity-60"
+      >
+        {placing ? "Placing order…" : "Confirm order"}
+      </button>
+    </div>
+    <HomeWhatsAppButton lift />
+    </>
   );
 }

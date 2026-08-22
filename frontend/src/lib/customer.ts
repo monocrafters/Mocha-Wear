@@ -15,9 +15,19 @@ function digits(value: string) {
   return String(value || "").replace(/\D/g, "");
 }
 
+/** Accept 03…, 3…, 92…, +92… — return canonical 03xxxxxxxxx or "". */
+export function normalizePkMobile(value: string) {
+  let raw = digits(value);
+  if (raw.startsWith("0092")) raw = raw.slice(2);
+  if (raw.startsWith("92") && raw.length >= 12) raw = `0${raw.slice(2)}`;
+  if (raw.length === 10 && raw.startsWith("3")) raw = `0${raw}`;
+  if (raw.length === 11 && raw.startsWith("03")) return raw;
+  return "";
+}
+
 export function asSavedAddress(row: Partial<SavedAddress> | null | undefined): SavedAddress | null {
   if (!row) return null;
-  const phone = digits(row.phone || "");
+  const phone = normalizePkMobile(row.phone || "") || digits(row.phone || "");
   const name = String(row.name || "").trim();
   const city = String(row.city || "").trim();
   const area = String(row.area || "").trim();
@@ -26,7 +36,7 @@ export function asSavedAddress(row: Partial<SavedAddress> | null | undefined): S
   return {
     name,
     phone,
-    whatsapp: digits(row.whatsapp || row.phone || ""),
+    whatsapp: normalizePkMobile(row.whatsapp || row.phone || "") || digits(row.whatsapp || row.phone || ""),
     city,
     area,
     address,

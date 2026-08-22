@@ -8,6 +8,7 @@ export type CartLine = {
   compareAtPrice: number;
   image: string;
   qty: number;
+  maxQty: number;
 };
 
 export function cartLineId(line: { productId: string; size?: string }) {
@@ -17,20 +18,30 @@ export function cartLineId(line: { productId: string; size?: string }) {
 export const CART_KEY = "mocha-wear-cart";
 export const BUY_NOW_KEY = "mocha-wear-buy-now";
 
+function lineMaxQty(row: { maxQty?: number; stock?: number }) {
+  const cap = Number(row.maxQty ?? row.stock);
+  if (Number.isFinite(cap) && cap > 0) return Math.min(10, Math.floor(cap));
+  return 10;
+}
+
 function parseLines(raw: unknown): CartLine[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((row) => ({
-      productId: String(row.productId || ""),
-      slug: String(row.slug || ""),
-      name: String(row.name || "Suit"),
-      spec: String(row.spec || ""),
-      size: String(row.size || "").trim(),
-      price: Number(row.price) || 0,
-      compareAtPrice: Number(row.compareAtPrice) || 0,
-      image: String(row.image || ""),
-      qty: Math.max(1, Math.min(10, Number(row.qty) || 1)),
-    }))
+    .map((row) => {
+      const maxQty = lineMaxQty(row);
+      return {
+        productId: String(row.productId || ""),
+        slug: String(row.slug || ""),
+        name: String(row.name || "Suit"),
+        spec: String(row.spec || ""),
+        size: String(row.size || "").trim(),
+        price: Number(row.price) || 0,
+        compareAtPrice: Number(row.compareAtPrice) || 0,
+        image: String(row.image || ""),
+        maxQty,
+        qty: Math.max(1, Math.min(maxQty, Number(row.qty) || 1)),
+      };
+    })
     .filter((row) => row.productId);
 }
 
@@ -46,10 +57,13 @@ export function lineFromProduct(
     price: number;
     compare_at_price?: number;
     images?: { url: string }[];
+    stock?: number;
   },
   qty: number,
   size = "",
 ): CartLine {
+  const available = Math.max(0, Number(product.stock ?? 10));
+  const cappedMax = Math.min(10, Math.max(1, available || 10));
   return {
     productId: product.id,
     slug: product.code || product.slug,
@@ -59,7 +73,8 @@ export function lineFromProduct(
     price: product.price,
     compareAtPrice: product.compare_at_price || 0,
     image: product.images?.[0]?.url || "",
-    qty: Math.max(1, Math.min(10, qty)),
+    maxQty: cappedMax,
+    qty: Math.max(1, Math.min(cappedMax, qty)),
   };
 }
 
