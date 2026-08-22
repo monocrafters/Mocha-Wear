@@ -7,7 +7,7 @@ import { Headset, Home, LayoutGrid, Package, Search, ShoppingBag, Tag } from "lu
 import { useCart } from "@/components/cart-provider";
 import { SearchOverlay } from "@/components/search-overlay";
 import { StoreNotifications } from "@/components/notification-bell";
-import { SaleTimerHeader, SaleTimerStrip } from "@/components/sale-timer";
+import { SaleTimerHeader } from "@/components/sale-timer";
 import { useSiteSettings } from "@/components/site-settings";
 
 const links = [
@@ -300,7 +300,6 @@ export function SiteHeader() {
             </div>
           </div>
         </div>
-        {pathname !== "/" && !pathname.startsWith("/products") ? <SaleTimerStrip /> : null}
       </header>
 
       <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/10 bg-mocha-deep pb-[env(safe-area-inset-bottom)] lg:hidden">

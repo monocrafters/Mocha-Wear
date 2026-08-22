@@ -7,7 +7,6 @@ import { ScrollProgress } from "@/components/scroll-progress";
 import { ShopNotes } from "@/components/shop-notes";
 import { JoinList } from "@/components/join-list";
 import { SiteFooter } from "@/components/site-footer";
-import { HomeWhatsAppButton } from "@/components/home-whatsapp-button";
 
 export default function Home() {
   return (
@@ -23,7 +22,6 @@ export default function Home() {
         <JoinList />
       </main>
       <SiteFooter showOnMobile />
-      <HomeWhatsAppButton />
     </>
   );
 }

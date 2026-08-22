@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import { apiJson, peekApiCache } from "@/lib/api-cache";
 import type { HeroSlide } from "@/components/admin-hero";
-import { HeroSaleTimer } from "@/components/hero-sale-timer";
 import { HeroSkeleton } from "@/components/skeletons";
 import { StoreImage } from "@/components/store-image";
-import { useActiveSale } from "@/lib/active-sale";
 
 export function SaleHero() {
   const cached = peekApiCache<{ hero?: { slides?: HeroSlide[] } }>("/api/hero");
@@ -144,8 +142,6 @@ function isPriceLabel(item: { label: string; accent?: boolean; strike?: boolean 
 }
 
 function SlideContext({ slide }: { slide: HeroSlide }) {
-  const active = useActiveSale();
-  const endsAt = slide.sale?.ends_at || active?.ends_at;
   const labels = (slide.labels || []).filter((item) => item.label || item.value);
   const kickerParts = slide.kicker
     ? slide.kicker.split("·").map((part) => part.trim()).filter(Boolean)
@@ -250,7 +246,6 @@ function SlideContext({ slide }: { slide: HeroSlide }) {
           </a>
         ) : null}
       </div>
-      {endsAt ? <HeroSaleTimer endsAt={endsAt} /> : null}
     </div>
   );
 }

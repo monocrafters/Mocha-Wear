@@ -16,7 +16,6 @@ import { productInActiveSale, saleOffLabel, useActiveSale } from "@/lib/active-s
 import { useCatalog, useCatalogProduct } from "@/components/catalog-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { ProductPageSkeleton } from "@/components/skeletons";
-import { HomeWhatsAppButton } from "@/components/home-whatsapp-button";
 
 function readProductCache(slug: string) {
   return peekApiCache<{ item: Product }>(`/api/products/${slug}`)?.item || null;
@@ -150,7 +149,7 @@ export default function ProductPage() {
 
   return (
     <>
-      <main className="bg-ivory pb-[calc(13.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <main className="bg-ivory pb-[calc(9.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         {missing ? (
           <section className="mx-auto max-w-3xl px-5 py-24 text-center">
             <h1 className="font-serif text-4xl">Product not found</h1>
@@ -267,7 +266,6 @@ export default function ProductPage() {
         )}
       </main>
       <SiteFooter />
-      <HomeWhatsAppButton lift />
     </>
   );
 }

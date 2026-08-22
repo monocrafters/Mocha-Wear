@@ -110,7 +110,7 @@ export function CartView() {
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-[60] border-t border-sand bg-white px-4 pt-3 pb-[calc(3.85rem+env(safe-area-inset-bottom))] lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-[75] border-t border-sand bg-white px-4 pt-3 pb-[calc(4.65rem+env(safe-area-inset-bottom))] lg:hidden">
         <div className="flex items-center justify-between text-sm">
           <span className="text-mocha/50">Total · COD · Free delivery</span>
           <span className="font-medium text-mocha-deep">{formatPkr(total)}</span>
