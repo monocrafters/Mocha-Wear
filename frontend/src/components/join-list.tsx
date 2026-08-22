@@ -7,8 +7,8 @@ export function JoinList() {
   if (!settings.newsletter_enabled) return null;
 
   return (
-    <section id="contact" className="border-t border-sand bg-ivory px-5 py-24 text-center sm:px-8">
-      <p className="text-[11px] font-semibold tracking-[0.28em] text-sale uppercase">{settings.newsletter_kicker}</p>
+    <section id="contact" className="border-t border-sand bg-ivory px-5 py-16 text-center sm:px-8 lg:py-24">
+      <p className="store-kicker text-gold">{settings.newsletter_kicker}</p>
       <h2 className="font-serif mt-4 text-4xl tracking-[-0.03em] text-mocha-deep sm:text-5xl">
         {settings.newsletter_heading}
       </h2>

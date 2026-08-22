@@ -194,9 +194,9 @@ export default function ProductPage() {
                 </p>
 
                 {item.is_on_sale ? (
-                  <p className="mt-3 text-[10px] font-semibold tracking-[0.24em] text-sale uppercase lg:mt-5 lg:text-[11px] lg:tracking-[0.28em]">On sale</p>
+                  <p className="store-kicker mt-3 text-gold lg:mt-5">On sale</p>
                 ) : (
-                  <p className="mt-3 text-[10px] font-semibold tracking-[0.24em] text-mocha/40 uppercase lg:mt-5 lg:text-[11px] lg:tracking-[0.28em]">
+                  <p className="store-kicker mt-3 text-mocha/40 lg:mt-5">
                     {collection?.name || "Mocha Wear"}
                   </p>
                 )}
@@ -252,7 +252,7 @@ export default function ProductPage() {
             {related.length ? (
               <section className="border-t border-sand px-5 py-16 sm:px-8">
                 <div className="mx-auto max-w-[1440px]">
-                  <p className="text-[11px] font-semibold tracking-[0.28em] text-sale uppercase">More from this collection</p>
+                  <p className="store-kicker text-gold">More from this collection</p>
                   <h2 className="font-serif mt-3 text-3xl text-mocha-deep sm:text-4xl">You may also like</h2>
                   <div className={`mt-8 ${productGridClass}`}>
                     {related.map((product) => (

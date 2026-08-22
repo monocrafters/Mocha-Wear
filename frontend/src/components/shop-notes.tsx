@@ -9,11 +9,11 @@ export function ShopNotes() {
   if (!notes.length && !settings.notes_heading) return null;
 
   return (
-    <section id="help" className="border-t border-sand bg-ivory">
-      <div className="mx-auto max-w-[1440px] px-5 py-12 sm:px-8 sm:py-14">
+    <section id="help" className="border-t border-sand bg-cream/70">
+      <div className="mx-auto max-w-[1440px] px-5 py-14 sm:px-8 lg:py-20">
         <div className="mb-8 max-w-xl">
           {settings.notes_kicker ? (
-            <p className="text-[11px] font-semibold tracking-[0.28em] text-sale uppercase">{settings.notes_kicker}</p>
+            <p className="store-kicker text-gold">{settings.notes_kicker}</p>
           ) : null}
           {settings.notes_heading ? (
             <h2 className="font-serif mt-2 text-3xl tracking-[-0.03em] text-mocha-deep sm:text-4xl">
@@ -24,7 +24,7 @@ export function ShopNotes() {
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           {notes.map((note) => (
-            <article key={note.id} className="border border-sand bg-cream/50 px-4 py-5 sm:px-5 sm:py-6">
+            <article key={note.id} className="border border-sand bg-ivory px-4 py-6 sm:px-5 sm:py-7">
               <h3 className="font-serif text-[1.25rem] text-mocha-deep">{note.title}</h3>
               <p className="mt-2 text-[13px] leading-6 text-mocha/65">{note.copy}</p>
             </article>

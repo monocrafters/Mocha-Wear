@@ -112,7 +112,7 @@ export default function CollectionPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-1 lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-8 lg:pb-10">
               {kicker ? (
-                <p className="text-[10px] font-semibold tracking-[0.22em] text-sale uppercase">{kicker}</p>
+                <p className="store-kicker text-gold">{kicker}</p>
               ) : null}
               <div className="mt-1 flex items-end justify-between gap-3">
                 <h1 className="font-serif text-[2rem] leading-none tracking-[-0.03em] text-mocha-deep sm:text-5xl">

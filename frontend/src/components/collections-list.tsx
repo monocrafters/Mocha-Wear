@@ -16,7 +16,7 @@ export function CollectionsList() {
     <section className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:max-w-[1440px] lg:w-full lg:px-8 lg:py-12">
       <div className="flex items-end justify-between px-4 py-3 lg:px-0 lg:pb-8">
         <div>
-          <p className="text-[10px] font-semibold tracking-[0.22em] text-sale uppercase">{settings.collections_kicker}</p>
+          <p className="store-kicker text-gold">{settings.collections_kicker}</p>
           <h1 className="font-serif mt-0.5 text-[1.75rem] leading-none tracking-[-0.03em] text-mocha-deep lg:text-5xl">
             {settings.collections_heading}
           </h1>

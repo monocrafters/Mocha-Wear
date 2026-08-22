@@ -75,10 +75,10 @@ export function Reviews() {
   if (!loading && !items.length) return null;
 
   return (
-    <section id="reviews" className="w-full border-t border-sand bg-cream/70 py-12 sm:py-14">
+    <section id="reviews" className="w-full border-t border-sand bg-ivory py-14 lg:py-20">
       <div className="mx-auto mb-6 flex max-w-[1440px] items-end justify-between px-5 sm:px-8">
         <div className="max-w-xl">
-          <p className="text-[11px] font-semibold tracking-[0.28em] text-sale uppercase">{settings.reviews_kicker}</p>
+          <p className="store-kicker text-gold">{settings.reviews_kicker}</p>
           <h2 className="font-serif mt-2 text-3xl tracking-[-0.03em] text-mocha-deep sm:text-4xl">
             {settings.reviews_heading}
           </h2>

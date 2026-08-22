@@ -19,7 +19,7 @@ export function ShopCatalog() {
   }, [products, active]);
 
   return (
-    <section className="mx-auto max-w-[1440px] px-4 py-10 sm:px-8 sm:py-14">
+    <section className="mx-auto max-w-[1440px] px-4 py-14 sm:px-8 lg:py-20">
       <p className="text-[10px] tracking-[0.18em] text-mocha/40 uppercase">
         <Link href="/" className="hover:text-mocha-deep">
           Home
@@ -29,7 +29,7 @@ export function ShopCatalog() {
       </p>
       <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.28em] text-sale uppercase">{settings.shop_kicker}</p>
+          <p className="store-kicker text-gold">{settings.shop_kicker}</p>
           <h1 className="font-serif mt-2 text-4xl tracking-[-0.03em] text-mocha-deep sm:text-5xl">{settings.shop_heading}</h1>
         </div>
         <p className="text-[12px] tracking-[0.16em] text-mocha/45 uppercase">
@@ -88,7 +88,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={`shrink-0 px-3.5 py-2 text-[10px] font-semibold tracking-[0.16em] uppercase transition-colors ${
-        active ? "bg-mocha-deep text-ivory" : "border border-mocha/15 text-mocha-deep hover:border-mocha-deep"
+        active ? "bg-mocha-deep text-ivory" : "border border-mocha/15 bg-ivory text-mocha-deep hover:border-mocha-deep"
       }`}
     >
       {label}
