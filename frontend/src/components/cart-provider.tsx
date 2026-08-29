@@ -54,9 +54,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
         if (!res.ok) return;
         const data = await res.json();
-        const map = new Map(
-          (data.items || []).map((item: { id: string; price: number }) => [item.id, item.price]),
-        );
+        const map = new Map<string, number>();
+        for (const row of Array.isArray(data.items) ? data.items : []) {
+          const id = String(row?.id || "").trim();
+          const price = Math.round(Number(row?.price) || 0);
+          if (id && price > 0) map.set(id, price);
+        }
         if (cancelled || !map.size) return;
         setItems((prev) =>
           prev.map((line) => {
