@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { fetchSharePreview, shareOgImage, sharePageUrl, siteOrigin } from "@/lib/share-preview";
+import { fetchSharePreview, shareOgImage, shareOgImageSquare, sharePageUrl, siteOrigin } from "@/lib/share-preview";
 import { ReferralProductClient } from "./referral-product-client";
 
 type PageProps = {
   params: Promise<{ code: string; slug: string }>;
 };
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { code, slug } = await params;
@@ -20,6 +22,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const pageUrl = sharePageUrl(origin, code, slug);
   const image = shareOgImage(preview.image) || preview.image;
+  const square = shareOgImageSquare(preview.image_square || preview.image) || image;
+  const ogPath = `/r/${encodeURIComponent(code)}/p/${encodeURIComponent(slug)}/opengraph-image`;
+
+  const ogImages = [
+    {
+      url: ogPath,
+      secureUrl: `${origin}${ogPath}`,
+      width: 1200,
+      height: 630,
+      type: "image/png",
+      alt: preview.product_name || preview.title,
+    },
+    ...(square
+      ? [
+          {
+            url: square,
+            secureUrl: square,
+            width: 1200,
+            height: 1200,
+            type: "image/jpeg",
+            alt: preview.product_name || preview.title,
+          },
+        ]
+      : []),
+  ];
 
   return {
     metadataBase: new URL(origin),
@@ -33,35 +60,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: "website",
       siteName: "Mocha Wear",
       locale: "en_PK",
-      ...(image
-        ? {
-            images: [
-              {
-                url: image,
-                secureUrl: image,
-                width: 1200,
-                height: 630,
-                type: "image/jpeg",
-                alt: preview.product_name || preview.title,
-              },
-            ],
-          }
-        : {}),
+      images: ogImages,
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: preview.title,
       description: preview.description,
-      ...(image ? { images: [image] } : {}),
+      images: [`${origin}${ogPath}`],
     },
-    other: image
-      ? {
-          "og:image:secure_url": image,
-          "og:image:width": "1200",
-          "og:image:height": "630",
-          "og:image:type": "image/jpeg",
-        }
-      : undefined,
   };
 }
 

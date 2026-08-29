@@ -259,14 +259,31 @@ function absoluteShareUrl(url) {
   return `${base}${raw.startsWith("/") ? raw : `/${raw}`}`;
 }
 
-function shareOgImage(url) {
+function cloudinaryShareImage(url, transform, marker) {
   const absolute = absoluteShareUrl(url);
   if (!absolute) return "";
   if (!/res\.cloudinary\.com/i.test(absolute) || !absolute.includes("/upload/")) {
     return absolute;
   }
-  if (/c_fill,w_1200,h_630/.test(absolute)) return absolute;
-  return absolute.replace("/upload/", "/upload/c_fill,w_1200,h_630,f_jpg,q_auto:good/");
+  if (marker.test(absolute)) return absolute;
+  return absolute.replace("/upload/", `/upload/${transform}/`);
+}
+
+function shareOgImage(url) {
+  return cloudinaryShareImage(url, "c_fill,w_1200,h_630,f_jpg,q_auto:good", /c_fill,w_1200,h_630/);
+}
+
+function shareOgImageSquare(url) {
+  return cloudinaryShareImage(url, "c_fill,w_1200,h_1200,f_jpg,q_auto:good", /c_fill,w_1200,h_1200/);
+}
+
+function cleanShareText(text, maxLen = 120) {
+  return String(text || "")
+    .replace(/\*\*/g, "")
+    .replace(/[_#`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
 }
 
 async function sharePreview(code, slug) {
@@ -284,24 +301,30 @@ async function sharePreview(code, slug) {
   }
 
   const adminSettings = await settings.getAdmin();
-  const siteName = String(adminSettings.site_title || "Mocha Wear").trim();
+  const brand = "Mocha Wear";
   const priceRow = await resellerPrices.getActive(reseller.id, product.id);
   const imageRaw = product.images?.[0]?.url || product.image || adminSettings.og_image || "";
   const image = shareOgImage(imageRaw);
+  const imageSquare = shareOgImageSquare(imageRaw);
   const sellPrice = priceRow ? Number(priceRow.custom_price) : Number(product.price) || 0;
   const priceLabel = sellPrice > 0 ? `Rs. ${sellPrice.toLocaleString("en-PK")}` : "";
-  const blurb = String(product.description || product.fabric || product.name || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 140);
-  const description = [priceLabel, blurb].filter(Boolean).join(" · ");
+  const blurb = cleanShareText(product.fabric || product.description || product.name, 100);
+  const title = priceLabel
+    ? `${product.name} — ${priceLabel} | ${brand}`
+    : `${product.name} | ${brand}`;
+  const description = blurb
+    ? `${blurb}. Order now at ${brand}.`
+    : `${product.name} — shop now at ${brand}.`;
 
   return {
-    title: `${product.name} — ${siteName}`,
-    description: description || product.name,
+    title,
+    description,
     image,
+    image_square: imageSquare,
     image_width: 1200,
     image_height: 630,
+    image_square_width: 1200,
+    image_square_height: 1200,
     image_type: "image/jpeg",
     product_name: product.name,
     price: sellPrice,
