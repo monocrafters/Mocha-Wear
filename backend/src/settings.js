@@ -55,6 +55,10 @@ function emptySettings() {
     newsletter_heading: "First look at the next drop.",
     newsletter_placeholder: "Email address",
     newsletter_button: "Subscribe",
+    reseller_min_percent: 10,
+    reseller_max_percent: 40,
+    reseller_return_window_days: 7,
+    reseller_min_payout: 2000,
   };
 }
 
@@ -164,11 +168,18 @@ function normalize(data = {}) {
     newsletter_heading: text(data.newsletter_heading, fallback.newsletter_heading),
     newsletter_placeholder: text(data.newsletter_placeholder, fallback.newsletter_placeholder),
     newsletter_button: text(data.newsletter_button, fallback.newsletter_button),
+    reseller_min_percent: Number(data.reseller_min_percent ?? fallback.reseller_min_percent) || 10,
+    reseller_max_percent: Number(data.reseller_max_percent ?? fallback.reseller_max_percent) || 40,
+    reseller_return_window_days:
+      Number(data.reseller_return_window_days ?? fallback.reseller_return_window_days) || 7,
+    reseller_min_payout: Number(data.reseller_min_payout ?? fallback.reseller_min_payout) || 2000,
   };
 }
 
 async function getPublic() {
-  return readSettings();
+  const all = await readSettings();
+  const { reseller_min_percent, reseller_max_percent, reseller_return_window_days, reseller_min_payout, ...pub } = all;
+  return pub;
 }
 
 async function getAdmin() {

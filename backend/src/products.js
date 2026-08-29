@@ -157,11 +157,15 @@ function shape(row = {}, index = 0) {
         : Math.max(0, asNumber(row.stock, 0)),
     price: asNumber(row.price, 0),
     compare_at_price: asNumber(row.compare_at_price, 0),
+    wholesale_price: asNumber(row.wholesale_price, 0),
+    reseller_enabled: asBool(row.reseller_enabled, false),
     badge: String(row.badge || "").trim(),
     video_url: String(row.video_url || "").trim(),
     sizes: shapeSizes(row.sizes),
     labels: shapeLabels(row.labels),
     images: images.map((item, i) => ({ ...item, sort_order: i })),
+    wholesale_price: asNumber(row.wholesale_price, 0),
+    reseller_enabled: asBool(row.reseller_enabled, false),
     is_on_sale: asBool(row.is_on_sale, false),
     is_published: row.is_published !== false && row.is_published !== "false",
     sort_order: asNumber(row.sort_order, index + 1),
@@ -198,11 +202,15 @@ function payloadFromBody(body = {}, existing = {}) {
     stock: body.stock ?? existing.stock,
     price: body.price ?? existing.price,
     compare_at_price: body.compare_at_price ?? existing.compare_at_price,
+    wholesale_price: body.wholesale_price ?? existing.wholesale_price,
+    reseller_enabled: body.reseller_enabled !== undefined ? body.reseller_enabled : existing.reseller_enabled,
     badge: body.badge ?? existing.badge,
     video_url: clearVideo ? "" : body.video_url ?? existing.video_url,
     sizes: parseJson(body.sizes, existing.sizes || []),
     labels: parseJson(body.labels, existing.labels || []),
     images,
+    wholesale_price: body.wholesale_price ?? existing.wholesale_price,
+    reseller_enabled: body.reseller_enabled !== undefined ? body.reseller_enabled : existing.reseller_enabled,
     is_on_sale: body.is_on_sale !== undefined ? body.is_on_sale : existing.is_on_sale,
     is_published: body.is_published !== undefined ? body.is_published : existing.is_published,
     sort_order: body.sort_order ?? existing.sort_order,
@@ -241,6 +249,14 @@ async function getById(id) {
   return (await listAll()).find((item) => item.id === id) || null;
 }
 
+function assertResellerPricing(product) {
+  if (product.reseller_enabled && !(Number(product.wholesale_price) > 0)) {
+    const err = new Error("Set a wholesale price before enabling this product for resellers");
+    err.status = 400;
+    throw err;
+  }
+}
+
 async function createOne(body) {
   const data = await readStore();
   const product = payloadFromBody(body, {
@@ -249,6 +265,7 @@ async function createOne(body) {
     is_published: true,
     sort_order: data.products.length + 1,
   });
+  assertResellerPricing(product);
   if (data.products.some((item) => sameCode(item.code || item.slug, product.code))) {
     const err = new Error("Product code already exists");
     err.status = 409;
@@ -268,6 +285,7 @@ async function updateOne(id, body) {
     throw err;
   }
   const product = payloadFromBody(body, data.products[index]);
+  assertResellerPricing(product);
   if (data.products.some((item) => sameCode(item.code || item.slug, product.code) && item.id !== id)) {
     const err = new Error("Product code already exists");
     err.status = 409;

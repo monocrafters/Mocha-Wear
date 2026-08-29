@@ -3,6 +3,7 @@
 import { DragEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
+import { applyCatalogVersion } from "@/lib/catalog-meta";
 import { ImageCropperModal } from "@/components/image-cropper-modal";
 import { AdminConfirm } from "@/components/admin-confirm";
 import { AdminListSkeleton } from "@/components/skeletons";
@@ -243,6 +244,7 @@ export function AdminCollections() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not save collection");
+      if (data.catalog_v) applyCatalogVersion(Number(data.catalog_v));
       closeForm();
       await load();
     } catch (err) {
@@ -263,6 +265,7 @@ export function AdminCollections() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Could not delete");
+      if (data.catalog_v) applyCatalogVersion(Number(data.catalog_v));
       setPendingDelete(null);
       await load();
     } catch (err) {
@@ -308,7 +311,10 @@ export function AdminCollections() {
     if (!res.ok) {
       setError("Could not save collection order");
       await load();
+      return;
     }
+    const data = await res.json().catch(() => ({}));
+    if (data.catalog_v) applyCatalogVersion(Number(data.catalog_v));
   }
 
   return (

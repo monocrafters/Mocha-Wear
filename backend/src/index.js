@@ -19,6 +19,14 @@ const customers = require("./customers");
 const notifications = require("./notifications");
 const settings = require("./settings");
 const httpCache = require("./httpCache");
+const catalogMeta = require("./catalogMeta");
+const resellers = require("./resellers");
+const resellerAuth = require("./resellerAuth");
+const resellerPrices = require("./resellerPrices");
+const resellerWallet = require("./resellerWallet");
+const resellerPricing = require("./resellerPricing");
+const resellerLinkRequests = require("./resellerLinkRequests");
+const resellerDomains = require("./resellerDomains");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -45,7 +53,7 @@ const allowedOrigins = new Set(
 
 app.use(compression());
 app.use(
-  cors({
+      cors({
     origin(origin, callback) {
       if (!origin) {
         callback(null, true);
@@ -68,6 +76,8 @@ app.use(
       callback(null, false);
     },
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-Reseller-Code"],
+    exposedHeaders: ["Set-Cookie"],
   }),
 );
 app.use(express.json());
@@ -76,6 +86,9 @@ app.use("/api/admin", httpCache.noStore);
 app.use("/api/orders", httpCache.noStore);
 app.use("/api/notifications", httpCache.noStore);
 app.use("/api/health", httpCache.noStore);
+app.use("/api/reseller", httpCache.noStore);
+app.use("/api/r", httpCache.noStore);
+app.use("/api/pricing", httpCache.noStore);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -167,6 +180,14 @@ app.post("/api/admin/login", adminAuth.login);
 app.get("/api/admin/me", adminAuth.me);
 app.post("/api/admin/logout", adminAuth.logout);
 
+app.get("/api/catalog-meta", httpCache.publicMeta, async (_req, res) => {
+  try {
+    res.json({ v: await catalogMeta.getVersion() });
+  } catch (error) {
+    res.status(500).json({ message: error.message || "Could not read catalog meta" });
+  }
+});
+
 app.get("/api/collections", httpCache.publicCatalog, async (_req, res) => {
   try {
     const items = await collections.listPublished();
@@ -199,7 +220,8 @@ app.post("/api/admin/collections", adminAuth.requireAdmin, mediaFields, async (r
   try {
     const body = await attachCloudinary(req, { ...req.body });
     const item = await collections.createOne(body);
-    res.status(201).json({ item });
+    const catalog_v = await catalogMeta.bump();
+    res.status(201).json({ item, catalog_v });
   } catch (error) {
     collections.sendError(res, error);
   }
@@ -208,7 +230,8 @@ app.post("/api/admin/collections", adminAuth.requireAdmin, mediaFields, async (r
 app.patch("/api/admin/collections/reorder", adminAuth.requireAdmin, async (req, res) => {
   try {
     const items = await collections.reorder(req.body?.ids);
-    res.json({ items });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ items, catalog_v });
   } catch (error) {
     collections.sendError(res, error);
   }
@@ -218,7 +241,8 @@ app.patch("/api/admin/collections/:id", adminAuth.requireAdmin, mediaFields, asy
   try {
     const body = await attachCloudinary(req, { ...req.body });
     const item = await collections.updateOne(req.params.id, body);
-    res.json({ item });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ item, catalog_v });
   } catch (error) {
     collections.sendError(res, error);
   }
@@ -227,7 +251,8 @@ app.patch("/api/admin/collections/:id", adminAuth.requireAdmin, mediaFields, asy
 app.delete("/api/admin/collections/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
     await collections.removeOne(req.params.id);
-    res.json({ ok: true });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ ok: true, catalog_v });
   } catch (error) {
     collections.sendError(res, error);
   }
@@ -235,6 +260,13 @@ app.delete("/api/admin/collections/:id", adminAuth.requireAdmin, async (req, res
 
 app.get("/api/products", httpCache.publicCatalog, async (req, res) => {
   try {
+    const hasReferral = Boolean(
+      resellerAuth.parseCookies(req).mw_r || req.headers["x-reseller-code"],
+    );
+    if (hasReferral) {
+      res.set("Cache-Control", "private, no-store");
+    }
+    res.set("Vary", "Cookie, X-Reseller-Code");
     const requested = String(req.query.collection || "").trim();
     let collectionId = requested;
     if (requested && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requested)) {
@@ -242,7 +274,10 @@ app.get("/api/products", httpCache.publicCatalog, async (req, res) => {
       if (!collection) return res.json({ items: [] });
       collectionId = collection.id;
     }
-    const items = await products.listPublished({ collection: collectionId });
+    const items = await resellerPricing.applyResellerPricingToList(
+      await products.listPublished({ collection: collectionId }),
+      req,
+    );
     res.json({ items });
   } catch (error) {
     products.sendError(res, error);
@@ -251,9 +286,16 @@ app.get("/api/products", httpCache.publicCatalog, async (req, res) => {
 
 app.get("/api/products/:slug", httpCache.publicCatalog, async (req, res) => {
   try {
+    const hasReferral = Boolean(
+      resellerAuth.parseCookies(req).mw_r || req.headers["x-reseller-code"],
+    );
+    if (hasReferral) {
+      res.set("Cache-Control", "private, no-store");
+    }
+    res.set("Vary", "Cookie, X-Reseller-Code");
     const item = await products.getBySlug(req.params.slug);
     if (!item) return res.status(404).json({ message: "Product not found" });
-    res.json({ item });
+    res.json({ item: await resellerPricing.applyResellerPricing(item, req) });
   } catch (error) {
     products.sendError(res, error);
   }
@@ -272,7 +314,8 @@ app.post("/api/admin/products", adminAuth.requireAdmin, productFields, async (re
     const body = await attachProductImages(req, { ...req.body });
     const item = await products.createOne(body);
     await notifications.notifyNewProduct(item);
-    res.status(201).json({ item });
+    const catalog_v = await catalogMeta.bump();
+    res.status(201).json({ item, catalog_v });
   } catch (error) {
     products.sendError(res, error);
   }
@@ -284,7 +327,8 @@ app.patch("/api/admin/products/:id", adminAuth.requireAdmin, productFields, asyn
     const body = await attachProductImages(req, { ...req.body });
     const item = await products.updateOne(req.params.id, body);
     if (item.is_published && !before?.is_published) await notifications.notifyNewProduct(item);
-    res.json({ item });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ item, catalog_v });
   } catch (error) {
     products.sendError(res, error);
   }
@@ -293,7 +337,8 @@ app.patch("/api/admin/products/:id", adminAuth.requireAdmin, productFields, asyn
 app.delete("/api/admin/products/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
     await products.removeOne(req.params.id);
-    res.json({ ok: true });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ ok: true, catalog_v });
   } catch (error) {
     products.sendError(res, error);
   }
@@ -402,7 +447,8 @@ app.post("/api/admin/sales", adminAuth.requireAdmin, async (req, res) => {
     const item = await sales.createOne(req.body);
     const nextIds = await products.resolveSaleProductIds(item.product_ids, item.collection_ids);
     await products.syncSaleProducts([], nextIds);
-    res.status(201).json({ item });
+    const catalog_v = await catalogMeta.bump();
+    res.status(201).json({ item, catalog_v });
   } catch (error) {
     sales.sendError(res, error);
   }
@@ -417,7 +463,8 @@ app.patch("/api/admin/sales/:id", adminAuth.requireAdmin, async (req, res) => {
     if (req.body.product_ids !== undefined || req.body.collection_ids !== undefined) {
       await products.syncSaleProducts(prevIds, nextIds);
     }
-    res.json({ item });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ item, catalog_v });
   } catch (error) {
     sales.sendError(res, error);
   }
@@ -426,7 +473,8 @@ app.patch("/api/admin/sales/:id", adminAuth.requireAdmin, async (req, res) => {
 app.delete("/api/admin/sales/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
     await sales.removeOne(req.params.id);
-    res.json({ ok: true });
+    const catalog_v = await catalogMeta.bump();
+    res.json({ ok: true, catalog_v });
   } catch (error) {
     sales.sendError(res, error);
   }
@@ -555,7 +603,21 @@ app.delete("/api/admin/help/notes/:id", adminAuth.requireAdmin, async (req, res)
 
 app.post("/api/orders", async (req, res) => {
   try {
-    const item = await orders.createOne(req.body);
+    const resolved = await resellerPricing.resolveOrderItems(req.body?.items || [], req);
+    const item = await orders.createOne({
+      ...req.body,
+      items: resolved.items,
+      reseller_id: resolved.attributed ? resolved.reseller_id : "",
+      reseller_code: resolved.attributed ? resolved.reseller_code : "",
+      commission_total: resolved.commission_total,
+    });
+    if (resolved.attributed && item.commission_total > 0 && item.reseller_id) {
+      await resellerWallet.creditPending({
+        reseller_id: item.reseller_id,
+        order_id: item.id,
+        amount: item.commission_total,
+      });
+    }
     await notifications.notifyNewOrder(item);
     res.status(201).json({ item });
   } catch (error) {
@@ -702,6 +764,397 @@ app.patch("/api/admin/settings", adminAuth.requireAdmin, async (req, res) => {
     res.json({ settings: await settings.updateSettings(req.body) });
   } catch (error) {
     settings.sendError(res, error);
+  }
+});
+
+app.get("/api/pricing", async (req, res) => {
+  try {
+    const ids = String(req.query.ids || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    res.json({ items: await resellerPricing.pricingForIds(ids, req) });
+  } catch (error) {
+    products.sendError(res, error);
+  }
+});
+
+app.get("/api/r/:code", async (req, res) => {
+  try {
+    const reseller = await resellerPricing.activateReferral(req.params.code, res, "/");
+    const to = String(req.query.to || "/").trim() || "/";
+    res.json({ ok: true, code: reseller.code, to: to.startsWith("/") ? to : "/", reseller });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/r/:code/p/:slug/share", httpCache.publicCatalog, async (req, res) => {
+  try {
+    const item = await resellerPricing.sharePreview(req.params.code, req.params.slug);
+    res.json({ item });
+  } catch (error) {
+    res.status(error.status || 404).json({ message: error.message || "Not found" });
+  }
+});
+
+app.get("/api/r/:code/p/:slug", async (req, res) => {
+  try {
+    const slug = String(req.params.slug || "").trim();
+    const reseller = await resellerPricing.activateReferral(req.params.code, res, `/products/${slug}`);
+    res.json({ ok: true, code: reseller.code, to: `/products/${slug}`, reseller });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/login", resellerAuth.login);
+app.get("/api/reseller/me", resellerAuth.me);
+app.post("/api/reseller/logout", resellerAuth.logout);
+
+app.get("/api/reseller/link", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const stats = await resellerPricing.clickStats(req.reseller.id);
+    const pending = await resellerLinkRequests.getPendingForReseller(req.reseller.id);
+    const recent = (await resellerLinkRequests.listByReseller(req.reseller.id)).slice(0, 5);
+    res.json({
+      code: req.reseller.code,
+      path: `/r/${req.reseller.code}`,
+      clicks: stats.clicks,
+      custom_domain: req.reseller.custom_domain || "",
+      custom_domain_status: req.reseller.custom_domain_status || "none",
+      pending_request: pending,
+      recent_requests: recent,
+    });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/link/check", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const code = String(req.query.code || "").trim();
+    if (!code) {
+      return res.status(400).json({ message: "Provide code to check" });
+    }
+    res.json({ code: await resellerLinkRequests.isCodeAvailable(code, req.reseller.id) });
+  } catch (error) {
+    resellerLinkRequests.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/link/request", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const item = await resellerLinkRequests.createRequest(req.reseller, req.body || {});
+    res.status(201).json({ item });
+  } catch (error) {
+    resellerLinkRequests.sendError(res, error);
+  }
+});
+
+app.get("/api/domain-lookup", async (req, res) => {
+  try {
+    const host = String(req.query.host || req.headers.host || "")
+      .trim()
+      .toLowerCase()
+      .replace(/:\d+$/, "")
+      .replace(/^www\./, "");
+    if (!host) return res.json({ item: null });
+    const reseller = await resellers.getByCustomDomain(host);
+    if (!reseller) return res.json({ item: null });
+    res.json({
+      item: {
+        code: reseller.code,
+        name: reseller.name,
+        custom_domain: reseller.custom_domain,
+        status: "live",
+      },
+    });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/domain", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    res.json({ domain: resellerDomains.domainPayload(req.reseller) });
+  } catch (error) {
+    resellerDomains.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/domain", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const domain = await resellerDomains.addDomain(req.reseller, req.body?.domain);
+    res.status(201).json({ domain });
+  } catch (error) {
+    resellerDomains.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/domain/check", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const fresh = await resellers.getById(req.reseller.id);
+    res.json({ domain: await resellerDomains.checkDomain(fresh) });
+  } catch (error) {
+    resellerDomains.sendError(res, error);
+  }
+});
+
+app.delete("/api/reseller/domain", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const fresh = await resellers.getById(req.reseller.id);
+    res.json({ domain: await resellerDomains.removeDomain(fresh) });
+  } catch (error) {
+    resellerDomains.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/products", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const limits = await resellerPricing.resolveMarkupLimits(req.reseller);
+    const prices = await resellerPrices.listByReseller(req.reseller.id);
+    const priceMap = new Map(prices.map((row) => [row.product_id, row]));
+    const items = (await products.listAll())
+      .filter((item) => item.reseller_enabled && item.is_published)
+      .map((item) => {
+        const wholesale = Math.max(0, Number(item.wholesale_price) || 0);
+        const bounds = resellerPricing.priceBounds(wholesale, limits.minPercent, limits.maxPercent);
+        const row = priceMap.get(item.id) || null;
+        const savedPrice = row && Number(row.custom_price) > 0 ? Number(row.custom_price) : null;
+        return {
+          id: item.id,
+          name: item.name,
+          slug: item.slug,
+          image: item.images?.[0]?.url || "",
+          images: item.images,
+          retail_price: item.price,
+          wholesale_price: wholesale,
+          custom_price: savedPrice,
+          is_active: savedPrice != null ? row.is_active !== false && row.is_active !== "false" : false,
+          min_price: bounds.minPrice,
+          max_price: bounds.maxPrice,
+          pricing_ready: Boolean(bounds.ready),
+          margin: savedPrice != null ? Math.max(0, savedPrice - wholesale) : 0,
+          markup_min_percent: limits.minPercent,
+          markup_max_percent: limits.maxPercent,
+        };
+      });
+    res.json({ items, limits });
+  } catch (error) {
+    resellerPrices.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/products/:productId", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const item = await products.getById(req.params.productId);
+    if (!item || !item.reseller_enabled || !item.is_published) {
+      return res.status(404).json({ message: "Product not available for resellers" });
+    }
+    const limits = await resellerPricing.resolveMarkupLimits(req.reseller);
+    const wholesale = Math.max(0, Number(item.wholesale_price) || 0);
+    const bounds = resellerPricing.priceBounds(wholesale, limits.minPercent, limits.maxPercent);
+    const row = (await resellerPrices.listByReseller(req.reseller.id)).find(
+      (p) => p.product_id === item.id,
+    ) || null;
+    const savedPrice = row && Number(row.custom_price) > 0 ? Number(row.custom_price) : null;
+    res.json({
+      item: {
+        id: item.id,
+        name: item.name,
+        slug: item.slug,
+        description: item.description || "",
+        fabric: item.fabric || "",
+        pieces: item.pieces || "",
+        color: item.color || "",
+        badge: item.badge || "",
+        labels: item.labels || [],
+        image: item.images?.[0]?.url || "",
+        images: item.images || [],
+        retail_price: item.price,
+        compare_at_price: item.compare_at_price,
+        wholesale_price: wholesale,
+        custom_price: savedPrice,
+        is_active: savedPrice != null ? row?.is_active !== false && row?.is_active !== "false" : false,
+        min_price: bounds.minPrice,
+        max_price: bounds.maxPrice,
+        pricing_ready: Boolean(bounds.ready),
+        margin: savedPrice != null ? Math.max(0, savedPrice - wholesale) : 0,
+        markup_min_percent: limits.minPercent,
+        markup_max_percent: limits.maxPercent,
+      },
+      limits,
+    });
+  } catch (error) {
+    resellerPrices.sendError(res, error);
+  }
+});
+
+app.put("/api/reseller/products/:productId/price", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const product = await products.getById(req.params.productId);
+    if (!product || !product.reseller_enabled) {
+      return res.status(404).json({ message: "Product not available for resellers" });
+    }
+    const limits = await resellerPricing.resolveMarkupLimits(req.reseller);
+    const bounds = resellerPricing.priceBounds(product.wholesale_price, limits.minPercent, limits.maxPercent);
+    if (!bounds.ready) {
+      return res.status(400).json({
+        message: "Wholesale price is not set for this product. Ask admin to set it first.",
+      });
+    }
+    const item = await resellerPrices.upsertPrice(
+      req.reseller.id,
+      product.id,
+      {
+        custom_price: req.body?.custom_price,
+        is_active: req.body?.is_active,
+      },
+      bounds,
+    );
+    res.json({ item });
+  } catch (error) {
+    resellerPrices.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/orders", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const items = (await orders.listAll()).filter((order) => order.reseller_id === req.reseller.id);
+    res.json({ items });
+  } catch (error) {
+    orders.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/earnings", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    await resellerWallet.sweepCleared();
+    const fresh = await resellers.getById(req.reseller.id);
+    const transactions = await resellerWallet.listByReseller(req.reseller.id);
+    const payouts = await resellerWallet.listPayouts(req.reseller.id);
+    const global = await resellerPricing.getGlobalResellerSettings();
+    const stats = await resellerPricing.clickStats(req.reseller.id);
+    res.json({
+      wallet_pending: fresh?.wallet_pending || 0,
+      wallet_cleared: fresh?.wallet_cleared || 0,
+      min_payout: global.minPayout,
+      transactions,
+      payouts,
+      clicks: stats.clicks,
+    });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/payouts", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const global = await resellerPricing.getGlobalResellerSettings();
+    const item = await resellerWallet.requestPayout(
+      req.reseller.id,
+      { amount: req.body?.amount, method: req.body?.method },
+      global.minPayout,
+    );
+    res.status(201).json({ item });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/reseller-domains", adminAuth.requireAdmin, async (_req, res) => {
+  try {
+    res.json({ items: await resellerDomains.listAdminDomains() });
+  } catch (error) {
+    resellerDomains.sendError(res, error);
+  }
+});
+
+app.patch("/api/admin/reseller-domains/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const result = await resellerDomains.adminUpdateDomain(req.params.id, req.body || {});
+    res.json(result);
+  } catch (error) {
+    resellerDomains.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/resellers", adminAuth.requireAdmin, async (_req, res) => {
+  try {
+    const items = (await resellers.listAll()).map(resellers.publicSafe);
+    res.json({ items });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/link-requests", adminAuth.requireAdmin, async (_req, res) => {
+  try {
+    const list = await resellers.listAll();
+    const map = new Map(list.map((row) => [row.id, row]));
+    const items = (await resellerLinkRequests.listAll()).map((row) => ({
+      ...row,
+      reseller_name: map.get(row.reseller_id)?.name || "",
+      reseller_username: map.get(row.reseller_id)?.username || "",
+      reseller_code: map.get(row.reseller_id)?.code || row.current_code,
+    }));
+    res.json({ items });
+  } catch (error) {
+    resellerLinkRequests.sendError(res, error);
+  }
+});
+
+app.patch("/api/admin/link-requests/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const result = await resellerLinkRequests.reviewRequest(req.params.id, req.body || {});
+    res.json(result);
+  } catch (error) {
+    resellerLinkRequests.sendError(res, error);
+  }
+});
+
+app.post("/api/admin/resellers", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await resellers.createOne(req.body || {});
+    res.status(201).json({ item });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.patch("/api/admin/resellers/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await resellers.updateOne(req.params.id, req.body || {});
+    res.json({ item });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/payouts", adminAuth.requireAdmin, async (_req, res) => {
+  try {
+    const items = await resellerWallet.listPayouts();
+    const list = await resellers.listAll();
+    const map = new Map(list.map((row) => [row.id, row]));
+    res.json({
+      items: items.map((row) => ({
+        ...row,
+        reseller_name: map.get(row.reseller_id)?.name || "",
+        reseller_code: map.get(row.reseller_id)?.code || "",
+      })),
+    });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
+  }
+});
+
+app.patch("/api/admin/payouts/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await resellerWallet.updatePayout(req.params.id, req.body || {});
+    res.json({ item });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
   }
 });
 

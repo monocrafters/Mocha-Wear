@@ -6,6 +6,8 @@ const PUBLIC_CONTENT =
   "public, max-age=120, s-maxage=600, stale-while-revalidate=600";
 const PUBLIC_SALE =
   "public, max-age=15, s-maxage=30, stale-while-revalidate=60";
+const PUBLIC_META =
+  "public, max-age=10, s-maxage=10, stale-while-revalidate=30";
 const NO_STORE = "no-store, no-cache, must-revalidate, private";
 
 function setCache(res, value) {
@@ -27,6 +29,11 @@ function publicSale(req, res, next) {
   next();
 }
 
+function publicMeta(req, res, next) {
+  if (req.method === "GET") setCache(res, PUBLIC_META);
+  next();
+}
+
 function noStore(req, res, next) {
   setCache(res, NO_STORE);
   next();
@@ -41,5 +48,6 @@ module.exports = {
   publicCatalog,
   publicContent,
   publicSale,
+  publicMeta,
   noStore,
 };

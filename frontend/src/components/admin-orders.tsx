@@ -261,6 +261,13 @@ export function AdminOrders() {
           >
             <div className="min-w-0">
               <p className="text-[10px] text-slate-500 uppercase">{order.id}</p>
+              {order.reseller_code ? (
+                <p className="mt-0.5 text-[10px] font-medium tracking-wide text-amber-700 uppercase">
+                  Reseller /r/{order.reseller_code}
+                </p>
+              ) : (
+                <p className="mt-0.5 text-[10px] text-slate-400 uppercase">Direct</p>
+              )}
               <p className="mt-0.5 truncate text-sm font-medium text-slate-900">
                 {order.customer?.name || "Customer"}
               </p>
@@ -295,6 +302,10 @@ export function AdminOrders() {
               <tr key={order.id} className="border-b border-slate-200 last:border-0">
                 <td className="px-4 py-3">
                   <p className="font-medium text-slate-900">{order.id}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    {order.reseller_code ? `Reseller /r/${order.reseller_code}` : "Direct"}
+                    {order.commission_total ? ` · ${formatPkr(order.commission_total)} commission` : ""}
+                  </p>
                   <p className="text-[12px] text-slate-500">{orderDate(order)}</p>
                 </td>
                 <td className="px-4 py-3">

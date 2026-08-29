@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import {
+  Banknote,
   GalleryHorizontal,
+  Handshake,
   Headset,
   LayoutDashboard,
+  Link2,
   LogOut,
   Menu,
   Package,
@@ -40,6 +43,9 @@ const nav = [
       { href: "/admin/review", id: "reviews", label: "Reviews", icon: Star },
       { href: "/admin/help", id: "help", label: "Help", icon: Headset },
       { href: "/admin/customers", id: "customers", label: "Customers", icon: Users },
+      { href: "/admin/resellers", id: "resellers", label: "Resellers", icon: Handshake },
+      { href: "/admin/link-requests", id: "link-requests", label: "Link requests", icon: Link2 },
+      { href: "/admin/payouts", id: "payouts", label: "Payouts", icon: Banknote },
     ],
   },
   {

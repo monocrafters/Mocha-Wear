@@ -31,6 +31,10 @@ export type Order = {
   cancelled_by?: "customer" | "admin" | string;
   cancelled_at?: string;
   customer_id?: string;
+  reseller_id?: string;
+  reseller_code?: string;
+  commission_total?: number;
+  delivered_at?: string;
   customer?: {
     name: string;
     phone: string;

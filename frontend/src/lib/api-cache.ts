@@ -1,4 +1,5 @@
 import { API_URL, apiFetch } from "@/lib/api";
+import { getReferralCode } from "@/lib/referral";
 
 type CacheEntry<T> = {
   data: T;
@@ -243,14 +244,21 @@ export async function apiJson<T>(
 }
 
 async function fetchAndStore<T>(key: string, init: RequestInit | undefined, useCache: boolean) {
-  const res = await apiFetch(key, init);
+  const headers = new Headers(init?.headers);
+  const code = getReferralCode();
+  if (code && !headers.has("X-Reseller-Code")) {
+    headers.set("X-Reseller-Code", code);
+  }
+  const res = await apiFetch(key, { ...init, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.message || `Request failed (${res.status})`);
   }
   const data = (await res.json()) as T;
   if (useCache) {
-    persistEntry(key, { data, at: Date.now() }, !shouldPersist(key));
+    // Never persist personalized reseller-priced catalogs to localStorage.
+    const personalized = Boolean(code);
+    persistEntry(key, { data, at: Date.now() }, personalized || !shouldPersist(key));
   }
   return data;
 }

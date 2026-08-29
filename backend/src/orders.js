@@ -48,15 +48,19 @@ function nextId(orders) {
 function normalizeItem(item = {}) {
   const qty = Math.max(1, Math.min(10, Number(item.qty) || 1));
   const price = Math.max(0, Number(item.price) || 0);
+  const sold = Math.max(0, Number(item.sold_price_snapshot ?? price) || 0);
   return {
     product_id: String(item.product_id || item.productId || "").trim(),
     name: String(item.name || "Suit").trim() || "Suit",
     spec: String(item.spec || "").trim(),
     size: String(item.size || "").trim(),
     qty,
-    price,
+    price: sold || price,
     image: String(item.image || "").trim(),
     slug: String(item.slug || "").trim(),
+    wholesale_price_snapshot: Math.max(0, Number(item.wholesale_price_snapshot) || 0),
+    sold_price_snapshot: sold || price,
+    commission_amount: Math.max(0, Number(item.commission_amount) || 0),
   };
 }
 
@@ -99,6 +103,10 @@ function normalizeOrder(order = {}, index = 0) {
     cancelled_by: String(order.cancelled_by || "").trim(),
     cancelled_at: String(order.cancelled_at || "").trim(),
     customer_id: String(order.customer_id || "").trim(),
+    reseller_id: String(order.reseller_id || "").trim(),
+    reseller_code: String(order.reseller_code || "").trim(),
+    commission_total: Math.max(0, Number(order.commission_total) || 0),
+    delivered_at: String(order.delivered_at || "").trim(),
     customer,
     items,
   };
@@ -176,6 +184,9 @@ async function createOne(body = {}) {
     customer,
     items,
     note: "",
+    reseller_id: body.reseller_id,
+    reseller_code: body.reseller_code,
+    commission_total: body.commission_total,
   });
   const record = await customers.upsertFromOrder(order);
   if (record?.id) order.customer_id = record.id;
@@ -254,6 +265,12 @@ async function cancelOne(id, body = {}, by = "customer") {
   const cancelled = normalizeOrder({ ...current, ...cancelPayload(body, by) }, index);
   data.orders[index] = cancelled;
   await writeStore(data);
+  try {
+    const wallet = require("./resellerWallet");
+    await wallet.onOrderCancelled(cancelled.id);
+  } catch (error) {
+    console.error("Reseller cancel hook failed:", error.message);
+  }
   return cancelled;
 }
 
@@ -266,14 +283,29 @@ async function updateOne(id, fields = {}) {
     throw err;
   }
   const current = data.orders[index];
+  const nextStatus = fields.status !== undefined ? normalizeStatus(fields.status) : current.status;
   const next = {
     ...current,
-    status: fields.status !== undefined ? normalizeStatus(fields.status) : current.status,
+    status: nextStatus,
     note: fields.note !== undefined ? String(fields.note || "").trim() : current.note,
     updated_at: new Date().toISOString(),
+    delivered_at:
+      nextStatus === "delivered" && current.status !== "delivered"
+        ? new Date().toISOString()
+        : current.delivered_at,
   };
   data.orders[index] = normalizeOrder(next, index);
   await writeStore(data);
+  if (nextStatus === "delivered" && current.status !== "delivered" && current.reseller_id) {
+    try {
+      const settings = require("./settings");
+      const wallet = require("./resellerWallet");
+      const s = await settings.getAdmin();
+      await wallet.onOrderDelivered(current.id, Number(s.reseller_return_window_days) || 7);
+    } catch (error) {
+      console.error("Reseller delivered hook failed:", error.message);
+    }
+  }
   return data.orders[index];
 }
 

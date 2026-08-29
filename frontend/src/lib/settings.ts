@@ -45,6 +45,10 @@ export type SiteSettings = {
   newsletter_heading: string;
   newsletter_placeholder: string;
   newsletter_button: string;
+  reseller_min_percent: number;
+  reseller_max_percent: number;
+  reseller_return_window_days: number;
+  reseller_min_payout: number;
 };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -93,6 +97,10 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   newsletter_heading: "First look at the next drop.",
   newsletter_placeholder: "Email address",
   newsletter_button: "Subscribe",
+  reseller_min_percent: 10,
+  reseller_max_percent: 40,
+  reseller_return_window_days: 7,
+  reseller_min_payout: 2000,
 };
 
 export function brandLabel(settings: SiteSettings) {

@@ -3,6 +3,7 @@
 import { DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
+import { applyCatalogVersion } from "@/lib/catalog-meta";
 import { formatPkr } from "@/lib/money";
 import { PRODUCT_BADGES, PRODUCT_SIZE_PRESETS, productSizes } from "@/lib/product";
 import type { Collection } from "@/components/admin-collections";
@@ -37,6 +38,8 @@ export type Product = {
   sizes?: string[];
   price: number;
   compare_at_price: number;
+  wholesale_price?: number;
+  reseller_enabled?: boolean;
   badge: string;
   video_url?: string;
   labels?: ProductLabel[];
@@ -74,10 +77,12 @@ const emptyForm = {
   stock: "1",
   price: "",
   compare_at_price: "",
+  wholesale_price: "",
   badge: "",
   video_url: "",
   is_on_sale: true,
   is_published: true,
+  reseller_enabled: false,
   sort_order: 0,
 };
 
@@ -207,10 +212,12 @@ export function AdminProducts() {
       stock: String(item.stock ?? 0),
       price: item.price ? String(item.price) : "",
       compare_at_price: item.compare_at_price ? String(item.compare_at_price) : "",
+      wholesale_price: item.wholesale_price ? String(item.wholesale_price) : "",
       badge: item.badge,
       video_url: item.video_url || "",
       is_on_sale: item.is_on_sale,
       is_published: item.is_published,
+      reseller_enabled: Boolean(item.reseller_enabled),
       sort_order: item.sort_order,
     });
     setImages((item.images || []).map((image) => ({ id: image.id, url: image.url })));
@@ -309,6 +316,9 @@ export function AdminProducts() {
     setSaving(true);
     setError("");
     try {
+      if (form.reseller_enabled && !(Number(form.wholesale_price) > 0)) {
+        throw new Error("Set a wholesale price before enabling this product for resellers");
+      }
       const body = new FormData();
       Object.entries(form).forEach(([key, value]) => {
         body.append(key, String(value));
@@ -333,6 +343,7 @@ export function AdminProducts() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not save product");
+      if (data.catalog_v) applyCatalogVersion(Number(data.catalog_v));
       closeForm();
       await load();
     } catch (err) {
@@ -353,6 +364,7 @@ export function AdminProducts() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || "Could not delete");
+      if (data.catalog_v) applyCatalogVersion(Number(data.catalog_v));
       setPendingDelete(null);
       await load();
     } catch (err) {
@@ -798,6 +810,16 @@ export function AdminProducts() {
                     className="mt-2 w-full border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
                   />
                 </label>
+                <label className="block sm:col-span-2">
+                  <span className="text-sm font-medium text-slate-600">Wholesale (reseller cost)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.wholesale_price}
+                    onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })}
+                    className="mt-2 w-full border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                  />
+                </label>
               </div>
 
               <label className="block">
@@ -891,7 +913,7 @@ export function AdminProducts() {
                 />
               </label>
 
-              <div className="flex gap-6">
+              <div className="flex flex-wrap gap-6">
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -907,6 +929,14 @@ export function AdminProducts() {
                     onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
                   />
                   Published on storefront
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.reseller_enabled}
+                    onChange={(e) => setForm({ ...form, reseller_enabled: e.target.checked })}
+                  />
+                  Available to resellers
                 </label>
               </div>
             </div>

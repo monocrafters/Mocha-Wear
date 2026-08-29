@@ -11,6 +11,7 @@ import {
   writeCart,
   type CartLine,
 } from "@/lib/cart";
+import { API_URL, apiFetch } from "@/lib/api";
 
 type CartContextValue = {
   items: CartLine[];
@@ -40,6 +41,37 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     writeCart(items);
   }, [items, ready]);
+
+  useEffect(() => {
+    if (!ready || !items.length) return;
+    const ids = [...new Set(items.map((line) => line.productId).filter(Boolean))];
+    if (!ids.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(`${API_URL}/api/pricing?ids=${ids.join(",")}`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const map = new Map(
+          (data.items || []).map((item: { id: string; price: number }) => [item.id, item.price]),
+        );
+        if (cancelled || !map.size) return;
+        setItems((prev) =>
+          prev.map((line) => {
+            const nextPrice = map.get(line.productId);
+            return nextPrice == null || nextPrice === line.price ? line : { ...line, price: nextPrice };
+          }),
+        );
+      } catch {
+        /* soft fail */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
 
   const addProduct = useCallback((product: Product, qty = 1, size = "") => {
     const picked = size.trim();

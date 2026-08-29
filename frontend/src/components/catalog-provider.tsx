@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import {
   apiJson,
   hydrateApiCacheFromStorage,
+  invalidateApiCache,
   peekApiCache,
   primeApiCache,
   SOFT_TTL_MS,
@@ -12,6 +13,8 @@ import {
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
 import { setSharedActiveSale, type ActiveSale } from "@/lib/active-sale";
+import { getReferralCode, RESELLER_ACTIVATED_EVENT } from "@/lib/referral";
+import { fetchCatalogVersion, syncCatalogIfStale, writeCatalogVersion } from "@/lib/catalog-meta";
 
 type CatalogState = {
   products: Product[];
@@ -130,6 +133,26 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let live = true;
+    const referral = getReferralCode();
+    if (referral) {
+      invalidateApiCache("/api/products");
+      loadCatalogBundle(true)
+        .then((bundle) => {
+          if (live) applyBundle(bundle);
+        })
+        .catch((error) => {
+          if (!live) return;
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: error instanceof Error ? error.message : "Could not load catalog",
+          }));
+        });
+      return () => {
+        live = false;
+      };
+    }
+
     const warm = readWarmCatalog();
     if (warm.warm) {
       setSharedActiveSale(warm.sale);
@@ -144,17 +167,38 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         isApiCacheSoftStale("/api/products", SOFT_TTL_MS) ||
         isApiCacheSoftStale("/api/collections", SOFT_TTL_MS) ||
         isApiCacheSoftStale("/api/sales/active", 30_000);
-      if (needsRefresh) {
-        loadCatalogBundle(false)
-          .then((bundle) => {
-            if (live) applyBundle(bundle);
-          })
-          .catch(() => undefined);
-      }
+      void (async () => {
+        const staleByVersion = await syncCatalogIfStale();
+        if (!live) return;
+        if (staleByVersion) {
+          loadCatalogBundle(true)
+            .then((bundle) => {
+              if (live) applyBundle(bundle);
+            })
+            .catch(() => undefined);
+        } else if (needsRefresh) {
+          loadCatalogBundle(false)
+            .then((bundle) => {
+              if (live) applyBundle(bundle);
+            })
+            .catch(() => undefined);
+        }
+      })();
+      void fetchCatalogVersion()
+        .then((v) => {
+          if (live && v > 0) writeCatalogVersion(v);
+        })
+        .catch(() => undefined);
       return () => {
         live = false;
       };
     }
+
+    void fetchCatalogVersion()
+      .then((v) => {
+        if (live && v > 0) writeCatalogVersion(v);
+      })
+      .catch(() => undefined);
 
     loadCatalogBundle(true)
       .then((bundle) => {
@@ -175,15 +219,30 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   }, [applyBundle]);
 
   useEffect(() => {
+    function onActivated() {
+      invalidateApiCache("/api/products");
+      void revalidate();
+    }
+    window.addEventListener(RESELLER_ACTIVATED_EVENT, onActivated);
+    return () => window.removeEventListener(RESELLER_ACTIVATED_EVENT, onActivated);
+  }, [revalidate]);
+
+  useEffect(() => {
     let last = 0;
-    function onFocus() {
+    async function onFocus() {
       const now = Date.now();
       if (now - last < 20_000) return;
       last = now;
-      void revalidate();
+      const staleByVersion = await syncCatalogIfStale();
+      const softStale =
+        isApiCacheSoftStale("/api/products", SOFT_TTL_MS) ||
+        isApiCacheSoftStale("/api/collections", SOFT_TTL_MS);
+      if (staleByVersion || softStale) {
+        void revalidate();
+      }
     }
     function onVisibility() {
-      if (document.visibilityState === "visible") onFocus();
+      if (document.visibilityState === "visible") void onFocus();
     }
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
@@ -191,6 +250,17 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
+  }, [revalidate]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        const stale = await syncCatalogIfStale();
+        if (stale) void revalidate();
+      })();
+    }, 90_000);
+    return () => window.clearInterval(timer);
   }, [revalidate]);
 
   const value = useMemo<CatalogState>(
