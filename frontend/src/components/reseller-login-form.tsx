@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL, apiFetch, setResellerToken } from "@/lib/api";
 import { ui } from "@/lib/admin-ui";
@@ -12,6 +12,29 @@ export function ResellerLoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch(`${API_URL}/api/reseller/me`, { credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        if (!data.authenticated) return;
+        if (data.token) setResellerToken(data.token);
+        if (!cancelled) {
+          router.replace("/reseller");
+          router.refresh();
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setCheckingSession(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -37,6 +60,14 @@ export function ResellerLoginForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="mt-8 grid place-items-center py-10 text-sm text-slate-500">
+        Checking your session…
+      </div>
+    );
   }
 
   return (

@@ -3,7 +3,8 @@ const crypto = require("crypto");
 const resellers = require("./resellers");
 
 const SECRET = process.env.RESELLER_SECRET || process.env.ADMIN_SECRET || "mocha-reseller-dev-secret";
-const TOKEN_MS = 1000 * 60 * 60 * 12;
+/** Keep reseller signed in for 30 days so they are not asked to log in repeatedly. */
+const TOKEN_MS = 1000 * 60 * 60 * 24 * 30;
 const COOKIE = "mocha_reseller";
 
 function parseCookies(req) {
@@ -90,7 +91,15 @@ async function me(req, res) {
   if (!reseller || reseller.status === "suspended") {
     return res.status(401).json({ authenticated: false });
   }
-  return res.json({ authenticated: true, role: "reseller", reseller: resellers.publicSafe(reseller) });
+  // Refresh cookie/token so active resellers stay signed in.
+  const token = signToken(reseller.id);
+  res.cookie(COOKIE, token, cookieOptions());
+  return res.json({
+    authenticated: true,
+    role: "reseller",
+    token,
+    reseller: resellers.publicSafe(reseller),
+  });
 }
 
 function logout(req, res) {

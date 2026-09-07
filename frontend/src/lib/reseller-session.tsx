@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL, apiFetch, clearResellerToken } from "@/lib/api";
+import { API_URL, apiFetch, clearResellerToken, setResellerToken } from "@/lib/api";
 
 type ResellerSession = {
   name: string;
@@ -45,6 +45,7 @@ export function ResellerSessionProvider({ children }: { children: ReactNode }) {
     const res = await apiFetch(`${API_URL}/api/reseller/me`, { credentials: "include" });
     if (!res.ok) throw new Error("unauthorized");
     const data = await res.json();
+    if (data.token) setResellerToken(data.token);
     const next: ResellerSession = {
       name: data.reseller?.name || data.reseller?.username || "reseller",
       id: data.reseller?.id,
