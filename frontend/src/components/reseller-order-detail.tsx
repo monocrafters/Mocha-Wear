@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { ArrowLeft, Loader2, MessageCircle } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
@@ -46,22 +47,42 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ResellerOrderDetail({ orderId }: { orderId: string }) {
+export function ResellerOrderDetail() {
   const { t } = useResellerLocale();
+  const params = useParams<{ id: string }>();
+  const orderId = decodeURIComponent(String(params?.id || "").trim());
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!orderId) {
+      setLoading(false);
+      setError(t("orderDetail.notFound"));
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError("");
     apiFetch(`${API_URL}/api/reseller/orders/${encodeURIComponent(orderId)}`, { credentials: "include" })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || t("orderDetail.notFound"));
-        setOrder(data.item || null);
+        if (!cancelled) setOrder(data.item || null);
       })
-      .catch((err) => setError(resellerErrorMessage(err, "Order not found")))
-      .finally(() => setLoading(false));
-  }, [orderId]);
+      .catch((err) => {
+        if (!cancelled) {
+          setOrder(null);
+          setError(resellerErrorMessage(err, t("orderDetail.notFound")));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, t]);
 
   const customer = order?.customer;
   const address = [
@@ -184,7 +205,7 @@ export function ResellerOrderDetail({ orderId }: { orderId: string }) {
                 <div className="flex items-center justify-between py-2">
                   <span className="text-slate-500">{t("orderDetail.deliveryFee")}</span>
                   <span className="font-medium text-slate-900">
-                    {order.delivery > 0 ? formatPkr(order.delivery) : "Free"}
+                    {(order.delivery || 0) > 0 ? formatPkr(order.delivery) : "Free"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2">

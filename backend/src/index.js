@@ -1116,7 +1116,13 @@ app.put("/api/reseller/products/:productId/price", resellerAuth.requireReseller,
 
 app.get("/api/reseller/orders", resellerAuth.requireReseller, async (req, res) => {
   try {
-    const items = (await orders.listAll()).filter((order) => order.reseller_id === req.reseller.id);
+    const items = (await orders.listAll())
+      .filter((order) => order.reseller_id === req.reseller.id)
+      .map((order) => ({
+        ...order,
+        customer_name: order.customer?.name || "",
+      }))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     res.json({ items });
   } catch (error) {
     orders.sendError(res, error);
@@ -1125,11 +1131,17 @@ app.get("/api/reseller/orders", resellerAuth.requireReseller, async (req, res) =
 
 app.get("/api/reseller/orders/:id", resellerAuth.requireReseller, async (req, res) => {
   try {
-    const order = await orders.getById(req.params.id);
+    const id = decodeURIComponent(String(req.params.id || "").trim());
+    const order = await orders.getById(id);
     if (!order || order.reseller_id !== req.reseller.id) {
       return res.status(404).json({ message: "Order not found" });
     }
-    res.json({ item: order });
+    res.json({
+      item: {
+        ...order,
+        customer_name: order.customer?.name || "",
+      },
+    });
   } catch (error) {
     orders.sendError(res, error);
   }

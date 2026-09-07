@@ -146,7 +146,12 @@ async function listAll() {
 }
 
 async function getById(id) {
-  return (await listAll()).find((order) => order.id === id) || null;
+  const needle = decodeURIComponent(String(id || "").trim());
+  if (!needle) return null;
+  return (
+    (await listAll()).find((order) => order.id === needle || order.id.toLowerCase() === needle.toLowerCase()) ||
+    null
+  );
 }
 
 async function listByIds(ids = []) {

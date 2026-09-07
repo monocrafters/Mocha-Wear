@@ -1,12 +1,11 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { API_URL, apiFetch, clearResellerToken } from "@/lib/api";
+import { ReactNode, useState } from "react";
 import { ResellerMenuButton, ResellerSidebar } from "@/components/reseller-sidebar";
 import { ResellerNotifications } from "@/components/notification-bell";
 import { useResellerLocale } from "@/components/reseller-locale-provider";
 import { useResellerHeaderDock } from "@/components/reseller-header-dock";
+import { useResellerSession } from "@/lib/reseller-session";
 
 type ResellerShellProps = {
   active: string;
@@ -18,40 +17,22 @@ type ResellerShellProps = {
   children: ReactNode;
 };
 
-function ResellerShellFrame({ active, kicker, title, copy, compact, wide, children }: ResellerShellProps) {
-  const router = useRouter();
-  const pathname = usePathname();
+export function ResellerShell({
+  active,
+  kicker,
+  title,
+  copy,
+  compact,
+  wide,
+  children,
+}: ResellerShellProps) {
   const { t } = useResellerLocale();
   const dock = useResellerHeaderDock();
-  const [status, setStatus] = useState<"checking" | "ready">("checking");
-  const [name, setName] = useState("reseller");
+  const { status, session, logout } = useResellerSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const name = session?.name || "reseller";
 
-  useEffect(() => {
-    apiFetch(`${API_URL}/api/reseller/me`, { credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error("unauthorized");
-        return res.json();
-      })
-      .then((data) => {
-        setName(data.reseller?.name || data.reseller?.username || "reseller");
-        setStatus("ready");
-      })
-      .catch(() => {
-        router.replace("/Reseller_Login");
-      });
-  }, [router, pathname]);
-
-  async function logout() {
-    await apiFetch(`${API_URL}/api/reseller/logout`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => undefined);
-    clearResellerToken();
-    router.replace("/Reseller_Login");
-  }
-
-  if (status === "checking") {
+  if (status === "checking" || !session) {
     return (
       <main className="grid min-h-svh place-items-center bg-[#f3f4f6] text-sm text-slate-500">
         {t("shell.checkingAccess")}
@@ -64,7 +45,7 @@ function ResellerShellFrame({ active, kicker, title, copy, compact, wide, childr
       <ResellerSidebar
         name={name}
         active={active}
-        onLogout={logout}
+        onLogout={() => void logout()}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -104,8 +85,4 @@ function ResellerShellFrame({ active, kicker, title, copy, compact, wide, childr
       </div>
     </div>
   );
-}
-
-export function ResellerShell(props: ResellerShellProps) {
-  return <ResellerShellFrame {...props} />;
 }

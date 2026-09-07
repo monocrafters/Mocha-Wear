@@ -38,7 +38,17 @@ export function ResellerLocaleProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
 
   if (!ready) {
-    return <div className="min-h-svh bg-[#f3f4f6]" />;
+    return (
+      <ResellerLocaleContext.Provider
+        value={{
+          locale: "en",
+          setLocale: () => undefined,
+          t: (key, vars) => translate("en", key, vars),
+        }}
+      >
+        {children}
+      </ResellerLocaleContext.Provider>
+    );
   }
 
   return <ResellerLocaleContext.Provider value={value}>{children}</ResellerLocaleContext.Provider>;

@@ -84,7 +84,27 @@ export function ResellerSidebar({
     load();
     window.addEventListener(RESELLER_BADGES_REFRESH, load);
     return () => window.removeEventListener(RESELLER_BADGES_REFRESH, load);
-  }, [pathname]);
+  }, []);
+
+  function isItemActive(item: (typeof navItems)[number]) {
+    if (item.href === "/reseller") return pathname === "/reseller";
+    if (item.id === "products-active") {
+      return pathname.startsWith("/reseller/products/live") || pathname.startsWith("/reseller/products/active");
+    }
+    if (item.id === "products") {
+      if (pathname.startsWith("/reseller/products/live") || pathname.startsWith("/reseller/products/active")) {
+        return false;
+      }
+      return pathname === "/reseller/products" || pathname.startsWith("/reseller/products/");
+    }
+    if (item.id === "orders") {
+      return pathname === "/reseller/orders" || pathname.startsWith("/reseller/orders/");
+    }
+    if (item.id === "withdraw") {
+      return pathname === "/reseller/withdraw" || pathname.startsWith("/reseller/withdraw/");
+    }
+    return pathname === item.href || active === item.id;
+  }
 
   return (
     <>
@@ -102,7 +122,7 @@ export function ResellerSidebar({
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-slate-800 px-4">
-          <Link href="/reseller" className="flex items-center gap-2" onClick={onClose}>
+          <Link href="/reseller" className="flex items-center gap-2" onClick={onClose} prefetch>
             <span className="grid h-7 w-7 place-items-center rounded-md bg-slate-800 text-[11px] font-semibold text-white">
               R
             </span>
@@ -121,13 +141,14 @@ export function ResellerSidebar({
           <div className="space-y-0.5">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = active === item.id;
+              const isActive = isItemActive(item);
               const count = navBadgeCount(badges, item.badgeKey);
               const isDot = item.badgeKey === "withdraw_ready";
               return (
                 <Link
                   key={item.id}
                   href={item.href}
+                  prefetch
                   onClick={onClose}
                   className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${
                     isActive ? "bg-slate-800 font-medium text-white" : "text-slate-400 hover:bg-slate-900 hover:text-white"

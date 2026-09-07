@@ -18,7 +18,12 @@ type ResellerOrder = {
   total: number;
   commission_total: number;
   customer_name?: string;
+  customer?: { name?: string };
 };
+
+function orderCustomerName(order: ResellerOrder) {
+  return order.customer_name || order.customer?.name || "";
+}
 
 type OrderStats = {
   count: number;
@@ -44,7 +49,7 @@ function fmtDateLong(iso?: string) {
 }
 
 function orderMeta(order: ResellerOrder) {
-  const name = maskName(order.customer_name);
+  const name = maskName(orderCustomerName(order));
   const date = fmtDate(order.created_at);
   if (name && date !== "—") return `${name} · ${date}`;
   if (name) return name;
@@ -158,7 +163,7 @@ export function ResellerOrders() {
     const q = query.trim().toLowerCase();
     if (!q) return items;
     return items.filter((o) =>
-      [o.id, o.status, maskName(o.customer_name)].join(" ").toLowerCase().includes(q),
+      [o.id, o.status, maskName(orderCustomerName(o))].join(" ").toLowerCase().includes(q),
     );
   }, [items, query]);
 
@@ -232,7 +237,7 @@ export function ResellerOrders() {
                         #{shortOrderId(order.id)}
                       </td>
                       <td className="px-3 py-2 text-slate-500">{fmtDateLong(order.created_at)}</td>
-                      <td className="px-3 py-2 text-slate-700">{maskName(order.customer_name) || "—"}</td>
+                      <td className="px-3 py-2 text-slate-700">{maskName(orderCustomerName(order)) || "—"}</td>
                       <td className="px-3 py-2">
                         <StatusPill status={order.status} />
                       </td>
