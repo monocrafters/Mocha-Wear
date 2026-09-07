@@ -89,6 +89,15 @@ function priceBounds(wholesale, minPercent, maxPercent) {
   };
 }
 
+function adjustCompareAtPrice(retailPrice, compareAtPrice, customPrice) {
+  const retail = Math.max(0, Number(retailPrice) || 0);
+  const compareAt = Math.max(0, Number(compareAtPrice) || 0);
+  const custom = Math.max(0, Number(customPrice) || 0);
+  const markupAboveRetail = Math.max(0, custom - retail);
+  if (markupAboveRetail <= 0) return compareAt;
+  return compareAt + markupAboveRetail;
+}
+
 async function resolveMarkupLimits(reseller) {
   const global = await getGlobalResellerSettings();
   return {
@@ -122,9 +131,11 @@ async function applyResellerPricing(product, req) {
   if (!reseller) return base;
   const priceRow = await resellerPrices.getActive(reseller.id, product.id);
   if (!priceRow) return base;
+  const customPrice = Number(priceRow.custom_price) || 0;
   return {
     ...base,
-    price: priceRow.custom_price,
+    price: customPrice,
+    compare_at_price: adjustCompareAtPrice(retail, product.compare_at_price, customPrice),
     price_source: "reseller",
     reseller_code: reseller.code,
   };
@@ -330,13 +341,14 @@ async function sharePreview(code, slug) {
     price: sellPrice,
     code: reseller.code,
     slug: product.slug,
-    path: `/r/${reseller.code}/p/${product.slug}`,
+    path: `/products/${product.slug}?r=${reseller.code}`,
   };
 }
 
 module.exports = {
   getGlobalResellerSettings,
   priceBounds,
+  adjustCompareAtPrice,
   resolveMarkupLimits,
   applyResellerPricing,
   applyResellerPricingToList,

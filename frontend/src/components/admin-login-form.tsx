@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL, apiFetch, setAdminToken } from "@/lib/api";
 import { ui } from "@/lib/admin-ui";
+import { PasswordInput } from "@/components/password-input";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -53,13 +54,11 @@ export function AdminLoginForm() {
       </label>
       <label className="block">
         <span className={ui.label}>Password</span>
-        <input
-          type="password"
+        <PasswordInput
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={setPassword}
           autoComplete="current-password"
           required
-          className={ui.input}
         />
       </label>
       {error ? <p className={ui.error}>{error}</p> : null}

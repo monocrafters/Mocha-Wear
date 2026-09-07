@@ -298,10 +298,8 @@ async function updateOne(id, fields = {}) {
   await writeStore(data);
   if (nextStatus === "delivered" && current.status !== "delivered" && current.reseller_id) {
     try {
-      const settings = require("./settings");
       const wallet = require("./resellerWallet");
-      const s = await settings.getAdmin();
-      await wallet.onOrderDelivered(current.id, Number(s.reseller_return_window_days) || 7);
+      await wallet.onOrderDelivered(current.id);
     } catch (error) {
       console.error("Reseller delivered hook failed:", error.message);
     }

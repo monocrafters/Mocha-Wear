@@ -12,6 +12,7 @@ import {
   Menu,
   Package,
   Percent,
+  Gift,
   Settings,
   ShoppingBag,
   Star,
@@ -45,7 +46,8 @@ const nav = [
       { href: "/admin/customers", id: "customers", label: "Customers", icon: Users },
       { href: "/admin/resellers", id: "resellers", label: "Resellers", icon: Handshake },
       { href: "/admin/link-requests", id: "link-requests", label: "Link requests", icon: Link2 },
-      { href: "/admin/payouts", id: "payouts", label: "Payouts", icon: Banknote },
+      { href: "/admin/pr-requests", id: "pr-requests", label: "PR requests", icon: Gift },
+      { href: "/admin/payouts", id: "payouts", label: "Payment requests", icon: Banknote },
     ],
   },
   {

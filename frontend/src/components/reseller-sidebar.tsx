@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
+  ArrowDownToLine,
   Banknote,
   LayoutDashboard,
   Link2,
@@ -13,17 +16,33 @@ import {
   ShoppingBag,
   X,
 } from "lucide-react";
+import { fetchResellerBadges, type ResellerBadges, RESELLER_BADGES_REFRESH } from "@/lib/reseller-notifications";
 import { useResellerLocale } from "@/components/reseller-locale-provider";
 
 const navItems = [
-  { href: "/reseller", id: "overview", labelKey: "nav.overview", icon: LayoutDashboard },
-  { href: "/reseller/products", id: "products", labelKey: "nav.productsPending", icon: Package },
-  { href: "/reseller/products/live", id: "products-active", labelKey: "nav.productsActive", icon: PackageCheck },
-  { href: "/reseller/link", id: "link", labelKey: "nav.link", icon: Link2 },
-  { href: "/reseller/orders", id: "orders", labelKey: "nav.orders", icon: ShoppingBag },
-  { href: "/reseller/earnings", id: "earnings", labelKey: "nav.earnings", icon: Banknote },
-  { href: "/reseller/settings", id: "settings", labelKey: "nav.settings", icon: Settings },
+  { href: "/reseller", id: "overview", labelKey: "nav.overview", icon: LayoutDashboard, badgeKey: null },
+  { href: "/reseller/products", id: "products", labelKey: "nav.productsPending", icon: Package, badgeKey: "pending_products" as const },
+  { href: "/reseller/products/live", id: "products-active", labelKey: "nav.productsActive", icon: PackageCheck, badgeKey: null },
+  { href: "/reseller/link", id: "link", labelKey: "nav.link", icon: Link2, badgeKey: null },
+  { href: "/reseller/orders", id: "orders", labelKey: "nav.orders", icon: ShoppingBag, badgeKey: "unread_orders" as const },
+  { href: "/reseller/earnings", id: "earnings", labelKey: "nav.earnings", icon: Banknote, badgeKey: null },
+  { href: "/reseller/withdraw", id: "withdraw", labelKey: "nav.withdraw", icon: ArrowDownToLine, badgeKey: "withdraw_ready" as const },
+  { href: "/reseller/settings", id: "settings", labelKey: "nav.settings", icon: Settings, badgeKey: null },
 ];
+
+const emptyBadges: ResellerBadges = {
+  pending_products: 0,
+  unread_notifications: 0,
+  unread_orders: 0,
+  open_withdrawal: false,
+  withdraw_ready: false,
+};
+
+function navBadgeCount(badges: ResellerBadges, key: (typeof navItems)[number]["badgeKey"]) {
+  if (!key) return 0;
+  if (key === "withdraw_ready") return badges.withdraw_ready ? 1 : 0;
+  return Number(badges[key]) || 0;
+}
 
 export function ResellerMenuButton({ onClick }: { onClick: () => void }) {
   const { t } = useResellerLocale();
@@ -53,6 +72,19 @@ export function ResellerSidebar({
   onClose: () => void;
 }) {
   const { t } = useResellerLocale();
+  const pathname = usePathname();
+  const [badges, setBadges] = useState<ResellerBadges>(emptyBadges);
+
+  useEffect(() => {
+    function load() {
+      fetchResellerBadges()
+        .then(setBadges)
+        .catch(() => setBadges(emptyBadges));
+    }
+    load();
+    window.addEventListener(RESELLER_BADGES_REFRESH, load);
+    return () => window.removeEventListener(RESELLER_BADGES_REFRESH, load);
+  }, [pathname]);
 
   return (
     <>
@@ -90,6 +122,8 @@ export function ResellerSidebar({
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = active === item.id;
+              const count = navBadgeCount(badges, item.badgeKey);
+              const isDot = item.badgeKey === "withdraw_ready";
               return (
                 <Link
                   key={item.id}
@@ -100,7 +134,18 @@ export function ResellerSidebar({
                   }`}
                 >
                   <Icon size={16} />
-                  {t(item.labelKey)}
+                  <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                  {count > 0 ? (
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold ${
+                        isDot
+                          ? "bg-emerald-500 text-white"
+                          : "bg-amber-500 text-white"
+                      }`}
+                    >
+                      {isDot ? "•" : count > 9 ? "9+" : count}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

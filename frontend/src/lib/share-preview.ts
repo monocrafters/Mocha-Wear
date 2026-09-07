@@ -75,7 +75,7 @@ export async function fetchSharePreview(code: string, slug: string): Promise<Sha
       price: Number(item.price) || 0,
       code: String(item.code || code),
       slug: String(item.slug || slug),
-      path: String(item.path || `/r/${code}/p/${slug}`),
+      path: String(item.path || `/products/${slug}?r=${code}`),
     };
   } catch {
     return null;
@@ -83,5 +83,8 @@ export async function fetchSharePreview(code: string, slug: string): Promise<Sha
 }
 
 export function sharePageUrl(origin: string, code: string, slug: string) {
-  return `${origin}/r/${encodeURIComponent(code)}/p/${encodeURIComponent(slug)}`;
+  const base = origin.replace(/\/$/, "");
+  const c = encodeURIComponent(code);
+  const s = encodeURIComponent(slug);
+  return `${base}/products/${s}?r=${c}`;
 }

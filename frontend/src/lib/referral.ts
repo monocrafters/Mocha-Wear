@@ -1,13 +1,28 @@
 const REFERRAL_STORAGE_KEY = "mw_r";
 export const RESELLER_ACTIVATED_EVENT = "mocha:reseller-activated";
 
-export function getReferralCode(): string {
+export function readReferralQueryParam(): string {
   if (typeof window === "undefined") return "";
   try {
-    return String(sessionStorage.getItem(REFERRAL_STORAGE_KEY) || "").trim().toLowerCase();
+    return String(new URLSearchParams(window.location.search).get("r") || "")
+      .trim()
+      .toLowerCase();
   } catch {
     return "";
   }
+}
+
+export function getReferralCode(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const stored = String(sessionStorage.getItem(REFERRAL_STORAGE_KEY) || "")
+      .trim()
+      .toLowerCase();
+    if (stored) return stored;
+  } catch {
+    /* private mode */
+  }
+  return readReferralQueryParam();
 }
 
 export function setReferralCode(code: string) {

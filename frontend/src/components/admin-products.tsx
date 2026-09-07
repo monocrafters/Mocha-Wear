@@ -51,6 +51,7 @@ export type Product = {
 };
 
 type SortId = "newest" | "name" | "price-asc" | "price-desc" | "stock";
+type ResellerFilterId = "all" | "resellers" | "not_resellers";
 
 const SORTS: { id: SortId; label: string }[] = [
   { id: "newest", label: "Newest" },
@@ -145,20 +146,27 @@ export function AdminProducts() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
+  const [resellerFilter, setResellerFilter] = useState<ResellerFilterId>("all");
   const [sort, setSort] = useState<SortId>("newest");
   const dragIdRef = useRef<string | null>(null);
 
   const open = creating || Boolean(editing);
   const hasUnassigned = items.some((item) => !item.collection_id);
   const visible = useMemo(() => {
-    const filtered =
+    const byCollection =
       filter === "all"
         ? items
         : filter === "unassigned"
           ? items.filter((item) => !item.collection_id)
           : items.filter((item) => item.collection_id === filter);
+    const filtered =
+      resellerFilter === "resellers"
+        ? byCollection.filter((item) => item.reseller_enabled)
+        : resellerFilter === "not_resellers"
+          ? byCollection.filter((item) => !item.reseller_enabled)
+          : byCollection;
     return sortProducts(filtered, sort);
-  }, [items, filter, sort]);
+  }, [items, filter, resellerFilter, sort]);
 
   async function load() {
     setLoading(true);
@@ -418,6 +426,24 @@ export function AdminProducts() {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">Resellers</span>
+            <FilterBubble
+              label="All"
+              active={resellerFilter === "all"}
+              onClick={() => setResellerFilter("all")}
+            />
+            <FilterBubble
+              label="For resellers"
+              active={resellerFilter === "resellers"}
+              onClick={() => setResellerFilter("resellers")}
+            />
+            <FilterBubble
+              label="Not for resellers"
+              active={resellerFilter === "not_resellers"}
+              onClick={() => setResellerFilter("not_resellers")}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-slate-500">Sort</span>
             {SORTS.map((item) => (
               <FilterBubble
@@ -439,7 +465,7 @@ export function AdminProducts() {
         </div>
       ) : visible.length === 0 ? (
         <div className="mt-10 border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500">
-          No products in this collection.
+          No products match these filters.
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
@@ -467,6 +493,11 @@ export function AdminProducts() {
                       Hidden
                     </span>
                   )}
+                  {item.reseller_enabled ? (
+                    <span className="bg-emerald-600 px-1.5 py-0.5 text-[8px] font-semibold leading-tight text-white uppercase">
+                      For resellers
+                    </span>
+                  ) : null}
                   {(item.stock ?? 0) <= 0 ? (
                     <span className="bg-red-600 px-1.5 py-0.5 text-[8px] font-semibold text-white uppercase">
                       Out

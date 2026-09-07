@@ -294,7 +294,7 @@ export function AdminSettings() {
         />
       </Section>
 
-      <Section title="Reseller program" copy="Global markup limits, return window before commission clears, and minimum payout.">
+      <Section title="Reseller program" copy="Global markup limits and minimum payout.">
         <Field
           label="Min markup %"
           value={String(form.reseller_min_percent ?? 10)}
@@ -304,11 +304,6 @@ export function AdminSettings() {
           label="Max markup %"
           value={String(form.reseller_max_percent ?? 40)}
           onChange={(v) => set("reseller_max_percent", Number(v) || 0)}
-        />
-        <Field
-          label="Return window (days)"
-          value={String(form.reseller_return_window_days ?? 7)}
-          onChange={(v) => set("reseller_return_window_days", Number(v) || 0)}
         />
         <Field
           label="Min payout (Rs)"

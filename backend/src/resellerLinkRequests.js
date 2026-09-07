@@ -249,6 +249,14 @@ async function createRequest(reseller, body = {}) {
   const data = await readStore();
   data.requests.unshift(row);
   await writeStore(data);
+
+  try {
+    const notifications = require("./notifications");
+    await notifications.notifyLinkRequest(row, reseller);
+  } catch (error) {
+    console.error("Link request notification failed:", error.message);
+  }
+
   return row;
 }
 
@@ -312,8 +320,15 @@ async function reviewRequest(id, { status, admin_note } = {}) {
     reviewed_at: now,
   });
   await writeStore(data);
+  const reviewed = data.requests[index];
+  try {
+    const notifications = require("./notifications");
+    await notifications.notifyResellerLinkReviewed(reviewed, reseller, status);
+  } catch (error) {
+    console.error("Reseller link review notification failed:", error.message);
+  }
   return {
-    request: data.requests[index],
+    request: reviewed,
     reseller: await resellers.getById(reseller.id).then(resellers.publicSafe),
   };
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { API_URL, apiFetch } from "@/lib/api";
+import { formatPkr } from "@/lib/money";
 
 type Reseller = {
   id: string;
@@ -14,6 +16,8 @@ type Reseller = {
   status: string;
   commission_min_percent?: number | null;
   commission_max_percent?: number | null;
+  wallet_pending?: number;
+  wallet_cleared?: number;
   created_at?: string;
 };
 
@@ -206,11 +210,12 @@ export function AdminResellers() {
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto border border-slate-200 bg-white">
-          <table className="w-full min-w-[700px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="border-b border-slate-200 text-[10px] text-slate-500 uppercase">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Code</th>
+                <th className="px-4 py-3 font-medium">Wallet</th>
                 <th className="px-4 py-3 font-medium">Min / Max %</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
@@ -220,10 +225,16 @@ export function AdminResellers() {
               {visible.map((r) => (
                 <tr key={r.id} className="border-b border-slate-200 last:border-0">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900">{r.name}</p>
+                    <Link href={`/admin/resellers/${r.id}`} className="font-medium text-slate-900 hover:text-blue-600 hover:underline">
+                      {r.name}
+                    </Link>
                     <p className="text-[12px] text-slate-500">@{r.username}{r.phone ? ` · ${r.phone}` : ""}</p>
                   </td>
                   <td className="px-4 py-3 font-mono text-slate-700">{r.code}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-slate-900">{formatPkr(r.wallet_cleared || 0)}</p>
+                    <p className="text-[11px] text-slate-500">Pending {formatPkr(r.wallet_pending || 0)}</p>
+                  </td>
                   <td className="px-4 py-3">
                     {editingId === r.id ? (
                       <div className="flex items-center gap-1">
@@ -264,6 +275,12 @@ export function AdminResellers() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
+                      <Link
+                        href={`/admin/resellers/${r.id}`}
+                        className="border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-slate-50"
+                      >
+                        View
+                      </Link>
                       <button type="button" onClick={() => toggleStatus(r)}
                         className="border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-slate-50">
                         {r.status === "suspended" ? "Approve" : "Suspend"}

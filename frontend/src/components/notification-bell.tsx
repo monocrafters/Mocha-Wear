@@ -12,17 +12,39 @@ import {
   markAdminReadAll,
   notificationTime,
 } from "@/lib/notifications";
+import {
+  fetchResellerNotifications,
+  markResellerRead,
+  markResellerReadAll,
+  type ResellerNotification,
+} from "@/lib/reseller-notifications";
+import { useResellerLocale } from "@/components/reseller-locale-provider";
+
+type BellItem = {
+  id: string;
+  title: string;
+  message?: string;
+  href?: string;
+  read: boolean;
+  created_at: string;
+};
 
 export function NotificationBell({
   items,
   onOpen,
   onRead,
   onReadAll,
+  title = "Notifications",
+  emptyLabel = "No notifications yet.",
+  markAllLabel = "Mark all read",
 }: {
-  items: AppNotification[];
+  items: BellItem[];
   onOpen?: () => void;
-  onRead: (item: AppNotification) => void;
+  onRead: (item: BellItem) => void;
   onReadAll?: () => void;
+  title?: string;
+  emptyLabel?: string;
+  markAllLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const unread = items.filter((item) => !item.read).length;
@@ -58,10 +80,10 @@ export function NotificationBell({
           <button type="button" className="fixed inset-0 z-[80]" aria-label="Close notifications" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-[81] mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-900 uppercase">Notifications</p>
+              <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-900 uppercase">{title}</p>
               {onReadAll && unread ? (
                 <button type="button" onClick={onReadAll} className="text-[11px] text-slate-500 hover:text-slate-900">
-                  Mark all read
+                  {markAllLabel}
                 </button>
               ) : null}
             </div>
@@ -83,7 +105,7 @@ export function NotificationBell({
                   </a>
                 ))
               ) : (
-                <p className="px-4 py-8 text-center text-sm text-slate-500">No notifications yet.</p>
+                <p className="px-4 py-8 text-center text-sm text-slate-500">{emptyLabel}</p>
               )}
             </div>
           </div>
@@ -127,6 +149,50 @@ export function AdminNotifications() {
       }}
       onRead={async (item) => {
         if (!item.read) await markAdminRead(item.id);
+        load();
+      }}
+    />
+  );
+}
+
+export function ResellerNotifications() {
+  const { t } = useResellerLocale();
+  const [items, setItems] = useState<ResellerNotification[]>([]);
+
+  const load = useCallback(() => {
+    fetchResellerNotifications()
+      .then((data) => setItems(data.items))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 60_000);
+    function onVisible() {
+      if (document.visibilityState === "visible") load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
+
+  return (
+    <NotificationBell
+      items={items}
+      title={t("notifications.title")}
+      emptyLabel={t("notifications.empty")}
+      markAllLabel={t("notifications.markAll")}
+      onOpen={load}
+      onReadAll={async () => {
+        await markResellerReadAll();
+        load();
+      }}
+      onRead={async (item) => {
+        if (!item.read) await markResellerRead(item.id);
         load();
       }}
     />

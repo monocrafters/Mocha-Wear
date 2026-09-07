@@ -10,6 +10,7 @@ import { isLiveProduct, type ResellerProduct } from "@/lib/reseller-products";
 import { ResellerShell } from "@/components/reseller-shell";
 import { ActiveToggle, ProductStatusBadge } from "@/components/reseller-product-ui";
 import { resellerErrorMessage, useResellerLocale } from "@/components/reseller-locale-provider";
+import { resellerProductPath } from "@/lib/reseller-links";
 
 export function ResellerProductDetail({ productId }: { productId: string }) {
   const { t } = useResellerLocale();
@@ -105,7 +106,7 @@ export function ResellerProductDetail({ productId }: { productId: string }) {
   const previewHref =
     product && hasSavedPrice && product.slug
       ? resellerCode
-        ? `/r/${encodeURIComponent(resellerCode)}/p/${encodeURIComponent(product.slug)}`
+        ? resellerProductPath(resellerCode, product.slug)
         : `/products/${product.slug}`
       : null;
 

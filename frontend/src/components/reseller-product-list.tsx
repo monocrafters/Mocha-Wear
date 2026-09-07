@@ -19,6 +19,8 @@ import {
   type ResellerProduct,
   type ResellerProductLimits,
 } from "@/lib/reseller-products";
+import { resellerProductPath, resellerProductUrl } from "@/lib/reseller-links";
+import { markPricingPageSeen, refreshResellerBadges } from "@/lib/reseller-notifications";
 import { ResellerShell } from "@/components/reseller-shell";
 import { useResellerHeaderDock } from "@/components/reseller-header-dock";
 import { ActiveToggle, ProductStatusBadge } from "@/components/reseller-product-ui";
@@ -126,6 +128,13 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [filtersOpen]);
+
+  useEffect(() => {
+    if (mode !== "pending") return;
+    markPricingPageSeen()
+      .then(() => refreshResellerBadges())
+      .catch(() => undefined);
+  }, [mode]);
 
   useEffect(() => {
     Promise.all([
@@ -264,14 +273,14 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
 
   function previewHref(product: ResellerProduct) {
     if (resellerCode && product.slug) {
-      return `/r/${encodeURIComponent(resellerCode)}/p/${encodeURIComponent(product.slug)}`;
+      return resellerProductPath(resellerCode, product.slug);
     }
     return `/products/${product.slug}`;
   }
 
   function liveProductShareUrl(product: ResellerProduct) {
     if (typeof window === "undefined" || !resellerCode || !product.slug) return "";
-    return `${window.location.origin}/r/${encodeURIComponent(resellerCode)}/p/${encodeURIComponent(product.slug)}`;
+    return resellerProductUrl(window.location.origin, resellerCode, product.slug);
   }
 
   function copyLiveLink(product: ResellerProduct) {

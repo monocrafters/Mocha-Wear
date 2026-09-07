@@ -5,6 +5,7 @@ import { Check, Copy, Loader2, Share2 } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { ResellerShell } from "@/components/reseller-shell";
 import { resellerErrorMessage, useResellerLocale } from "@/components/reseller-locale-provider";
+import { resellerProductPath, resellerProductUrl } from "@/lib/reseller-links";
 
 type LinkRequest = {
   id: string;
@@ -126,7 +127,13 @@ export function ResellerLinkView() {
   }
 
   function productUrl(slug: string) {
-    return `${origin()}/r/${link.code}/p/${slug}`;
+    if (!link.code) return "";
+    return resellerProductUrl(origin(), link.code, slug);
+  }
+
+  function productPath(slug: string) {
+    if (!link.code) return "";
+    return resellerProductPath(link.code, slug);
   }
 
   function copyMain() {
@@ -353,7 +360,7 @@ export function ResellerLinkView() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-slate-900">{product.name}</p>
                         <p className="truncate font-mono text-[10px] text-slate-400">
-                          /r/{link.code}/p/{product.slug}
+                          {productPath(product.slug)}
                         </p>
                       </div>
                       <button

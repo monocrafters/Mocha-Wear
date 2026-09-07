@@ -120,6 +120,12 @@ function shape(row = {}, index = 0) {
     commission_max_percent: nullablePercent(row.commission_max_percent),
     wallet_pending: Math.max(0, asNumber(row.wallet_pending, 0)),
     wallet_cleared: Math.max(0, asNumber(row.wallet_cleared, 0)),
+    payout_method: normalizePayoutMethod(row.payout_method),
+    payout_account_title: String(row.payout_account_title || "").trim(),
+    payout_account_number: String(row.payout_account_number || "").trim(),
+    payout_bank_name: String(row.payout_bank_name || "").trim(),
+    payout_iban: String(row.payout_iban || "").trim(),
+    pricing_page_seen_at: String(row.pricing_page_seen_at || "").trim(),
     created_at: created,
     updated_at: row.updated_at || created,
   };
@@ -134,6 +140,52 @@ function publicSafe(reseller) {
   if (!reseller) return null;
   const { password_hash, ...rest } = reseller;
   return rest;
+}
+
+const PAYOUT_METHODS = ["bank", "jazzcash", "easypaisa", "nayapay", "sadapay"];
+
+function normalizePayoutMethod(value) {
+  const method = String(value || "").trim().toLowerCase();
+  return PAYOUT_METHODS.includes(method) ? method : "";
+}
+
+function payoutProfile(row = {}) {
+  return {
+    payout_method: normalizePayoutMethod(row.payout_method),
+    payout_account_title: String(row.payout_account_title || "").trim(),
+    payout_account_number: String(row.payout_account_number || "").trim(),
+    payout_bank_name: String(row.payout_bank_name || "").trim(),
+    payout_iban: String(row.payout_iban || "").trim(),
+  };
+}
+
+function payoutProfileReady(profile = {}) {
+  const method = normalizePayoutMethod(profile.payout_method);
+  if (method === "bank") {
+    return Boolean(
+      profile.payout_account_title && profile.payout_account_number && profile.payout_bank_name,
+    );
+  }
+  if (["jazzcash", "easypaisa", "nayapay", "sadapay"].includes(method)) {
+    const num = String(profile.payout_account_number || "").replace(/\D/g, "");
+    return Boolean(profile.payout_account_title && num.length === 11 && num.startsWith("03"));
+  }
+  return false;
+}
+
+function payoutSnapshot(row = {}) {
+  const profile = payoutProfile(row);
+  return {
+    method: profile.payout_method,
+    account_title: profile.payout_account_title,
+    account_number: profile.payout_account_number,
+    bank_name: profile.payout_bank_name,
+    iban: profile.payout_iban,
+  };
+}
+
+async function markPricingPageSeen(resellerId) {
+  return updateOne(resellerId, { pricing_page_seen_at: new Date().toISOString() });
 }
 
 async function listAll() {
@@ -321,6 +373,22 @@ async function updateOne(id, body = {}) {
   }
   if (body.wallet_pending !== undefined) current.wallet_pending = Math.max(0, asNumber(body.wallet_pending, 0));
   if (body.wallet_cleared !== undefined) current.wallet_cleared = Math.max(0, asNumber(body.wallet_cleared, 0));
+  if (body.payout_method !== undefined) {
+    current.payout_method = normalizePayoutMethod(body.payout_method);
+  }
+  if (body.payout_account_title !== undefined) {
+    current.payout_account_title = String(body.payout_account_title || "").trim();
+  }
+  if (body.payout_account_number !== undefined) {
+    current.payout_account_number = String(body.payout_account_number || "").trim();
+  }
+  if (body.payout_bank_name !== undefined) {
+    current.payout_bank_name = String(body.payout_bank_name || "").trim();
+  }
+  if (body.payout_iban !== undefined) current.payout_iban = String(body.payout_iban || "").trim();
+  if (body.pricing_page_seen_at !== undefined) {
+    current.pricing_page_seen_at = String(body.pricing_page_seen_at || "").trim();
+  }
   if (body.password) current.password_hash = hashPassword(body.password);
   current.updated_at = new Date().toISOString();
   data.resellers[index] = shape(current, index);
@@ -347,5 +415,9 @@ module.exports = {
   getByCustomDomainAny,
   createOne,
   updateOne,
+  markPricingPageSeen,
+  payoutProfile,
+  payoutProfileReady,
+  payoutSnapshot,
   sendError,
 };

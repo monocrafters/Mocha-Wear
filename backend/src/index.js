@@ -27,6 +27,7 @@ const resellerWallet = require("./resellerWallet");
 const resellerPricing = require("./resellerPricing");
 const resellerLinkRequests = require("./resellerLinkRequests");
 const resellerDomains = require("./resellerDomains");
+const resellerPrRequests = require("./resellerPrRequests");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -314,6 +315,9 @@ app.post("/api/admin/products", adminAuth.requireAdmin, productFields, async (re
     const body = await attachProductImages(req, { ...req.body });
     const item = await products.createOne(body);
     await notifications.notifyNewProduct(item);
+    if (item.is_published && item.reseller_enabled) {
+      await notifications.notifyResellerNewProduct(item);
+    }
     const catalog_v = await catalogMeta.bump();
     res.status(201).json({ item, catalog_v });
   } catch (error) {
@@ -327,6 +331,13 @@ app.patch("/api/admin/products/:id", adminAuth.requireAdmin, productFields, asyn
     const body = await attachProductImages(req, { ...req.body });
     const item = await products.updateOne(req.params.id, body);
     if (item.is_published && !before?.is_published) await notifications.notifyNewProduct(item);
+    if (
+      item.is_published &&
+      item.reseller_enabled &&
+      (!before?.is_published || !before?.reseller_enabled)
+    ) {
+      await notifications.notifyResellerNewProduct(item);
+    }
     const catalog_v = await catalogMeta.bump();
     res.json({ item, catalog_v });
   } catch (error) {
@@ -619,6 +630,10 @@ app.post("/api/orders", async (req, res) => {
       });
     }
     await notifications.notifyNewOrder(item);
+    if (resolved.attributed && item.reseller_id) {
+      const reseller = await resellers.getById(item.reseller_id);
+      if (reseller) await notifications.notifyResellerOrder(item, reseller);
+    }
     res.status(201).json({ item });
   } catch (error) {
     orders.sendError(res, error);
@@ -812,6 +827,83 @@ app.post("/api/reseller/login", resellerAuth.login);
 app.get("/api/reseller/me", resellerAuth.me);
 app.post("/api/reseller/logout", resellerAuth.logout);
 
+app.get("/api/reseller/notifications", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const items = await notifications.listReseller(req.reseller.id);
+    res.json({ items, unread: notifications.unreadCount(items) });
+  } catch (error) {
+    notifications.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/notifications/:id/read", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const item = await notifications.markRead(req.params.id, "reseller", req.reseller.id);
+    if (!item) return res.status(404).json({ message: "Notification not found" });
+    res.json({ item });
+  } catch (error) {
+    notifications.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/notifications/read-all", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    res.json(await notifications.markAllRead("reseller", req.reseller.id));
+  } catch (error) {
+    notifications.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/badges", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const prices = await resellerPrices.listByReseller(req.reseller.id);
+    const priceMap = new Map(
+      prices.map((row) => [row.product_id, Number(row.custom_price) > 0 ? row.custom_price : 0]),
+    );
+    const fresh = await resellers.getById(req.reseller.id);
+    const seenAt = String(fresh?.pricing_page_seen_at || "").trim();
+    const seenMs = seenAt ? new Date(seenAt).getTime() : 0;
+    const catalog = (await products.listAll()).filter((item) => item.reseller_enabled && item.is_published);
+    const pending_products = catalog.filter((item) => {
+      if (priceMap.get(item.id)) return false;
+      if (!seenMs) return true;
+      const stamp = new Date(item.updated_at || item.created_at || 0).getTime();
+      return Number.isFinite(stamp) && stamp > seenMs;
+    }).length;
+    const notifItems = await notifications.listReseller(req.reseller.id);
+    const unread_notifications = notifications.unreadCount(notifItems);
+    const unread_orders = notifItems.filter((item) => !item.read && item.type === "new_order").length;
+    const payouts = await resellerWallet.listPayouts(req.reseller.id);
+    const open_withdrawal = payouts.some(
+      (row) => row.status === "requested" || row.status === "processing",
+    );
+    const global = await resellerPricing.getGlobalResellerSettings();
+    const withdraw_ready =
+      !open_withdrawal &&
+      Number(fresh?.wallet_cleared || 0) >= global.minPayout &&
+      resellers.payoutProfileReady(fresh);
+    res.json({
+      pending_products,
+      unread_notifications,
+      unread_orders,
+      open_withdrawal,
+      withdraw_ready: Boolean(withdraw_ready),
+    });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/badges/pricing-seen", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    await resellers.markPricingPageSeen(req.reseller.id);
+    await notifications.markResellerReadByType(req.reseller.id, "new_product");
+    res.json({ ok: true });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
 app.get("/api/reseller/link", resellerAuth.requireReseller, async (req, res) => {
   try {
     const stats = await resellerPricing.clickStats(req.reseller.id);
@@ -959,6 +1051,9 @@ app.get("/api/reseller/products/:productId", resellerAuth.requireReseller, async
       (p) => p.product_id === item.id,
     ) || null;
     const savedPrice = row && Number(row.custom_price) > 0 ? Number(row.custom_price) : null;
+    const compareAtPrice = savedPrice
+      ? resellerPricing.adjustCompareAtPrice(item.price, item.compare_at_price, savedPrice)
+      : item.compare_at_price;
     res.json({
       item: {
         id: item.id,
@@ -973,7 +1068,7 @@ app.get("/api/reseller/products/:productId", resellerAuth.requireReseller, async
         image: item.images?.[0]?.url || "",
         images: item.images || [],
         retail_price: item.price,
-        compare_at_price: item.compare_at_price,
+        compare_at_price: compareAtPrice,
         wholesale_price: wholesale,
         custom_price: savedPrice,
         is_active: savedPrice != null ? row?.is_active !== false && row?.is_active !== "false" : false,
@@ -1028,11 +1123,44 @@ app.get("/api/reseller/orders", resellerAuth.requireReseller, async (req, res) =
   }
 });
 
+app.get("/api/reseller/orders/:id", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const order = await orders.getById(req.params.id);
+    if (!order || order.reseller_id !== req.reseller.id) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    res.json({ item: order });
+  } catch (error) {
+    orders.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/pr-progress", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const progress = await resellerPrRequests.getProgress(req.reseller.id);
+    res.json(progress);
+  } catch (error) {
+    resellerPrRequests.sendError(res, error);
+  }
+});
+
+app.post("/api/reseller/pr-requests", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const item = await resellerPrRequests.createRequest(
+      req.reseller.id,
+      { note: req.body?.note },
+      req.reseller,
+    );
+    res.status(201).json({ item });
+  } catch (error) {
+    resellerPrRequests.sendError(res, error);
+  }
+});
+
 app.get("/api/reseller/earnings", resellerAuth.requireReseller, async (req, res) => {
   try {
-    await resellerWallet.sweepCleared();
-    const fresh = await resellers.getById(req.reseller.id);
     const transactions = await resellerWallet.listByReseller(req.reseller.id);
+    const fresh = await resellers.getById(req.reseller.id);
     const payouts = await resellerWallet.listPayouts(req.reseller.id);
     const global = await resellerPricing.getGlobalResellerSettings();
     const stats = await resellerPricing.clickStats(req.reseller.id);
@@ -1054,10 +1182,58 @@ app.post("/api/reseller/payouts", resellerAuth.requireReseller, async (req, res)
     const global = await resellerPricing.getGlobalResellerSettings();
     const item = await resellerWallet.requestPayout(
       req.reseller.id,
-      { amount: req.body?.amount, method: req.body?.method },
+      { amount: req.body?.amount },
       global.minPayout,
     );
     res.status(201).json({ item });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/payout-method", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const profile = resellers.payoutProfile(req.reseller);
+    res.json({
+      item: profile,
+      ready: resellers.payoutProfileReady(req.reseller),
+    });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.put("/api/reseller/payout-method", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const item = await resellers.updateOne(req.reseller.id, {
+      payout_method: body.payout_method,
+      payout_account_title: body.payout_account_title,
+      payout_account_number: body.payout_account_number,
+      payout_bank_name: body.payout_bank_name,
+      payout_iban: body.payout_iban,
+    });
+    res.json({
+      item: resellers.payoutProfile(item),
+      ready: resellers.payoutProfileReady(item),
+    });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/payouts", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    await resellerWallet.reconcileResellerWallet(req.reseller.id);
+    const fresh = await resellers.getById(req.reseller.id);
+    const global = await resellerPricing.getGlobalResellerSettings();
+    const items = await resellerWallet.listPayouts(req.reseller.id);
+    res.json({
+      items,
+      wallet_cleared: fresh?.wallet_cleared || 0,
+      min_payout: global.minPayout,
+      payout_ready: resellers.payoutProfileReady(fresh),
+    });
   } catch (error) {
     resellerWallet.sendError(res, error);
   }
@@ -1089,6 +1265,111 @@ app.get("/api/admin/resellers", adminAuth.requireAdmin, async (_req, res) => {
   }
 });
 
+app.get("/api/admin/resellers/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const reseller = await resellers.getById(req.params.id);
+    if (!reseller) {
+      return res.status(404).json({ message: "Reseller not found" });
+    }
+
+    await resellerWallet.reconcileResellerWallet(reseller.id);
+
+    const fresh = (await resellers.getById(reseller.id)) || reseller;
+    const allOrders = await orders.listAll();
+    const resellerOrders = allOrders
+      .filter((order) => order.reseller_id === fresh.id)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    const statusCounts = {
+      processing: 0,
+      packed: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0,
+    };
+    let revenue_sold = 0;
+    let commission_total = 0;
+    let commission_delivered = 0;
+    for (const order of resellerOrders) {
+      if (statusCounts[order.status] !== undefined) statusCounts[order.status] += 1;
+      if (order.status !== "cancelled") {
+        revenue_sold += Number(order.subtotal) || 0;
+        commission_total += Number(order.commission_total) || 0;
+      }
+      if (order.status === "delivered") {
+        commission_delivered += Number(order.commission_total) || 0;
+      }
+    }
+
+    const catalog = (await products.listAll()).filter((item) => item.reseller_enabled && item.is_published);
+    const productMap = new Map((await products.listAll()).map((item) => [item.id, item]));
+    const priceRows = await resellerPrices.listByReseller(fresh.id);
+    const prices = priceRows
+      .map((row) => {
+        const product = productMap.get(row.product_id);
+        return {
+          ...row,
+          product_name: product?.name || "Product",
+          product_slug: product?.slug || "",
+          product_code: product?.code || "",
+          wholesale_price: Number(product?.wholesale_price) || 0,
+          retail_price: Number(product?.price) || 0,
+          margin: Math.max(0, (Number(row.custom_price) || 0) - (Number(product?.wholesale_price) || 0)),
+          cover: product?.images?.[0]?.url || "",
+        };
+      })
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    const products_priced = prices.filter((row) => Number(row.custom_price) > 0).length;
+    const products_live = prices.filter((row) => row.is_active && Number(row.custom_price) > 0).length;
+    const products_available = catalog.length;
+    const products_pending = Math.max(0, products_available - products_priced);
+
+    const payouts = await resellerWallet.listPayouts(fresh.id);
+    const transactions = await resellerWallet.listByReseller(fresh.id);
+    const linkRequests = await resellerLinkRequests.listByReseller(fresh.id);
+    const clickInfo = await resellerPricing.clickStats(fresh.id);
+
+    const payouts_paid = payouts
+      .filter((row) => row.status === "completed")
+      .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const payouts_open = payouts.filter(
+      (row) => row.status === "requested" || row.status === "processing",
+    ).length;
+
+    res.json({
+      item: resellers.publicSafe(fresh),
+      stats: {
+        clicks: Number(clickInfo.total) || 0,
+        orders_total: resellerOrders.length,
+        orders_by_status: statusCounts,
+        revenue_sold: Math.round(revenue_sold),
+        commission_total: Math.round(commission_total),
+        commission_delivered: Math.round(commission_delivered),
+        wallet_pending: Number(fresh.wallet_pending) || 0,
+        wallet_cleared: Number(fresh.wallet_cleared) || 0,
+        products_available,
+        products_priced,
+        products_live,
+        products_pending,
+        payouts_count: payouts.length,
+        payouts_paid: Math.round(payouts_paid),
+        payouts_open,
+        link_requests_pending: linkRequests.filter((row) => row.status === "pending").length,
+        payout_profile_ready: resellers.payoutProfileReady(fresh),
+      },
+      orders: resellerOrders,
+      prices,
+      payouts,
+      transactions: transactions.slice(0, 100),
+      link_requests: linkRequests,
+      clicks_recent: Array.isArray(clickInfo.recent) ? clickInfo.recent.slice(0, 30) : [],
+    });
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
 app.get("/api/admin/link-requests", adminAuth.requireAdmin, async (_req, res) => {
   try {
     const list = await resellers.listAll();
@@ -1111,6 +1392,37 @@ app.patch("/api/admin/link-requests/:id", adminAuth.requireAdmin, async (req, re
     res.json(result);
   } catch (error) {
     resellerLinkRequests.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/pr-requests", adminAuth.requireAdmin, async (_req, res) => {
+  try {
+    const list = await resellers.listAll();
+    const map = new Map(list.map((row) => [row.id, row]));
+    const items = (await resellerPrRequests.listAll()).map((row) => ({
+      ...row,
+      reseller_name: map.get(row.reseller_id)?.name || "",
+      reseller_username: map.get(row.reseller_id)?.username || "",
+      reseller_code: map.get(row.reseller_id)?.code || "",
+      reseller_phone: map.get(row.reseller_id)?.phone || "",
+    }));
+    res.json({ items });
+  } catch (error) {
+    resellerPrRequests.sendError(res, error);
+  }
+});
+
+app.patch("/api/admin/pr-requests/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const existing = await resellerPrRequests.getById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "PR request not found" });
+    }
+    const reseller = await resellers.getById(existing.reseller_id);
+    const item = await resellerPrRequests.reviewRequest(req.params.id, req.body || {}, reseller || {});
+    res.json({ item });
+  } catch (error) {
+    resellerPrRequests.sendError(res, error);
   }
 });
 
@@ -1143,6 +1455,27 @@ app.get("/api/admin/payouts", adminAuth.requireAdmin, async (_req, res) => {
         reseller_name: map.get(row.reseller_id)?.name || "",
         reseller_code: map.get(row.reseller_id)?.code || "",
       })),
+    });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/payouts/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const payout = await resellerWallet.getPayoutById(req.params.id);
+    if (!payout) {
+      return res.status(404).json({ message: "Payout not found" });
+    }
+    const reseller = await resellers.getById(payout.reseller_id);
+    res.json({
+      item: {
+        ...payout,
+        reseller_name: reseller?.name || "",
+        reseller_code: reseller?.code || "",
+        reseller_email: reseller?.email || "",
+        reseller_phone: reseller?.phone || "",
+      },
     });
   } catch (error) {
     resellerWallet.sendError(res, error);

@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { API_URL, apiFetch, clearResellerToken } from "@/lib/api";
 import { ResellerMenuButton, ResellerSidebar } from "@/components/reseller-sidebar";
+import { ResellerNotifications } from "@/components/notification-bell";
 import { useResellerLocale } from "@/components/reseller-locale-provider";
 import { useResellerHeaderDock } from "@/components/reseller-header-dock";
 
@@ -13,10 +14,11 @@ type ResellerShellProps = {
   title: string;
   copy?: string;
   compact?: boolean;
+  wide?: boolean;
   children: ReactNode;
 };
 
-function ResellerShellFrame({ active, kicker, title, copy, compact, children }: ResellerShellProps) {
+function ResellerShellFrame({ active, kicker, title, copy, compact, wide, children }: ResellerShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useResellerLocale();
@@ -78,9 +80,18 @@ function ResellerShellFrame({ active, kicker, title, copy, compact, children }: 
             <span className="hidden shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline">
               {name}
             </span>
+            <ResellerNotifications />
           </div>
         </header>
-        <section className={compact ? "px-4 py-3 sm:px-6" : "px-4 py-6 sm:px-6 lg:px-8 lg:py-8"}>
+        <section
+          className={
+            compact
+              ? wide
+                ? "px-3 py-3 sm:px-5 lg:px-6 lg:py-5"
+                : "px-4 py-3 sm:px-6"
+              : "px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+          }
+        >
           {!compact ? (
             <>
               <p className="text-sm text-slate-500">{kicker}</p>
