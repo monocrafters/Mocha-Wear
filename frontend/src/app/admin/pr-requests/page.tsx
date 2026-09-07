@@ -7,7 +7,7 @@ export default function AdminPrRequestsPage() {
       active="pr-requests"
       kicker="Commerce"
       title="PR requests"
-      copy="Resellers unlock a PR package request after every 100 successful delivered orders."
+      copy="Resellers unlock a PR package request after every 100 successful delivered products (qty)."
     >
       <AdminPrRequests />
     </AdminShell>

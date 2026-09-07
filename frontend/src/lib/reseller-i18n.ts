@@ -43,8 +43,8 @@ const en: Record<string, string> = {
   "overview.copyLink": "Copy link",
 
   "pr.title": "PR package",
-  "pr.copy": "After every 100 successful delivered orders you can request a PR package from us.",
-  "pr.progressHint": "{current} / {target} successful orders to unlock",
+  "pr.copy": "After every 100 successful delivered products you can request a PR package from us. Each product in an order counts separately.",
+  "pr.progressHint": "{current} / {target} successful products to unlock",
   "pr.unlocked": "You can request a PR package now",
   "pr.pendingReview": "Your PR request is waiting for admin review",
   "pr.requestCta": "Request PR package",
@@ -310,8 +310,8 @@ const ur: Record<string, string> = {
   "overview.copyLink": "Link copy karein",
 
   "pr.title": "PR package",
-  "pr.copy": "Har 100 successful delivered orders ke baad aap hum se PR package request kar sakte hain.",
-  "pr.progressHint": "Unlock ke liye {current} / {target} successful orders",
+  "pr.copy": "Har 100 successful delivered products ke baad aap hum se PR package request kar sakte hain. Order mein har product alag count hota hai.",
+  "pr.progressHint": "Unlock ke liye {current} / {target} successful products",
   "pr.unlocked": "Ab aap PR package request kar sakte hain",
   "pr.pendingReview": "Aap ki PR request admin review ka intezar kar rahi hai",
   "pr.requestCta": "PR package request karein",

@@ -266,8 +266,8 @@ async function notifyPrRequest(request = {}, reseller = {}) {
     type: "pr_request",
     title: "New PR package request",
     message: note
-      ? `${name} requested a PR package after ${delivered} delivered orders · ${note}`
-      : `${name} requested a PR package after ${delivered} delivered orders`,
+      ? `${name} requested a PR package after ${delivered} delivered products · ${note}`
+      : `${name} requested a PR package after ${delivered} delivered products`,
     href: "/admin/pr-requests",
   });
 }

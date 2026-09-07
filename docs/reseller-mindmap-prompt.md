@@ -3,7 +3,7 @@
 Paste this into ChatGPT, Claude, Napkin, Miro, Whimsical, or any mindmap tool.
 
 **Goal:** Explain to resellers — in an easy way — how *their* work works.  
-Also make clear: **we set wholesale prices**, **we provide media/content**, and **PR unlock after 100 successful orders**.
+Also make clear: **we set wholesale prices**, **we provide media/content**, and **PR unlock after 100 successful delivered products**.
 
 ---
 
@@ -13,7 +13,7 @@ Also make clear: **we set wholesale prices**, **we provide media/content**, and 
 Create a simple, clear mindmap for Mocha Wear RESSELLERS.
 
 Audience: Resellers who are new.
-Purpose: Explain what the reseller does, how they get wholesale rates, content, earn money, and unlock PR packages.
+Purpose: Explain what the reseller does, how they get wholesale rates, content, earn money, and unlock PR packages after 100 delivered products.
 Language: Easy English. Short labels. No jargon.
 Style: Clean mindmap. Easy to present in 2–3 minutes.
 
@@ -68,19 +68,20 @@ MAIN BRANCHES
    - Request withdraw from Cleared balance
    - Get paid to your account
 
-8) Unlock PR after 100 orders
-   - Progress bar shows successful (delivered) orders
-   - Goal: 100 delivered orders
+8) Unlock PR after 100 products
+   - Progress bar shows successful delivered products (qty)
+   - Goal: 100 delivered products
+   - If one order has 3 products, that counts as 3 (not 1)
    - At 100, you can request a PR package from us
    - Request goes to admin for approval
-   - Every next 100 orders unlocks another PR request
+   - Every next 100 products unlocks another PR request
    - Shown on Dashboard and Orders page
 
 ==================================================
 ONE SIMPLE FLOW LINE
 ==================================================
 Wholesale from us → Set your price → Use our content → Share link → Customer buys → We deliver → Cleared → Withdraw
-(+ after 100 delivered orders → Request PR)
+(+ after 100 delivered products → Request PR)
 
 ==================================================
 5 KEY POINTS TO HIGHLIGHT (big / bold)
@@ -89,7 +90,7 @@ Wholesale from us → Set your price → Use our content → Share link → Cust
 2. You set your selling price + profit
 3. We give raw + edited content
 4. Share link → delivery → withdraw
-5. 100 successful orders → request PR package  
+5. 100 successful products → request PR package  
 
 ==================================================
 OUTPUT RULES
@@ -105,7 +106,7 @@ OUTPUT RULES
 
 ## One-liner (say this while showing the map)
 
-> We give you wholesale rates + content → you set your price → share with our media → customer buys → we deliver → you withdraw. After 100 successful orders, you can request a PR package.
+> We give you wholesale rates + content → you set your price → share with our media → customer buys → we deliver → you withdraw. After 100 successful delivered products, you can request a PR package.
 
 ---
 
@@ -146,7 +147,8 @@ mindmap
       Request from Cleared
       Get paid
     PR unlock
-      Progress to 100 delivered
+      Progress to 100 products
+      Each product counts
       Request PR package
       Admin approves
       Next PR every +100
@@ -164,5 +166,5 @@ mindmap
 4. Content ke sath apni **link** WhatsApp / Instagram pe bhejo.
 5. Customer order karega — Orders mein dikhega; packing/delivery hum karenge.
 6. Delivery ke baad profit **Cleared** → us se **Withdraw** kar lo.
-7. **100 successful (delivered) orders** ke baad tum **PR package** demand kar sakte ho — progress bar dashboard aur Orders pe dikhegi; request admin ko jayegi.
+7. **100 successful delivered products** ke baad tum **PR package** demand kar sakte ho — order mein har product alag count hota hai; progress bar dashboard aur Orders pe dikhegi; request admin ko jayegi.
 

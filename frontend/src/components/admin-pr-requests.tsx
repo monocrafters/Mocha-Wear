@@ -133,7 +133,7 @@ export function AdminPrRequests() {
                     {row.reseller_phone ? ` · ${row.reseller_phone}` : ""}
                   </p>
                   <p className="mt-2 text-sm text-slate-700">
-                    Milestone #{row.milestone || 1} · {row.delivered_at_request || 0} delivered orders
+                    Milestone #{row.milestone || 1} · {row.delivered_at_request || 0} delivered products
                   </p>
                   {row.note ? <p className="mt-1 text-sm text-slate-500">Note: {row.note}</p> : null}
                   <p className="mt-1 text-[11px] text-slate-400">{fmtDate(row.created_at)}</p>

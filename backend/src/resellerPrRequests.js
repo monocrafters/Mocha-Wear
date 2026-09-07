@@ -55,11 +55,19 @@ function normalize(data = {}) {
   return { requests: requests.map(shape) };
 }
 
-async function countDeliveredOrders(resellerId) {
+async function countDeliveredProducts(resellerId) {
   const id = String(resellerId || "").trim();
   if (!id) return 0;
   const list = await orders.listAll();
-  return list.filter((order) => order.reseller_id === id && order.status === "delivered").length;
+  let total = 0;
+  for (const order of list) {
+    if (order.reseller_id !== id || order.status !== "delivered") continue;
+    const items = Array.isArray(order.items) ? order.items : [];
+    for (const item of items) {
+      total += Math.max(0, Math.round(Number(item.qty) || 0));
+    }
+  }
+  return total;
 }
 
 async function listByReseller(resellerId) {
@@ -103,7 +111,7 @@ function buildProgress(delivered, requests = []) {
 }
 
 async function getProgress(resellerId) {
-  const delivered = await countDeliveredOrders(resellerId);
+  const delivered = await countDeliveredProducts(resellerId);
   const requests = await listByReseller(resellerId);
   return {
     ...buildProgress(delivered, requests),
@@ -117,7 +125,7 @@ async function createRequest(resellerId, { note } = {}, reseller = {}) {
     const err = new Error(
       progress.pending_request
         ? "You already have a pending PR request."
-        : `Reach ${progress.next_milestone} successful (delivered) orders to request a PR package.`,
+        : `Reach ${progress.next_milestone} successful delivered products to request a PR package.`,
     );
     err.status = 400;
     throw err;
@@ -193,7 +201,7 @@ function sendError(res, error) {
 
 module.exports = {
   PR_ORDER_TARGET,
-  countDeliveredOrders,
+  countDeliveredProducts,
   listByReseller,
   listAll,
   getById,
