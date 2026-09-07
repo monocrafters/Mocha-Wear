@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { ResellerShell } from "@/components/reseller-shell";
-import { useResellerLocale } from "@/components/reseller-locale-provider";
+import { PasswordInput } from "@/components/password-input";
+import { resellerErrorMessage, useResellerLocale } from "@/components/reseller-locale-provider";
 import type { ResellerLocale } from "@/lib/reseller-i18n";
+import { API_URL, apiFetch } from "@/lib/api";
+import { ui } from "@/lib/admin-ui";
 
 export function ResellerSettings() {
   const { locale, setLocale, t } = useResellerLocale();
   const [saved, setSaved] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordOk, setPasswordOk] = useState("");
 
   function pick(next: ResellerLocale) {
     setLocale(next);
@@ -15,53 +24,140 @@ export function ResellerSettings() {
     setTimeout(() => setSaved(false), 2000);
   }
 
+  async function onChangePassword(event: FormEvent) {
+    event.preventDefault();
+    setPasswordError("");
+    setPasswordOk("");
+
+    if (newPassword.length < 6) {
+      setPasswordError(t("settings.passwordTooShort"));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t("settings.passwordMismatch"));
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      const res = await apiFetch(`${API_URL}/api/reseller/change-password`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || t("settings.passwordError"));
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordOk(t("settings.passwordSaved"));
+    } catch (err) {
+      setPasswordError(resellerErrorMessage(err, t("settings.passwordError")));
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
   return (
     <ResellerShell active="settings" kicker={t("settings.kicker")} title={t("settings.title")} copy={t("settings.copy")}>
-      {saved ? (
-        <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{t("settings.saved")}</p>
-      ) : null}
+      <div className="mx-auto w-full max-w-lg space-y-4">
+        {saved ? <p className={ui.ok}>{t("settings.saved")}</p> : null}
 
-      <div className="max-w-lg border border-slate-200 bg-white p-4">
-        <p className="text-sm font-semibold text-slate-900">{t("settings.language")}</p>
-        <p className="mt-1 text-sm text-slate-500">{t("settings.languageHelp")}</p>
+        <div className="border border-slate-200 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-900">{t("settings.language")}</p>
+          <p className="mt-1 text-sm text-slate-500">{t("settings.languageHelp")}</p>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => pick("en")}
-            className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
-              locale === "en"
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span className="font-medium">{t("settings.english")}</span>
-            <span className={`mt-0.5 block text-xs ${locale === "en" ? "text-slate-300" : "text-slate-500"}`}>
-              {t("settings.englishHint")}
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => pick("en")}
+              className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
+                locale === "en"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <span className="font-medium">{t("settings.english")}</span>
+              <span className={`mt-0.5 block text-xs ${locale === "en" ? "text-slate-300" : "text-slate-500"}`}>
+                {t("settings.englishHint")}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => pick("ur")}
+              className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
+                locale === "ur"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <span className="font-medium">{t("settings.romanUrdu")}</span>
+              <span className={`mt-0.5 block text-xs ${locale === "ur" ? "text-slate-300" : "text-slate-500"}`}>
+                {t("settings.romanUrduHint")}
+              </span>
+            </button>
+          </div>
+
+          <p className="mt-4 text-[12px] text-slate-500">
+            {t("settings.current")}{" "}
+            <span className="font-medium text-slate-800">
+              {locale === "ur" ? t("settings.romanUrdu") : t("settings.english")}
             </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => pick("ur")}
-            className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
-              locale === "ur"
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-            }`}
-          >
-            <span className="font-medium">{t("settings.romanUrdu")}</span>
-            <span className={`mt-0.5 block text-xs ${locale === "ur" ? "text-slate-300" : "text-slate-500"}`}>
-              {t("settings.romanUrduHint")}
-            </span>
-          </button>
+          </p>
         </div>
 
-        <p className="mt-4 text-[12px] text-slate-500">
-          {t("settings.current")}{" "}
-          <span className="font-medium text-slate-800">
-            {locale === "ur" ? t("settings.romanUrdu") : t("settings.english")}
-          </span>
-        </p>
+        <form onSubmit={onChangePassword} className="border border-slate-200 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-900">{t("settings.passwordTitle")}</p>
+          <p className="mt-1 text-sm text-slate-500">{t("settings.passwordHelp")}</p>
+
+          <div className="mt-4 space-y-3">
+            <label className="block">
+              <span className={ui.label}>{t("settings.currentPassword")}</span>
+              <PasswordInput
+                value={currentPassword}
+                onChange={setCurrentPassword}
+                autoComplete="current-password"
+                required
+                placeholder={t("settings.currentPasswordPlaceholder")}
+              />
+            </label>
+            <label className="block">
+              <span className={ui.label}>{t("settings.newPassword")}</span>
+              <PasswordInput
+                value={newPassword}
+                onChange={setNewPassword}
+                autoComplete="new-password"
+                required
+                placeholder={t("settings.newPasswordPlaceholder")}
+              />
+            </label>
+            <label className="block">
+              <span className={ui.label}>{t("settings.confirmPassword")}</span>
+              <PasswordInput
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                autoComplete="new-password"
+                required
+                placeholder={t("settings.confirmPasswordPlaceholder")}
+              />
+            </label>
+          </div>
+
+          {passwordError ? <p className={`mt-3 ${ui.error}`}>{passwordError}</p> : null}
+          {passwordOk ? <p className={`mt-3 ${ui.ok}`}>{passwordOk}</p> : null}
+
+          <button
+            type="submit"
+            disabled={passwordSaving}
+            className={`mt-4 ${ui.btnPrimary} w-full sm:w-auto`}
+          >
+            {passwordSaving ? t("settings.passwordSaving") : t("settings.passwordSave")}
+          </button>
+        </form>
       </div>
     </ResellerShell>
   );

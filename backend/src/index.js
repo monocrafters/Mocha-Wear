@@ -827,6 +827,18 @@ app.post("/api/reseller/login", resellerAuth.login);
 app.get("/api/reseller/me", resellerAuth.me);
 app.post("/api/reseller/logout", resellerAuth.logout);
 
+app.post("/api/reseller/change-password", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    const result = await resellers.changePassword(req.reseller.id, {
+      current_password: req.body?.current_password ?? req.body?.old_password,
+      new_password: req.body?.new_password,
+    });
+    res.json(result);
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
 app.get("/api/reseller/notifications", resellerAuth.requireReseller, async (req, res) => {
   try {
     const items = await notifications.listReseller(req.reseller.id);

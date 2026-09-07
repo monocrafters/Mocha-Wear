@@ -396,6 +396,41 @@ async function updateOne(id, body = {}) {
   return publicSafe(data.resellers[index]);
 }
 
+async function changePassword(resellerId, { current_password, new_password } = {}) {
+  const currentPassword = String(current_password || "");
+  const nextPassword = String(new_password || "");
+  if (!currentPassword || !nextPassword) {
+    const err = new Error("Current password and new password are required");
+    err.status = 400;
+    throw err;
+  }
+  if (nextPassword.length < 6) {
+    const err = new Error("New password must be at least 6 characters");
+    err.status = 400;
+    throw err;
+  }
+  if (currentPassword === nextPassword) {
+    const err = new Error("New password must be different from the current password");
+    err.status = 400;
+    throw err;
+  }
+
+  const row = await getById(resellerId);
+  if (!row) {
+    const err = new Error("Reseller not found");
+    err.status = 404;
+    throw err;
+  }
+  const valid = verifyPassword(currentPassword, row.password_hash);
+  if (!valid) {
+    const err = new Error("Current password is incorrect");
+    err.status = 401;
+    throw err;
+  }
+  await updateOne(resellerId, { password: nextPassword });
+  return { ok: true };
+}
+
 function sendError(res, error) {
   const status = error.status || 500;
   console.error("Reseller error:", error.message);
@@ -415,6 +450,7 @@ module.exports = {
   getByCustomDomainAny,
   createOne,
   updateOne,
+  changePassword,
   markPricingPageSeen,
   payoutProfile,
   payoutProfileReady,

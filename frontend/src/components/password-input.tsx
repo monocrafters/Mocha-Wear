@@ -9,19 +9,33 @@ type PasswordInputProps = {
   onChange: (value: string) => void;
   autoComplete?: string;
   required?: boolean;
+  placeholder?: string;
+  id?: string;
+  name?: string;
 };
 
-export function PasswordInput({ value, onChange, autoComplete, required }: PasswordInputProps) {
+export function PasswordInput({
+  value,
+  onChange,
+  autoComplete,
+  required,
+  placeholder,
+  id,
+  name,
+}: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
 
   return (
     <div className="relative mt-1.5">
       <input
+        id={id}
+        name={name}
         type={visible ? "text" : "password"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         required={required}
+        placeholder={placeholder}
         className={`${ui.input} mt-0 pr-10`}
       />
       <button

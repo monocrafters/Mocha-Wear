@@ -267,6 +267,20 @@ const en: Record<string, string> = {
   "settings.saved": "Language updated.",
   "settings.englishHint": "Default dashboard language",
   "settings.romanUrduHint": "Roman Urdu mein dashboard",
+  "settings.passwordTitle": "Change password",
+  "settings.passwordHelp": "Enter your current password, then set a new one.",
+  "settings.currentPassword": "Current password",
+  "settings.newPassword": "New password",
+  "settings.confirmPassword": "Confirm new password",
+  "settings.currentPasswordPlaceholder": "Old password",
+  "settings.newPasswordPlaceholder": "At least 6 characters",
+  "settings.confirmPasswordPlaceholder": "Re-enter new password",
+  "settings.passwordSave": "Update password",
+  "settings.passwordSaving": "Updating…",
+  "settings.passwordSaved": "Password updated successfully.",
+  "settings.passwordError": "Could not update password",
+  "settings.passwordTooShort": "New password must be at least 6 characters",
+  "settings.passwordMismatch": "New password and confirmation do not match",
 };
 
 const ur: Record<string, string> = {
@@ -534,6 +548,20 @@ const ur: Record<string, string> = {
   "settings.saved": "Language update ho gayi.",
   "settings.englishHint": "Default dashboard language",
   "settings.romanUrduHint": "Roman Urdu mein dashboard",
+  "settings.passwordTitle": "Password change karein",
+  "settings.passwordHelp": "Pehle current password likhein, phir naya password set karein.",
+  "settings.currentPassword": "Current password",
+  "settings.newPassword": "Naya password",
+  "settings.confirmPassword": "Naya password confirm karein",
+  "settings.currentPasswordPlaceholder": "Purana password",
+  "settings.newPasswordPlaceholder": "Kam az kam 6 characters",
+  "settings.confirmPasswordPlaceholder": "Naya password dobara likhein",
+  "settings.passwordSave": "Password update karein",
+  "settings.passwordSaving": "Update ho raha hai…",
+  "settings.passwordSaved": "Password update ho gaya.",
+  "settings.passwordError": "Password update nahi ho saka",
+  "settings.passwordTooShort": "Naya password kam az kam 6 characters ka ho",
+  "settings.passwordMismatch": "Naya password aur confirm match nahi karte",
 };
 
 const catalogs: Record<ResellerLocale, Record<string, string>> = { en, ur };
