@@ -35,7 +35,7 @@ export function ThemePreferencePicker({
   const { preference, setPreference } = useDashboardTheme();
 
   return (
-    <div className="border border-slate-200 bg-white p-4">
+    <div className="border border-slate-200 bg-white p-4 sm:p-5">
       <p className="text-sm font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-sm text-slate-500">{help}</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -49,17 +49,15 @@ export function ThemePreferencePicker({
               key={option.id}
               type="button"
               onClick={() => setPreference(option.id)}
-              className={`rounded-lg border px-3 py-3 text-left text-sm transition ${
-                active
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              className={`dash-choice rounded-lg px-3 py-3 text-left text-sm ${
+                active ? "dash-choice-active" : ""
               }`}
             >
               <span className="flex items-center gap-2 font-medium">
                 <Icon size={15} />
                 {label}
               </span>
-              <span className={`mt-1 block text-xs ${active ? "text-slate-300" : "text-slate-500"}`}>
+              <span className={`dash-choice-hint mt-1 block text-xs ${active ? "" : "text-slate-500"}`}>
                 {hint}
               </span>
             </button>

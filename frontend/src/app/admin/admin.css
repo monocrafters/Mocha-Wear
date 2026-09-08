@@ -274,15 +274,42 @@
   color: #64748b !important;
 }
 
-/* Keep selected theme/language chips readable in dark mode */
-.admin-root[data-theme="dark"] .bg-slate-900 {
-  background-color: #0f172a !important;
+/* Choice chips (theme / language) — clear selected state in both themes */
+.admin-root .dash-choice {
+  border: 1px solid var(--dash-border);
+  background: var(--dash-surface);
+  color: var(--dash-text-2);
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
-.admin-root[data-theme="dark"] .text-white {
+.admin-root .dash-choice:hover {
+  border-color: var(--dash-border-strong);
+}
+.admin-root .dash-choice-active {
+  border-color: #0f172a !important;
+  background: #0f172a !important;
   color: #ffffff !important;
 }
-.admin-root[data-theme="dark"] .text-slate-300 {
+.admin-root .dash-choice-active .dash-choice-hint {
   color: #cbd5e1 !important;
+}
+.admin-root[data-theme="dark"] .dash-choice-active {
+  border-color: #f8fafc !important;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+.admin-root[data-theme="dark"] .dash-choice-active .dash-choice-hint {
+  color: #475569 !important;
+}
+
+/* Solid primary actions stay readable in dark mode */
+.admin-root[data-theme="dark"] button.bg-slate-900,
+.admin-root[data-theme="dark"] a.bg-slate-900 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+.admin-root[data-theme="dark"] button.bg-slate-900:hover,
+.admin-root[data-theme="dark"] a.bg-slate-900:hover {
+  background-color: #e2e8f0 !important;
 }
 
 /* Keep dark sidebars dark in both themes */

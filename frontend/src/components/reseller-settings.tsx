@@ -65,7 +65,7 @@ export function ResellerSettings() {
 
   return (
     <ResellerShell active="settings" kicker={t("settings.kicker")} title={t("settings.title")} copy={t("settings.copy")}>
-      <div className="mx-auto w-full max-w-lg space-y-4">
+      <div className="w-full max-w-3xl space-y-4">
         {saved ? <p className={ui.ok}>{t("settings.saved")}</p> : null}
 
         <ThemePreferencePicker
@@ -78,7 +78,7 @@ export function ResellerSettings() {
           }}
         />
 
-        <div className="border border-slate-200 bg-white p-4">
+        <div className="border border-slate-200 bg-white p-4 sm:p-5">
           <p className="text-sm font-semibold text-slate-900">{t("settings.language")}</p>
           <p className="mt-1 text-sm text-slate-500">{t("settings.languageHelp")}</p>
 
@@ -86,28 +86,24 @@ export function ResellerSettings() {
             <button
               type="button"
               onClick={() => pick("en")}
-              className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
-                locale === "en"
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              className={`dash-choice rounded-lg px-4 py-3 text-left text-sm ${
+                locale === "en" ? "dash-choice-active" : ""
               }`}
             >
               <span className="font-medium">{t("settings.english")}</span>
-              <span className={`mt-0.5 block text-xs ${locale === "en" ? "text-slate-300" : "text-slate-500"}`}>
+              <span className={`dash-choice-hint mt-0.5 block text-xs ${locale === "en" ? "" : "text-slate-500"}`}>
                 {t("settings.englishHint")}
               </span>
             </button>
             <button
               type="button"
               onClick={() => pick("ur")}
-              className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
-                locale === "ur"
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+              className={`dash-choice rounded-lg px-4 py-3 text-left text-sm ${
+                locale === "ur" ? "dash-choice-active" : ""
               }`}
             >
               <span className="font-medium">{t("settings.romanUrdu")}</span>
-              <span className={`mt-0.5 block text-xs ${locale === "ur" ? "text-slate-300" : "text-slate-500"}`}>
+              <span className={`dash-choice-hint mt-0.5 block text-xs ${locale === "ur" ? "" : "text-slate-500"}`}>
                 {t("settings.romanUrduHint")}
               </span>
             </button>
@@ -121,12 +117,12 @@ export function ResellerSettings() {
           </p>
         </div>
 
-        <form onSubmit={onChangePassword} className="border border-slate-200 bg-white p-4">
+        <form onSubmit={onChangePassword} className="border border-slate-200 bg-white p-4 sm:p-5">
           <p className="text-sm font-semibold text-slate-900">{t("settings.passwordTitle")}</p>
           <p className="mt-1 text-sm text-slate-500">{t("settings.passwordHelp")}</p>
 
-          <div className="mt-4 space-y-3">
-            <label className="block">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="block sm:col-span-2">
               <span className={ui.label}>{t("settings.currentPassword")}</span>
               <PasswordInput
                 value={currentPassword}
