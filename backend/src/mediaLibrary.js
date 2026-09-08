@@ -369,11 +369,235 @@ async function deleteFile(id) {
     throw err;
   }
   const file = data.files[index];
-  await cloudinary.destroyMedia(file.public_id, file.resource_type);
+  const shared = data.files.filter((row) => row.public_id && row.public_id === file.public_id).length > 1;
+  if (!shared) {
+    await cloudinary.destroyMedia(file.public_id, file.resource_type);
+  }
   data.files.splice(index, 1);
   clearCoverRefs(data, file.id);
   await writeStore(data);
   return { ok: true };
+}
+
+function uniqueChildName(data, parentId, baseName, kind) {
+  const names = new Set(
+    kind === "folder"
+      ? data.folders
+          .filter((folder) => (folder.parent_id || ROOT_ID) === parentId)
+          .map((folder) => folder.name.toLowerCase())
+      : data.files
+          .filter((file) => (file.folder_id || ROOT_ID) === parentId)
+          .map((file) => file.name.toLowerCase()),
+  );
+  if (!names.has(baseName.toLowerCase())) return baseName;
+  let i = 2;
+  while (names.has(`${baseName} (${i})`.toLowerCase())) i += 1;
+  return `${baseName} (${i})`;
+}
+
+async function moveFile(id, targetFolderId) {
+  const data = await readStore();
+  const index = data.files.findIndex((file) => file.id === id);
+  if (index < 0) {
+    const err = new Error("File not found");
+    err.status = 404;
+    throw err;
+  }
+  const targetId = String(targetFolderId || ROOT_ID);
+  if (!folderExists(data, targetId)) {
+    const err = new Error("Target folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const currentId = String(data.files[index].folder_id || ROOT_ID);
+  if (currentId === targetId) {
+    return data.files[index];
+  }
+  data.files[index].folder_id = targetId;
+  data.files[index].name = uniqueChildName(data, targetId, data.files[index].name, "file");
+  if (currentId && currentId !== ROOT_ID) {
+    const parent = data.folders.find((folder) => folder.id === currentId);
+    if (parent?.cover_file_id === id) {
+      parent.cover_file_id = null;
+      parent.cover_url = "";
+      parent.updated_at = new Date().toISOString();
+    }
+  }
+  await writeStore(data);
+  return data.files[index];
+}
+
+async function moveFolder(id, targetFolderId) {
+  const data = await readStore();
+  const index = data.folders.findIndex((folder) => folder.id === id);
+  if (index < 0) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const targetId = String(targetFolderId || ROOT_ID);
+  if (!folderExists(data, targetId)) {
+    const err = new Error("Target folder not found");
+    err.status = 404;
+    throw err;
+  }
+  if (targetId === id) {
+    const err = new Error("Cannot move a folder into itself");
+    err.status = 400;
+    throw err;
+  }
+  const descendants = collectDescendantFolderIds(data, id);
+  if (descendants.has(targetId)) {
+    const err = new Error("Cannot move a folder into one of its subfolders");
+    err.status = 400;
+    throw err;
+  }
+  const currentParent = String(data.folders[index].parent_id || ROOT_ID);
+  if (currentParent === targetId) {
+    return data.folders[index];
+  }
+  data.folders[index].parent_id = targetId;
+  data.folders[index].name = uniqueChildName(data, targetId, data.folders[index].name, "folder");
+  data.folders[index].updated_at = new Date().toISOString();
+  await writeStore(data);
+  return data.folders[index];
+}
+
+async function copyFile(id, targetFolderId) {
+  const data = await readStore();
+  const source = data.files.find((file) => file.id === id);
+  if (!source) {
+    const err = new Error("File not found");
+    err.status = 404;
+    throw err;
+  }
+  const targetId = String(targetFolderId || ROOT_ID);
+  if (!folderExists(data, targetId)) {
+    const err = new Error("Target folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const folderPath = targetId === ROOT_ID ? "mocha-wear/media" : `mocha-wear/media/${targetId}`;
+  const duplicated = await cloudinary.duplicateMedia(source.url, folderPath, source.resource_type || "image");
+  const item = shapeFile({
+    id: crypto.randomUUID(),
+    folder_id: targetId,
+    name: uniqueChildName(data, targetId, source.name, "file"),
+    url: duplicated.url,
+    public_id: duplicated.publicId,
+    resource_type: duplicated.resourceType || source.resource_type,
+    mime: source.mime,
+    bytes: duplicated.bytes || source.bytes,
+    created_at: new Date().toISOString(),
+  });
+  data.files.unshift(item);
+  await writeStore(data);
+  return item;
+}
+
+async function copyFolder(id, targetFolderId) {
+  const data = await readStore();
+  const source = data.folders.find((folder) => folder.id === id);
+  if (!source) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const targetId = String(targetFolderId || ROOT_ID);
+  if (!folderExists(data, targetId)) {
+    const err = new Error("Target folder not found");
+    err.status = 404;
+    throw err;
+  }
+  if (targetId === id || collectDescendantFolderIds(data, id).has(targetId)) {
+    const err = new Error("Cannot copy a folder into itself");
+    err.status = 400;
+    throw err;
+  }
+
+  const idMap = new Map();
+  const originalFolders = data.folders.slice();
+  const queue = [{ sourceId: id, parentId: targetId, isRoot: true }];
+  let rootCopy = null;
+
+  while (queue.length) {
+    const { sourceId, parentId, isRoot } = queue.shift();
+    const original = originalFolders.find((folder) => folder.id === sourceId);
+    if (!original) continue;
+    const folder = shapeFolder({
+      id: crypto.randomUUID(),
+      parent_id: parentId,
+      name: uniqueChildName(data, parentId, original.name, "folder"),
+      created_at: new Date().toISOString(),
+    });
+    data.folders.push(folder);
+    idMap.set(sourceId, folder.id);
+    if (isRoot) rootCopy = folder;
+
+    const childFolders = originalFolders.filter((row) => (row.parent_id || ROOT_ID) === sourceId);
+    for (const child of childFolders) {
+      if (!idMap.has(child.id)) {
+        queue.push({ sourceId: child.id, parentId: folder.id, isRoot: false });
+      }
+    }
+  }
+
+  const sourceTree = collectDescendantFolderIds(data, id);
+  const filesToCopy = data.files.filter((file) => sourceTree.has(String(file.folder_id || ROOT_ID)));
+  for (const file of filesToCopy) {
+    const mappedFolder = idMap.get(String(file.folder_id || ROOT_ID));
+    if (!mappedFolder) continue;
+    const folderPath = `mocha-wear/media/${mappedFolder}`;
+    const duplicated = await cloudinary.duplicateMedia(file.url, folderPath, file.resource_type || "image");
+    const item = shapeFile({
+      id: crypto.randomUUID(),
+      folder_id: mappedFolder,
+      name: file.name,
+      url: duplicated.url,
+      public_id: duplicated.publicId,
+      resource_type: duplicated.resourceType || file.resource_type,
+      mime: file.mime,
+      bytes: duplicated.bytes || file.bytes,
+      created_at: new Date().toISOString(),
+    });
+    data.files.unshift(item);
+    const mappedParent = data.folders.find((folder) => folder.id === mappedFolder);
+    const sourceParent = data.folders.find((folder) => folder.id === String(file.folder_id || ROOT_ID));
+    if (mappedParent && sourceParent?.cover_file_id === file.id) {
+      mappedParent.cover_file_id = item.id;
+      mappedParent.cover_url = item.url;
+    }
+  }
+
+  await writeStore(data);
+  return rootCopy;
+}
+
+async function pasteItem({ action, item_type, id, target_folder_id } = {}) {
+  const act = String(action || "").toLowerCase();
+  const type = String(item_type || "").toLowerCase();
+  if (!["copy", "move"].includes(act)) {
+    const err = new Error("Action must be copy or move");
+    err.status = 400;
+    throw err;
+  }
+  if (!["file", "folder"].includes(type)) {
+    const err = new Error("Item type must be file or folder");
+    err.status = 400;
+    throw err;
+  }
+  if (!id) {
+    const err = new Error("Item id is required");
+    err.status = 400;
+    throw err;
+  }
+
+  if (type === "file") {
+    const item = act === "copy" ? await copyFile(id, target_folder_id) : await moveFile(id, target_folder_id);
+    return { item, item_type: "file", action: act };
+  }
+  const item = act === "copy" ? await copyFolder(id, target_folder_id) : await moveFolder(id, target_folder_id);
+  return { item, item_type: "folder", action: act };
 }
 
 function sendError(res, error) {
@@ -392,5 +616,6 @@ module.exports = {
   uploadFiles,
   renameFile,
   deleteFile,
+  pasteItem,
   sendError,
 };

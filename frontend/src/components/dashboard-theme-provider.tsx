@@ -25,15 +25,15 @@ type DashboardThemeContextValue = {
 
 const DashboardThemeContext = createContext<DashboardThemeContextValue | null>(null);
 
-function getInitialTheme(storageKey: string): {
-  preference: DashboardThemePreference;
-  resolved: DashboardResolvedTheme;
-} {
-  if (typeof window === "undefined") {
-    return { preference: "system", resolved: "light" };
-  }
-  const preference = readThemePreference(storageKey);
-  return { preference, resolved: resolveTheme(preference) };
+function applyDomTheme(preference: DashboardThemePreference, resolved: DashboardResolvedTheme) {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-dashboard-theme", resolved);
+  document.documentElement.setAttribute("data-dashboard-theme-pref", preference);
+  document.documentElement.style.colorScheme = resolved;
+}
+
+export function dashboardThemeBootScript(storageKey: string) {
+  return `(function(){try{var k=${JSON.stringify(storageKey)};var p=localStorage.getItem(k)||"system";if(p!=="light"&&p!=="dark"&&p!=="system")p="system";var dark=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=dark?"dark":"light";document.documentElement.setAttribute("data-dashboard-theme",r);document.documentElement.setAttribute("data-dashboard-theme-pref",p);document.documentElement.style.colorScheme=r;}catch(e){}})();`;
 }
 
 export function DashboardThemeProvider({
@@ -43,31 +43,44 @@ export function DashboardThemeProvider({
   storageKey: string;
   children: ReactNode;
 }) {
-  const initial = useMemo(() => getInitialTheme(storageKey), [storageKey]);
-  const [preference, setPreferenceState] = useState<DashboardThemePreference>(initial.preference);
-  const [resolved, setResolved] = useState<DashboardResolvedTheme>(initial.resolved);
+  const [preference, setPreferenceState] = useState<DashboardThemePreference>("system");
+  const [systemDark, setSystemDark] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const next = readThemePreference(storageKey);
-    setPreferenceState(next);
-    setResolved(resolveTheme(next));
-  }, [storageKey]);
-
-  useEffect(() => {
-    const apply = () => setResolved(resolveTheme(preference));
-    apply();
-    if (preference !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => apply();
+    setPreferenceState(next);
+    setSystemDark(media.matches);
+    setReady(true);
+
+    const onChange = () => setSystemDark(media.matches);
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
-  }, [preference]);
+  }, [storageKey]);
+
+  const resolved = useMemo<DashboardResolvedTheme>(() => {
+    if (!ready) {
+      if (typeof document !== "undefined") {
+        const fromDom = document.documentElement.getAttribute("data-dashboard-theme");
+        if (fromDom === "dark" || fromDom === "light") return fromDom;
+      }
+      return resolveTheme(preference);
+    }
+    if (preference === "system") return systemDark ? "dark" : "light";
+    return preference;
+  }, [preference, systemDark, ready]);
+
+  useEffect(() => {
+    applyDomTheme(preference, resolved);
+  }, [preference, resolved]);
 
   const setPreference = useCallback(
     (next: DashboardThemePreference) => {
       setPreferenceState(next);
       storeThemePreference(storageKey, next);
-      setResolved(resolveTheme(next));
+      const nextResolved = resolveTheme(next);
+      applyDomTheme(next, nextResolved);
     },
     [storageKey],
   );

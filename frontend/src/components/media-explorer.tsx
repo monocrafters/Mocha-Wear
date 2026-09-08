@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ClipboardPaste,
   Copy,
   Download,
   FileImage,
@@ -12,6 +13,7 @@ import {
   ImagePlus,
   Loader2,
   Pencil,
+  Scissors,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -44,6 +46,40 @@ type BrowsePayload = {
   folders: MediaFolder[];
   files: MediaFile[];
 };
+
+type ClipboardItem = {
+  action: "copy" | "cut";
+  item_type: "file" | "folder";
+  id: string;
+  name: string;
+};
+
+const CLIPBOARD_KEY = "mocha_media_clipboard";
+
+function readClipboard(): ClipboardItem | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(CLIPBOARD_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ClipboardItem;
+    if (!parsed?.id || !["copy", "cut"].includes(parsed.action) || !["file", "folder"].includes(parsed.item_type)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeClipboard(item: ClipboardItem | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!item) sessionStorage.removeItem(CLIPBOARD_KEY);
+    else sessionStorage.setItem(CLIPBOARD_KEY, JSON.stringify(item));
+  } catch {
+    /* ignore */
+  }
+}
 
 function formatBytes(bytes?: number) {
   const value = Number(bytes) || 0;
@@ -83,6 +119,16 @@ export function MediaExplorer({
   const [message, setMessage] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
+
+  useEffect(() => {
+    setClipboard(readClipboard());
+  }, []);
+
+  function setClip(item: ClipboardItem | null) {
+    writeClipboard(item);
+    setClipboard(item);
+  }
 
   async function load(nextFolderId = folderId) {
     setLoading(true);
@@ -298,6 +344,51 @@ export function MediaExplorer({
     }
   }
 
+  function copyItem(item_type: "file" | "folder", id: string, name: string) {
+    if (!canEdit) return;
+    setClip({ action: "copy", item_type, id, name });
+    setMessage(`Copied "${name}"`);
+  }
+
+  function cutItem(item_type: "file" | "folder", id: string, name: string) {
+    if (!canEdit) return;
+    setClip({ action: "cut", item_type, id, name });
+    setMessage(`Cut "${name}" — open a folder and paste to move`);
+  }
+
+  async function pasteClipboard() {
+    if (!canEdit || !clipboard || busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/media/paste`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: clipboard.action === "cut" ? "move" : "copy",
+          item_type: clipboard.item_type,
+          id: clipboard.id,
+          target_folder_id: folderId || "",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Paste failed");
+      if (clipboard.action === "cut") setClip(null);
+      setMessage(
+        clipboard.action === "cut"
+          ? `Moved "${clipboard.name}" here`
+          : `Pasted copy of "${clipboard.name}"`,
+      );
+      await load(folderId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Paste failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function copyUrl(url: string) {
     try {
       await navigator.clipboard.writeText(url);
@@ -399,6 +490,29 @@ export function MediaExplorer({
               Clear cover
             </button>
           ) : null}
+          {clipboard ? (
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void pasteClipboard()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
+              >
+                <ClipboardPaste size={14} />
+                Paste {clipboard.action === "cut" ? "(move)" : "(copy)"}: {clipboard.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setClip(null);
+                  setMessage("Clipboard cleared");
+                }}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600"
+              >
+                Clear clipboard
+              </button>
+            </>
+          ) : null}
           <input
             ref={fileInputRef}
             type="file"
@@ -480,6 +594,22 @@ export function MediaExplorer({
                       </button>
                       {canEdit ? (
                         <>
+                          <button
+                            type="button"
+                            onClick={() => copyItem("folder", folder.id, folder.name)}
+                            className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                          >
+                            <Copy size={11} />
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cutItem("folder", folder.id, folder.name)}
+                            className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                          >
+                            <Scissors size={11} />
+                            Cut
+                          </button>
                           <button
                             type="button"
                             onClick={() => void renameFolder(folder)}
@@ -579,6 +709,22 @@ export function MediaExplorer({
                                 {isCover ? "Cover" : "Set cover"}
                               </button>
                             ) : null}
+                            <button
+                              type="button"
+                              onClick={() => copyItem("file", file.id, file.name)}
+                              className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            >
+                              <Copy size={11} />
+                              Copy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => cutItem("file", file.id, file.name)}
+                              className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            >
+                              <Scissors size={11} />
+                              Cut
+                            </button>
                             <button
                               type="button"
                               onClick={() => void renameFile(file)}

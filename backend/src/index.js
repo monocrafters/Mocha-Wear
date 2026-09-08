@@ -843,6 +843,15 @@ app.delete("/api/admin/media/files/:id", adminAuth.requireAdmin, async (req, res
   }
 });
 
+app.post("/api/admin/media/paste", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const result = await mediaLibrary.pasteItem(req.body || {});
+    res.json(result);
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
 app.get("/api/settings", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ settings: await settings.getPublic() });

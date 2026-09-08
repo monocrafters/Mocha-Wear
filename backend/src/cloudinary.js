@@ -83,4 +83,30 @@ async function destroyMedia(publicId, resourceType = "image") {
   }
 }
 
-module.exports = { isConfigured, uploadMedia, destroyMedia };
+async function duplicateMedia(url, folder, resourceType = "image") {
+  if (!url) {
+    const err = new Error("Missing media URL");
+    err.status = 400;
+    throw err;
+  }
+  config();
+  try {
+    const result = await cloudinary.uploader.upload(url, {
+      folder: folder || "mocha-wear/media",
+      resource_type: resourceType || "image",
+    });
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      resourceType: result.resource_type,
+      bytes: result.bytes || 0,
+      format: result.format || "",
+    };
+  } catch (error) {
+    const err = new Error(error.message || "Could not duplicate media");
+    err.status = 500;
+    throw err;
+  }
+}
+
+module.exports = { isConfigured, uploadMedia, destroyMedia, duplicateMedia };

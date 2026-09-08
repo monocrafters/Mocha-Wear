@@ -31,7 +31,8 @@
   letter-spacing: 0;
 }
 
-.admin-root[data-theme="dark"] {
+.admin-root[data-theme="dark"],
+html[data-dashboard-theme="dark"] .admin-root {
   --mocha-deep: #e2e8f0;
   --mocha: #cbd5e1;
   --latte: #94a3b8;
@@ -124,7 +125,6 @@
   border-radius: 0.75rem;
 }
 
-/* Semantic helpers for shells */
 .admin-root .dash-bg {
   background: var(--dash-bg);
 }
@@ -141,140 +141,199 @@
   color: var(--dash-muted);
 }
 
-/* Broad dark overrides for existing Tailwind utility usage */
+/* Dark utility overrides — keep both attribute hooks in sync */
 .admin-root[data-theme="dark"] .bg-white,
+html[data-dashboard-theme="dark"] .admin-root .bg-white,
 .admin-root[data-theme="dark"] .bg-\[\#f3f4f6\],
+html[data-dashboard-theme="dark"] .admin-root .bg-\[\#f3f4f6\],
 .admin-root[data-theme="dark"] .bg-slate-50,
-.admin-root[data-theme="dark"] .bg-slate-100 {
+html[data-dashboard-theme="dark"] .admin-root .bg-slate-50,
+.admin-root[data-theme="dark"] .bg-slate-100,
+html[data-dashboard-theme="dark"] .admin-root .bg-slate-100 {
   background-color: var(--dash-surface) !important;
 }
 
-.admin-root[data-theme="dark"] .bg-\[\#f3f4f6\] {
+.admin-root[data-theme="dark"] .bg-\[\#f3f4f6\],
+html[data-dashboard-theme="dark"] .admin-root .bg-\[\#f3f4f6\] {
   background-color: var(--dash-bg) !important;
 }
 
 .admin-root[data-theme="dark"] .bg-slate-100\/50,
+html[data-dashboard-theme="dark"] .admin-root .bg-slate-100\/50,
 .admin-root[data-theme="dark"] .bg-slate-50\/80,
+html[data-dashboard-theme="dark"] .admin-root .bg-slate-50\/80,
 .admin-root[data-theme="dark"] .bg-white\/90,
+html[data-dashboard-theme="dark"] .admin-root .bg-white\/90,
 .admin-root[data-theme="dark"] .bg-white\/8,
-.admin-root[data-theme="dark"] .bg-white\/10 {
+html[data-dashboard-theme="dark"] .admin-root .bg-white\/8,
+.admin-root[data-theme="dark"] .bg-white\/10,
+html[data-dashboard-theme="dark"] .admin-root .bg-white\/10 {
   background-color: rgba(30, 41, 59, 0.7) !important;
 }
 
 .admin-root[data-theme="dark"] .text-slate-900,
+html[data-dashboard-theme="dark"] .admin-root .text-slate-900,
 .admin-root[data-theme="dark"] .text-slate-800,
-.admin-root[data-theme="dark"] .text-slate-700 {
+html[data-dashboard-theme="dark"] .admin-root .text-slate-800,
+.admin-root[data-theme="dark"] .text-slate-700,
+html[data-dashboard-theme="dark"] .admin-root .text-slate-700 {
   color: var(--dash-text) !important;
 }
 
 .admin-root[data-theme="dark"] .text-slate-600,
+html[data-dashboard-theme="dark"] .admin-root .text-slate-600,
 .admin-root[data-theme="dark"] .text-slate-500,
-.admin-root[data-theme="dark"] .text-slate-400 {
+html[data-dashboard-theme="dark"] .admin-root .text-slate-500,
+.admin-root[data-theme="dark"] .text-slate-400,
+html[data-dashboard-theme="dark"] .admin-root .text-slate-400 {
   color: var(--dash-muted) !important;
 }
 
 .admin-root[data-theme="dark"] .border-slate-200,
+html[data-dashboard-theme="dark"] .admin-root .border-slate-200,
 .admin-root[data-theme="dark"] .border-slate-100,
+html[data-dashboard-theme="dark"] .admin-root .border-slate-100,
 .admin-root[data-theme="dark"] .border-slate-300,
+html[data-dashboard-theme="dark"] .admin-root .border-slate-300,
 .admin-root[data-theme="dark"] .divide-slate-200,
-.admin-root[data-theme="dark"] .divide-slate-100 {
+html[data-dashboard-theme="dark"] .admin-root .divide-slate-200,
+.admin-root[data-theme="dark"] .divide-slate-100,
+html[data-dashboard-theme="dark"] .admin-root .divide-slate-100 {
   border-color: var(--dash-border) !important;
 }
 
-.admin-root[data-theme="dark"] .divide-y > :not([hidden]) ~ :not([hidden]) {
+.admin-root[data-theme="dark"] .divide-y > :not([hidden]) ~ :not([hidden]),
+html[data-dashboard-theme="dark"] .admin-root .divide-y > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--dash-border);
 }
 
 .admin-root[data-theme="dark"] .hover\:bg-slate-50:hover,
+html[data-dashboard-theme="dark"] .admin-root .hover\:bg-slate-50:hover,
 .admin-root[data-theme="dark"] .hover\:bg-slate-100:hover,
-.admin-root[data-theme="dark"] .hover\:bg-white:hover {
+html[data-dashboard-theme="dark"] .admin-root .hover\:bg-slate-100:hover,
+.admin-root[data-theme="dark"] .hover\:bg-white:hover,
+html[data-dashboard-theme="dark"] .admin-root .hover\:bg-white:hover {
   background-color: #1e293b !important;
 }
 
 .admin-root[data-theme="dark"] .hover\:border-slate-300:hover,
-.admin-root[data-theme="dark"] .hover\:border-slate-400:hover {
+html[data-dashboard-theme="dark"] .admin-root .hover\:border-slate-300:hover,
+.admin-root[data-theme="dark"] .hover\:border-slate-400:hover,
+html[data-dashboard-theme="dark"] .admin-root .hover\:border-slate-400:hover {
   border-color: var(--dash-border-strong) !important;
 }
 
 .admin-root[data-theme="dark"] input,
+html[data-dashboard-theme="dark"] .admin-root input,
 .admin-root[data-theme="dark"] textarea,
-.admin-root[data-theme="dark"] select {
+html[data-dashboard-theme="dark"] .admin-root textarea,
+.admin-root[data-theme="dark"] select,
+html[data-dashboard-theme="dark"] .admin-root select {
   background-color: var(--dash-input) !important;
   color: var(--dash-text) !important;
   border-color: var(--dash-border) !important;
 }
 
 .admin-root[data-theme="dark"] input::placeholder,
-.admin-root[data-theme="dark"] textarea::placeholder {
+html[data-dashboard-theme="dark"] .admin-root input::placeholder,
+.admin-root[data-theme="dark"] textarea::placeholder,
+html[data-dashboard-theme="dark"] .admin-root textarea::placeholder {
   color: #64748b !important;
 }
 
-.admin-root[data-theme="dark"] .bg-red-50 {
+.admin-root[data-theme="dark"] .bg-red-50,
+html[data-dashboard-theme="dark"] .admin-root .bg-red-50 {
   background-color: rgba(127, 29, 29, 0.35) !important;
 }
 .admin-root[data-theme="dark"] .text-red-700,
+html[data-dashboard-theme="dark"] .admin-root .text-red-700,
 .admin-root[data-theme="dark"] .text-red-600,
-.admin-root[data-theme="dark"] .text-red-800 {
+html[data-dashboard-theme="dark"] .admin-root .text-red-600,
+.admin-root[data-theme="dark"] .text-red-800,
+html[data-dashboard-theme="dark"] .admin-root .text-red-800 {
   color: #fca5a5 !important;
 }
-.admin-root[data-theme="dark"] .bg-emerald-50 {
+.admin-root[data-theme="dark"] .bg-emerald-50,
+html[data-dashboard-theme="dark"] .admin-root .bg-emerald-50 {
   background-color: rgba(6, 78, 59, 0.35) !important;
 }
 .admin-root[data-theme="dark"] .text-emerald-800,
-.admin-root[data-theme="dark"] .text-emerald-700 {
+html[data-dashboard-theme="dark"] .admin-root .text-emerald-800,
+.admin-root[data-theme="dark"] .text-emerald-700,
+html[data-dashboard-theme="dark"] .admin-root .text-emerald-700 {
   color: #6ee7b7 !important;
 }
 .admin-root[data-theme="dark"] .bg-amber-50,
-.admin-root[data-theme="dark"] .bg-amber-50\/80 {
+html[data-dashboard-theme="dark"] .admin-root .bg-amber-50,
+.admin-root[data-theme="dark"] .bg-amber-50\/80,
+html[data-dashboard-theme="dark"] .admin-root .bg-amber-50\/80 {
   background-color: rgba(120, 53, 15, 0.35) !important;
 }
 .admin-root[data-theme="dark"] .text-amber-950,
+html[data-dashboard-theme="dark"] .admin-root .text-amber-950,
 .admin-root[data-theme="dark"] .text-amber-800,
-.admin-root[data-theme="dark"] .text-amber-700 {
+html[data-dashboard-theme="dark"] .admin-root .text-amber-800,
+.admin-root[data-theme="dark"] .text-amber-700,
+html[data-dashboard-theme="dark"] .admin-root .text-amber-700 {
   color: #fcd34d !important;
 }
 .admin-root[data-theme="dark"] .border-amber-200\/80,
-.admin-root[data-theme="dark"] .border-amber-200 {
+html[data-dashboard-theme="dark"] .admin-root .border-amber-200\/80,
+.admin-root[data-theme="dark"] .border-amber-200,
+html[data-dashboard-theme="dark"] .admin-root .border-amber-200 {
   border-color: rgba(245, 158, 11, 0.35) !important;
 }
-.admin-root[data-theme="dark"] .bg-blue-50 {
+.admin-root[data-theme="dark"] .bg-blue-50,
+html[data-dashboard-theme="dark"] .admin-root .bg-blue-50 {
   background-color: rgba(30, 58, 138, 0.35) !important;
 }
 .admin-root[data-theme="dark"] .text-blue-700,
-.admin-root[data-theme="dark"] .text-blue-600 {
+html[data-dashboard-theme="dark"] .admin-root .text-blue-700,
+.admin-root[data-theme="dark"] .text-blue-600,
+html[data-dashboard-theme="dark"] .admin-root .text-blue-600 {
   color: #93c5fd !important;
 }
 
 .admin-root[data-theme="dark"] .shadow-sm,
+html[data-dashboard-theme="dark"] .admin-root .shadow-sm,
 .admin-root[data-theme="dark"] .shadow-lg,
-.admin-root[data-theme="dark"] .shadow-2xl {
+html[data-dashboard-theme="dark"] .admin-root .shadow-lg,
+.admin-root[data-theme="dark"] .shadow-2xl,
+html[data-dashboard-theme="dark"] .admin-root .shadow-2xl {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
 }
 
 .admin-root[data-theme="dark"] .bg-cream,
-.admin-root[data-theme="dark"] .bg-\[var\(--cream\)\] {
+html[data-dashboard-theme="dark"] .admin-root .bg-cream,
+.admin-root[data-theme="dark"] .bg-\[var\(--cream\)\],
+html[data-dashboard-theme="dark"] .admin-root .bg-\[var\(--cream\)\] {
   background-color: var(--dash-chip) !important;
 }
 
 .admin-root[data-theme="dark"] .ring-slate-200,
-.admin-root[data-theme="dark"] .ring-offset-white {
+html[data-dashboard-theme="dark"] .admin-root .ring-slate-200,
+.admin-root[data-theme="dark"] .ring-offset-white,
+html[data-dashboard-theme="dark"] .admin-root .ring-offset-white {
   --tw-ring-color: var(--dash-border);
   --tw-ring-offset-color: var(--dash-bg);
 }
 
 .admin-root[data-theme="dark"] .from-white,
+html[data-dashboard-theme="dark"] .admin-root .from-white,
 .admin-root[data-theme="dark"] .to-white,
-.admin-root[data-theme="dark"] .via-white {
+html[data-dashboard-theme="dark"] .admin-root .to-white,
+.admin-root[data-theme="dark"] .via-white,
+html[data-dashboard-theme="dark"] .admin-root .via-white {
   --tw-gradient-from: var(--dash-surface) var(--tw-gradient-from-position);
   --tw-gradient-to: var(--dash-surface) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-.admin-root[data-theme="dark"] .placeholder\:text-slate-400::placeholder {
+.admin-root[data-theme="dark"] .placeholder\:text-slate-400::placeholder,
+html[data-dashboard-theme="dark"] .admin-root .placeholder\:text-slate-400::placeholder {
   color: #64748b !important;
 }
 
-/* Choice chips (theme / language) — clear selected state in both themes */
 .admin-root .dash-choice {
   border: 1px solid var(--dash-border);
   background: var(--dash-surface);
@@ -292,27 +351,31 @@
 .admin-root .dash-choice-active .dash-choice-hint {
   color: #cbd5e1 !important;
 }
-.admin-root[data-theme="dark"] .dash-choice-active {
+.admin-root[data-theme="dark"] .dash-choice-active,
+html[data-dashboard-theme="dark"] .admin-root .dash-choice-active {
   border-color: #f8fafc !important;
   background: #f8fafc !important;
   color: #0f172a !important;
 }
-.admin-root[data-theme="dark"] .dash-choice-active .dash-choice-hint {
+.admin-root[data-theme="dark"] .dash-choice-active .dash-choice-hint,
+html[data-dashboard-theme="dark"] .admin-root .dash-choice-active .dash-choice-hint {
   color: #475569 !important;
 }
 
-/* Solid primary actions stay readable in dark mode */
 .admin-root[data-theme="dark"] button.bg-slate-900,
-.admin-root[data-theme="dark"] a.bg-slate-900 {
+html[data-dashboard-theme="dark"] .admin-root button.bg-slate-900,
+.admin-root[data-theme="dark"] a.bg-slate-900,
+html[data-dashboard-theme="dark"] .admin-root a.bg-slate-900 {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
 .admin-root[data-theme="dark"] button.bg-slate-900:hover,
-.admin-root[data-theme="dark"] a.bg-slate-900:hover {
+html[data-dashboard-theme="dark"] .admin-root button.bg-slate-900:hover,
+.admin-root[data-theme="dark"] a.bg-slate-900:hover,
+html[data-dashboard-theme="dark"] .admin-root a.bg-slate-900:hover {
   background-color: #e2e8f0 !important;
 }
 
-/* Keep dark sidebars dark in both themes */
 .admin-root aside.bg-slate-950,
 .admin-root .bg-slate-950 {
   background-color: #020617 !important;
