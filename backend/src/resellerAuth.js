@@ -3,8 +3,11 @@ const crypto = require("crypto");
 const resellers = require("./resellers");
 
 const SECRET = process.env.RESELLER_SECRET || process.env.ADMIN_SECRET || "mocha-reseller-dev-secret";
-/** Keep reseller signed in for 30 days so they are not asked to log in repeatedly. */
-const TOKEN_MS = 1000 * 60 * 60 * 24 * 30;
+/**
+ * Stay signed in until explicit logout.
+ * ~400 days matches common browser cookie caps; each authenticated request refreshes it.
+ */
+const TOKEN_MS = 1000 * 60 * 60 * 24 * 400;
 const COOKIE = "mocha_reseller";
 
 function parseCookies(req) {
@@ -16,12 +19,6 @@ function parseCookies(req) {
     cookies[key] = decodeURIComponent(rest.join("="));
   }
   return cookies;
-}
-
-function getToken(req) {
-  const auth = String(req.headers.authorization || "");
-  if (auth.toLowerCase().startsWith("bearer ")) return auth.slice(7).trim();
-  return parseCookies(req)[COOKIE] || "";
 }
 
 function cookieOptions() {
@@ -57,6 +54,28 @@ function verifyResellerToken(token) {
   return { resellerId };
 }
 
+function readCandidateTokens(req) {
+  const auth = String(req.headers.authorization || "");
+  const bearer = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  const cookie = parseCookies(req)[COOKIE] || "";
+  // Prefer a still-valid token. Expired localStorage bearer must not block a valid cookie.
+  const candidates = [bearer, cookie].filter(Boolean);
+  for (const token of candidates) {
+    if (verifyResellerToken(token)) return token;
+  }
+  return bearer || cookie || "";
+}
+
+function getToken(req) {
+  return readCandidateTokens(req);
+}
+
+function issueSession(res, resellerId) {
+  const token = signToken(resellerId);
+  res.cookie(COOKIE, token, cookieOptions());
+  return token;
+}
+
 async function login(req, res) {
   try {
     const username = String(req.body?.username || "").trim().toLowerCase();
@@ -75,8 +94,7 @@ async function login(req, res) {
     if (reseller.status === "suspended") {
       return res.status(403).json({ message: "Your account has been suspended" });
     }
-    const token = signToken(reseller.id);
-    res.cookie(COOKIE, token, cookieOptions());
+    const token = issueSession(res, reseller.id);
     return res.json({ ok: true, role: "reseller", token, reseller: resellers.publicSafe(reseller) });
   } catch (error) {
     console.error("Reseller login error:", error.message);
@@ -91,9 +109,7 @@ async function me(req, res) {
   if (!reseller || reseller.status === "suspended") {
     return res.status(401).json({ authenticated: false });
   }
-  // Refresh cookie/token so active resellers stay signed in.
-  const token = signToken(reseller.id);
-  res.cookie(COOKIE, token, cookieOptions());
+  const token = issueSession(res, reseller.id);
   return res.json({
     authenticated: true,
     role: "reseller",
@@ -114,6 +130,8 @@ async function requireReseller(req, res, next) {
   if (!reseller || reseller.status === "suspended") {
     return res.status(401).json({ message: "Unauthorized" });
   }
+  // Sliding session: keep cookie fresh until they explicitly log out.
+  issueSession(res, reseller.id);
   req.reseller = resellers.publicSafe(reseller);
   next();
 }

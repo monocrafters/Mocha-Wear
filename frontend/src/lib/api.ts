@@ -34,24 +34,27 @@ function toApiError(error: unknown) {
   return error instanceof Error ? error : new Error("Request failed");
 }
 
-export async function apiFetch(input: string, init?: RequestInit, retries = 4) {
+export async function apiFetch(input: string, init?: RequestInit, retries = 4, cookieRetry = false) {
   const headers = new Headers(init?.headers);
+  const path = typeof input === "string" ? input : "";
+  const isReseller = path.includes("/api/reseller");
+  const isAdmin = path.includes("/api/admin");
+
   if (typeof window !== "undefined") {
-    const path = typeof input === "string" ? input : "";
-    const isReseller = path.includes("/api/reseller");
     const token = localStorage.getItem(isReseller ? RESELLER_TOKEN_KEY : ADMIN_TOKEN_KEY);
-    if (token && !headers.has("Authorization")) {
+    if (token && !headers.has("Authorization") && !cookieRetry) {
       headers.set("Authorization", `Bearer ${token}`);
     }
     try {
       const referral = sessionStorage.getItem("mw_r");
-      if (referral && !headers.has("X-Reseller-Code") && !path.includes("/api/admin") && !path.includes("/api/reseller")) {
+      if (referral && !headers.has("X-Reseller-Code") && !isAdmin && !isReseller) {
         headers.set("X-Reseller-Code", referral);
       }
     } catch {
       /* ignore */
     }
   }
+
   const nextInit: RequestInit = {
     ...init,
     headers,
@@ -61,7 +64,23 @@ export async function apiFetch(input: string, init?: RequestInit, retries = 4) {
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      return await fetch(input, nextInit);
+      const res = await fetch(input, nextInit);
+
+      // Expired localStorage bearer can block a still-valid cookie — clear and retry once.
+      if (
+        typeof window !== "undefined" &&
+        isReseller &&
+        res.status === 401 &&
+        !cookieRetry &&
+        headers.has("Authorization")
+      ) {
+        clearResellerToken();
+        const retryHeaders = new Headers(init?.headers);
+        retryHeaders.delete("Authorization");
+        return apiFetch(input, { ...init, headers: retryHeaders }, 0, true);
+      }
+
+      return res;
     } catch (error) {
       lastError = error;
       if (!isNetworkError(error) || attempt === retries) break;
