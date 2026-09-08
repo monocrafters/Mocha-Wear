@@ -35,6 +35,9 @@ export type Order = {
   reseller_code?: string;
   commission_total?: number;
   delivered_at?: string;
+  courier?: string;
+  dispatch_id?: string;
+  shipped_at?: string;
   customer?: {
     name: string;
     phone: string;
@@ -55,7 +58,7 @@ export const ORDERS_EVENT = "mocha-orders";
 export const ORDER_STATUSES: { id: OrderStatus; label: string }[] = [
   { id: "processing", label: "Processing" },
   { id: "packed", label: "Packed" },
-  { id: "shipped", label: "Shipped" },
+  { id: "shipped", label: "Dispatched" },
   { id: "delivered", label: "Delivered" },
   { id: "cancelled", label: "Cancelled" },
 ];

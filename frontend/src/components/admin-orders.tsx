@@ -59,6 +59,9 @@ export function AdminOrders() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelDetail, setCancelDetail] = useState("");
+  const [shipOpen, setShipOpen] = useState(false);
+  const [courier, setCourier] = useState("");
+  const [dispatchId, setDispatchId] = useState("");
 
   async function load() {
     setError("");
@@ -84,6 +87,9 @@ export function AdminOrders() {
     setCancelOpen(false);
     setCancelReason("");
     setCancelDetail("");
+    setShipOpen(false);
+    setCourier(selected?.courier || "");
+    setDispatchId(selected?.dispatch_id || "");
   }, [selected]);
 
   const visible = useMemo(() => {
@@ -111,6 +117,12 @@ export function AdminOrders() {
       if (order.status !== "cancelled") setCancelOpen(true);
       return;
     }
+    if (status === "shipped") {
+      setCourier(order.courier || "");
+      setDispatchId(order.dispatch_id || "");
+      setShipOpen(true);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -126,6 +138,41 @@ export function AdminOrders() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update order");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDispatch() {
+    if (!selected) return;
+    if (!courier.trim()) {
+      setError("Enter courier name");
+      return;
+    }
+    if (!dispatchId.trim()) {
+      setError("Enter dispatch ID");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/orders/${selected.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "shipped",
+          courier: courier.trim(),
+          dispatch_id: dispatchId.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not dispatch order");
+      setSelected(data.item);
+      setShipOpen(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not dispatch order");
     } finally {
       setSaving(false);
     }
@@ -197,7 +244,7 @@ export function AdminOrders() {
     { label: "Orders", value: String(stats.total) },
     { label: "Processing", value: String(stats.processing) },
     { label: "Packed", value: String(stats.packed) },
-    { label: "Shipped", value: String(stats.shipped) },
+    { label: "Dispatched", value: String(stats.shipped) },
     { label: "Delivered", value: String(stats.delivered) },
     { label: "Revenue", value: formatPkr(stats.revenue) },
   ];
@@ -448,6 +495,65 @@ export function AdminOrders() {
                         {saving ? "Cancelling…" : "Cancel order"}
                       </button>
                     </div>
+                  </div>
+                ) : null}
+                {shipOpen ? (
+                  <div className="mt-4 border border-blue-100 bg-blue-50/60 p-3">
+                    <p className="text-[10px] font-semibold tracking-[0.14em] text-blue-800 uppercase">
+                      Dispatch details
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Enter courier and dispatch ID. Reseller and customer will see these to track the parcel.
+                    </p>
+                    <label className="mt-3 block">
+                      <span className="text-xs font-medium text-slate-600">Courier</span>
+                      <input
+                        value={courier}
+                        onChange={(e) => setCourier(e.target.value)}
+                        placeholder="e.g. TCS, Leopards, PostEx"
+                        className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <label className="mt-3 block">
+                      <span className="text-xs font-medium text-slate-600">Dispatch ID</span>
+                      <input
+                        value={dispatchId}
+                        onChange={(e) => setDispatchId(e.target.value)}
+                        placeholder="Tracking / consignment number"
+                        className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </label>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => setShipOpen(false)}
+                        className="flex-1 rounded-lg border border-slate-200 bg-white py-2 text-sm font-medium text-slate-700"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void confirmDispatch()}
+                        className="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-medium text-white disabled:opacity-60"
+                      >
+                        {saving ? "Dispatching…" : "Confirm dispatch"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {selected.courier || selected.dispatch_id ? (
+                  <div className="mt-4 border border-slate-200 bg-slate-50 px-3 py-3">
+                    <p className="text-[10px] font-semibold tracking-[0.14em] text-slate-500 uppercase">
+                      Tracking
+                    </p>
+                    <p className="mt-1 text-sm text-slate-800">
+                      Courier: <span className="font-medium">{selected.courier || "—"}</span>
+                    </p>
+                    <p className="mt-0.5 text-sm text-slate-800">
+                      Dispatch ID: <span className="font-medium">{selected.dispatch_id || "—"}</span>
+                    </p>
                   </div>
                 ) : null}
               </div>

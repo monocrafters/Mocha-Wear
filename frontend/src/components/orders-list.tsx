@@ -352,6 +352,22 @@ function OrderCard({ order, onCancel }: { order: Order; onCancel: () => void }) 
         </div>
       )}
 
+      {!cancelled && (order.courier || order.dispatch_id) ? (
+        <div className="mx-3 mt-2 border border-mocha-deep/10 bg-cream/60 px-3 py-2 lg:mx-5">
+          <p className="text-[10px] font-semibold tracking-[0.14em] text-mocha-deep uppercase">Track parcel</p>
+          {order.courier ? (
+            <p className="mt-1 text-[12px] text-mocha/80">
+              Courier: <span className="font-medium text-mocha-deep">{order.courier}</span>
+            </p>
+          ) : null}
+          {order.dispatch_id ? (
+            <p className="mt-0.5 text-[12px] text-mocha/80">
+              Dispatch ID: <span className="font-medium text-mocha-deep">{order.dispatch_id}</span>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="space-y-2 px-3 py-2.5 lg:space-y-2.5 lg:px-5 lg:py-3">
         {order.items.map((item, index) => (
           <div key={`${order.id}-${item.name}-${item.slug || ""}-${item.size || ""}-${index}`} className="flex gap-3">

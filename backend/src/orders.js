@@ -107,6 +107,9 @@ function normalizeOrder(order = {}, index = 0) {
     reseller_code: String(order.reseller_code || "").trim(),
     commission_total: Math.max(0, Number(order.commission_total) || 0),
     delivered_at: String(order.delivered_at || "").trim(),
+    courier: String(order.courier || "").trim(),
+    dispatch_id: String(order.dispatch_id || "").trim(),
+    shipped_at: String(order.shipped_at || "").trim(),
     customer,
     items,
   };
@@ -289,11 +292,38 @@ async function updateOne(id, fields = {}) {
   }
   const current = data.orders[index];
   const nextStatus = fields.status !== undefined ? normalizeStatus(fields.status) : current.status;
+  const courier =
+    fields.courier !== undefined ? String(fields.courier || "").trim() : String(current.courier || "").trim();
+  const dispatchId =
+    fields.dispatch_id !== undefined
+      ? String(fields.dispatch_id || "").trim()
+      : String(current.dispatch_id || "").trim();
+
+  if (nextStatus === "shipped") {
+    if (!courier) {
+      const err = new Error("Courier name is required to dispatch");
+      err.status = 400;
+      throw err;
+    }
+    if (!dispatchId) {
+      const err = new Error("Dispatch ID is required to dispatch");
+      err.status = 400;
+      throw err;
+    }
+  }
+
   const next = {
     ...current,
     status: nextStatus,
     note: fields.note !== undefined ? String(fields.note || "").trim() : current.note,
+    courier: nextStatus === "shipped" || nextStatus === "delivered" ? courier : current.courier || "",
+    dispatch_id:
+      nextStatus === "shipped" || nextStatus === "delivered" ? dispatchId : current.dispatch_id || "",
     updated_at: new Date().toISOString(),
+    shipped_at:
+      nextStatus === "shipped" && current.status !== "shipped"
+        ? new Date().toISOString()
+        : current.shipped_at || "",
     delivered_at:
       nextStatus === "delivered" && current.status !== "delivered"
         ? new Date().toISOString()

@@ -145,6 +145,12 @@ export function ResellerOrderDetail() {
                   <DetailRow label={t("orderDetail.whatsapp")} value={customer.whatsapp} />
                 ) : null}
                 <DetailRow label={t("orderDetail.address")} value={address || "—"} />
+                {order.courier || order.dispatch_id ? (
+                  <>
+                    <DetailRow label={t("orderDetail.courier")} value={order.courier || "—"} />
+                    <DetailRow label={t("orderDetail.dispatchId")} value={order.dispatch_id || "—"} />
+                  </>
+                ) : null}
               </div>
               {waLink ? (
                 <a

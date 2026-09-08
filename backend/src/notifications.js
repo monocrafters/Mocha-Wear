@@ -318,15 +318,39 @@ async function notifyOrderStatus(order = {}) {
     delivered: "delivered",
   };
   const label = labels[order.status];
-  if (!label || !order.customer?.phone) return;
-  await add({
-    role: "user",
-    phone: order.customer.phone,
-    type: "order_status",
-    title: `Order ${order.id} is ${label}`,
-    message: "Open Orders to track it.",
-    href: "/orders",
-  });
+  if (!label) return;
+
+  if (order.customer?.phone) {
+    let message = "Open Orders to track it.";
+    if (order.status === "shipped" && (order.courier || order.dispatch_id)) {
+      const parts = [];
+      if (order.courier) parts.push(`Courier: ${order.courier}`);
+      if (order.dispatch_id) parts.push(`Dispatch ID: ${order.dispatch_id}`);
+      message = `${parts.join(" · ")}. Open Orders to track it.`;
+    }
+    await add({
+      role: "user",
+      phone: order.customer.phone,
+      type: "order_status",
+      title: `Order ${order.id} is ${label}`,
+      message,
+      href: "/orders",
+    });
+  }
+
+  if (order.status === "shipped" && order.reseller_id) {
+    await add({
+      role: "reseller",
+      reseller_id: order.reseller_id,
+      type: "order_status",
+      title: `Order ${order.id} dispatched`,
+      message:
+        order.courier || order.dispatch_id
+          ? `Courier: ${order.courier || "—"} · Dispatch ID: ${order.dispatch_id || "—"}. Open the order to track.`
+          : "Order is on the way. Open the order to track.",
+      href: `/reseller/orders/${encodeURIComponent(order.id)}`,
+    });
+  }
 }
 
 function sendError(res, error) {
