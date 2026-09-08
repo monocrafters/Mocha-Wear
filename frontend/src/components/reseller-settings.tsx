@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { ResellerShell } from "@/components/reseller-shell";
 import { PasswordInput } from "@/components/password-input";
+import { ThemePreferencePicker } from "@/components/theme-preference-picker";
 import { resellerErrorMessage, useResellerLocale } from "@/components/reseller-locale-provider";
 import type { ResellerLocale } from "@/lib/reseller-i18n";
 import { API_URL, apiFetch } from "@/lib/api";
@@ -66,6 +67,16 @@ export function ResellerSettings() {
     <ResellerShell active="settings" kicker={t("settings.kicker")} title={t("settings.title")} copy={t("settings.copy")}>
       <div className="mx-auto w-full max-w-lg space-y-4">
         {saved ? <p className={ui.ok}>{t("settings.saved")}</p> : null}
+
+        <ThemePreferencePicker
+          title={t("settings.theme")}
+          help={t("settings.themeHelp")}
+          labels={{
+            light: { label: t("settings.themeLight"), hint: t("settings.themeLightHint") },
+            dark: { label: t("settings.themeDark"), hint: t("settings.themeDarkHint") },
+            system: { label: t("settings.themeSystem"), hint: t("settings.themeSystemHint") },
+          }}
+        />
 
         <div className="border border-slate-200 bg-white p-4">
           <p className="text-sm font-semibold text-slate-900">{t("settings.language")}</p>

@@ -34,14 +34,14 @@ export function ResellerShell({
 
   if (status === "checking" || !session) {
     return (
-      <main className="grid min-h-svh place-items-center bg-[#f3f4f6] text-sm text-slate-500">
+      <main className="dash-bg grid min-h-svh place-items-center text-sm dash-muted">
         {t("shell.checkingAccess")}
       </main>
     );
   }
 
   return (
-    <div className="min-h-svh bg-[#f3f4f6]">
+    <div className="dash-bg min-h-svh">
       <ResellerSidebar
         name={name}
         active={active}
@@ -50,13 +50,13 @@ export function ResellerShell({
         onClose={() => setSidebarOpen(false)}
       />
       <div className="lg:pl-[260px]">
-        <header className="sticky top-0 z-30 overflow-visible border-b border-slate-200 bg-white">
+        <header className="dash-surface sticky top-0 z-30 overflow-visible border-b dash-border">
           <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 sm:px-6">
             <ResellerMenuButton onClick={() => setSidebarOpen(true)} />
             {dock.docked && dock.toolbar ? (
               <div className="flex min-w-0 flex-1 items-center">{dock.toolbar}</div>
             ) : (
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{title}</p>
+              <p className="dash-text min-w-0 flex-1 truncate text-sm font-medium">{title}</p>
             )}
             <span className="hidden shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline">
               {name}
@@ -75,9 +75,9 @@ export function ResellerShell({
         >
           {!compact ? (
             <>
-              <p className="text-sm text-slate-500">{kicker}</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
-              {copy ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{copy}</p> : null}
+              <p className="dash-muted text-sm">{kicker}</p>
+              <h1 className="dash-text mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
+              {copy ? <p className="dash-muted mt-2 max-w-2xl text-sm leading-6">{copy}</p> : null}
             </>
           ) : null}
           <div className={compact ? "" : "mt-8"}>{children}</div>

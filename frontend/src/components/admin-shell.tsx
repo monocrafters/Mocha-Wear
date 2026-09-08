@@ -47,14 +47,14 @@ export function AdminShell({ active, kicker, title, copy, children }: AdminShell
 
   if (status === "checking") {
     return (
-      <main className="grid min-h-svh place-items-center bg-[#f3f4f6] text-sm text-slate-500">
+      <main className="dash-bg grid min-h-svh place-items-center text-sm dash-muted">
         Checking access…
       </main>
     );
   }
 
   return (
-    <div className="min-h-svh bg-[#f3f4f6]">
+    <div className="dash-bg min-h-svh">
       <AdminSidebar
         username={username}
         active={active}
@@ -63,10 +63,10 @@ export function AdminShell({ active, kicker, title, copy, children }: AdminShell
         onClose={() => setSidebarOpen(false)}
       />
       <div className="lg:pl-[260px]">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+        <header className="dash-surface sticky top-0 z-30 flex h-14 items-center justify-between border-b dash-border px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <AdminMenuButton onClick={() => setSidebarOpen(true)} />
-            <p className="text-sm font-medium text-slate-900">{title}</p>
+            <p className="dash-text text-sm font-medium">{title}</p>
           </div>
           <div className="flex items-center gap-2">
             <AdminNotifications />
@@ -76,9 +76,9 @@ export function AdminShell({ active, kicker, title, copy, children }: AdminShell
           </div>
         </header>
         <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <p className="text-sm text-slate-500">{kicker}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
-          {copy ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{copy}</p> : null}
+          <p className="dash-muted text-sm">{kicker}</p>
+          <h1 className="dash-text mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
+          {copy ? <p className="dash-muted mt-2 max-w-2xl text-sm leading-6">{copy}</p> : null}
           {children}
         </section>
       </div>

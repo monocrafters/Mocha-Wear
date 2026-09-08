@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { DEFAULT_SETTINGS, type SiteNote, type SiteSettings } from "@/lib/settings";
 import { AdminFormSkeleton } from "@/components/skeletons";
+import { ThemePreferencePicker } from "@/components/theme-preference-picker";
 
 const field =
   "mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15";
@@ -79,7 +80,10 @@ export function AdminSettings() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 space-y-8">
+    <div className="mt-8 space-y-8">
+      <ThemePreferencePicker />
+
+      <form onSubmit={onSubmit} className="space-y-8">
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       {saved ? <p className="bg-cream px-3 py-2 text-sm text-slate-900">{saved}</p> : null}
 
@@ -322,6 +326,7 @@ export function AdminSettings() {
         </button>
       </div>
     </form>
+    </div>
   );
 }
 
