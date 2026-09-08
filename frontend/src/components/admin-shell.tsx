@@ -62,20 +62,22 @@ export function AdminShell({ active, kicker, title, copy, children }: AdminShell
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <div className="lg:pl-[260px]">
-        <header className="dash-surface sticky top-0 z-30 flex h-14 items-center justify-between border-b dash-border px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <AdminMenuButton onClick={() => setSidebarOpen(true)} />
-            <p className="dash-text text-sm font-medium">{title}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <AdminNotifications />
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-              {username}
-            </span>
+      <div>
+        <header className="dash-surface sticky top-0 z-30 border-b dash-border">
+          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 sm:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <AdminMenuButton onClick={() => setSidebarOpen(true)} />
+              <p className="dash-text truncate text-sm font-medium">{title}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <AdminNotifications />
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                {username}
+              </span>
+            </div>
           </div>
         </header>
-        <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <section className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-5">
           <p className="dash-muted text-sm">{kicker}</p>
           <h1 className="dash-text mt-1 text-2xl font-semibold tracking-tight">{title}</h1>
           {copy ? <p className="dash-muted mt-2 max-w-2xl text-sm leading-6">{copy}</p> : null}
