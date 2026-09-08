@@ -32,7 +32,14 @@ export function ThemePreferencePicker({
     >
   >;
 }) {
-  const { preference, setPreference } = useDashboardTheme();
+  const { preference, setPreference, ready } = useDashboardTheme();
+  const activePreference =
+    ready || typeof document === "undefined"
+      ? preference
+      : (() => {
+          const boot = document.documentElement.getAttribute("data-dashboard-theme-pref");
+          return boot === "light" || boot === "dark" || boot === "system" ? boot : preference;
+        })();
 
   return (
     <div className="border border-slate-200 bg-white p-4 sm:p-5">
@@ -41,7 +48,7 @@ export function ThemePreferencePicker({
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         {OPTIONS.map((option) => {
           const Icon = option.icon;
-          const active = preference === option.id;
+          const active = activePreference === option.id;
           const label = labels?.[option.id]?.label ?? option.label;
           const hint = labels?.[option.id]?.hint ?? option.hint;
           return (

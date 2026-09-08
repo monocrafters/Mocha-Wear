@@ -14,8 +14,10 @@ import {
   cssVarsToInline,
   readThemePreference,
   resolveTheme,
+  rootThemeStyle,
   storeThemePreference,
   themeVars,
+  THEME_CHANGE_EVENT,
   type DashboardResolvedTheme,
   type DashboardThemePreference,
 } from "@/lib/dashboard-theme";
@@ -24,6 +26,7 @@ type DashboardThemeContextValue = {
   preference: DashboardThemePreference;
   resolved: DashboardResolvedTheme;
   setPreference: (preference: DashboardThemePreference) => void;
+  ready: boolean;
 };
 
 const DashboardThemeContext = createContext<DashboardThemeContextValue | null>(null);
@@ -34,8 +37,8 @@ function applyDomTheme(preference: DashboardThemePreference, resolved: Dashboard
   root.setAttribute("data-dashboard-theme", resolved);
   root.setAttribute("data-dashboard-theme-pref", preference);
   root.style.colorScheme = resolved;
-  root.classList.toggle("dashboard-theme-dark", resolved === "dark");
-  root.classList.toggle("dashboard-theme-light", resolved === "light");
+  root.classList.remove("dashboard-theme-dark", "dashboard-theme-light");
+  root.classList.add(resolved === "dark" ? "dashboard-theme-dark" : "dashboard-theme-light");
 
   let tag = document.getElementById("mocha-dashboard-theme-style") as HTMLStyleElement | null;
   if (!tag) {
@@ -43,17 +46,20 @@ function applyDomTheme(preference: DashboardThemePreference, resolved: Dashboard
     tag.id = "mocha-dashboard-theme-style";
     document.head.appendChild(tag);
   }
-  tag.textContent = `.admin-root{${cssVarsToInline(themeVars(resolved))};color-scheme:${resolved};}`;
+  const vars = cssVarsToInline(themeVars(resolved));
+  tag.textContent = `.admin-root{${vars};background:var(--dash-bg);color:var(--dash-text);color-scheme:${resolved};}`;
 }
 
-export function dashboardThemeBootScript(storageKey: string) {
-  return `(function(){try{var k=${JSON.stringify(storageKey)};var p=localStorage.getItem(k)||"system";if(p!=="light"&&p!=="dark"&&p!=="system")p="system";var dark=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=dark?"dark":"light";var root=document.documentElement;root.setAttribute("data-dashboard-theme",r);root.setAttribute("data-dashboard-theme-pref",p);root.style.colorScheme=r;root.classList.add(r==="dark"?"dashboard-theme-dark":"dashboard-theme-light");var vars=r==="dark"?"--dash-bg:#0b1220;--dash-surface:#111827;--dash-surface-2:#0f172a;--dash-text:#e2e8f0;--dash-text-2:#cbd5e1;--dash-muted:#94a3b8;--dash-border:#1f2937;--dash-border-strong:#334155;--dash-chip:#1e293b;--dash-overlay:rgba(0,0,0,.55);--dash-input:#0f172a;--dash-scrollbar-track:#0f172a;--dash-scrollbar-thumb:#334155;--cream:#1e293b;--ivory:#0b1220;--sand:#334155;--mocha-deep:#e2e8f0;--mocha:#cbd5e1;":"--dash-bg:#f3f4f6;--dash-surface:#ffffff;--dash-surface-2:#f8fafc;--dash-text:#0f172a;--dash-text-2:#334155;--dash-muted:#64748b;--dash-border:#e2e8f0;--dash-border-strong:#cbd5e1;--dash-chip:#f1f5f9;--dash-overlay:rgba(15,23,42,.4);--dash-input:#ffffff;--dash-scrollbar-track:#f1f5f9;--dash-scrollbar-thumb:#cbd5e1;--cream:#f1f5f9;--ivory:#f3f4f6;--sand:#e2e8f0;--mocha-deep:#0f172a;--mocha:#334155;";var s=document.getElementById("mocha-dashboard-theme-style");if(!s){s=document.createElement("style");s.id="mocha-dashboard-theme-style";document.head.appendChild(s);}s.textContent=".admin-root{"+vars+"color-scheme:"+r+";}";}catch(e){}})();`;
-}
-
-function readDomPreference(fallback: DashboardThemePreference = "system"): DashboardThemePreference {
-  if (typeof document === "undefined") return fallback;
+function readBootPreference(): DashboardThemePreference | null {
+  if (typeof document === "undefined") return null;
   const pref = document.documentElement.getAttribute("data-dashboard-theme-pref");
-  return pref === "light" || pref === "dark" || pref === "system" ? pref : fallback;
+  return pref === "light" || pref === "dark" || pref === "system" ? pref : null;
+}
+
+function readBootResolved(): DashboardResolvedTheme | null {
+  if (typeof document === "undefined") return null;
+  const theme = document.documentElement.getAttribute("data-dashboard-theme");
+  return theme === "dark" || theme === "light" ? theme : null;
 }
 
 export function DashboardThemeProvider({
@@ -63,58 +69,70 @@ export function DashboardThemeProvider({
   storageKey: string;
   children: ReactNode;
 }) {
-  const [preference, setPreferenceState] = useState<DashboardThemePreference>(() =>
-    typeof window === "undefined" ? "system" : readDomPreference(readThemePreference(storageKey)),
-  );
-  const [systemDark, setSystemDark] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(prefers-color-scheme: dark)").matches,
-  );
+  // Do NOT paint a theme on the first SSR/hydration pass.
+  // The root boot script already applied the saved theme; React must not
+  // overwrite it with light defaults before localStorage is read.
+  const [ready, setReady] = useState(false);
+  const [preference, setPreferenceState] = useState<DashboardThemePreference>("system");
+  const [resolved, setResolved] = useState<DashboardResolvedTheme>("light");
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
+
     const sync = () => {
-      const next = readThemePreference(storageKey);
-      setPreferenceState(next);
-      setSystemDark(media.matches);
-      applyDomTheme(next, next === "system" ? (media.matches ? "dark" : "light") : next);
+      const nextPref = readThemePreference(storageKey);
+      const nextResolved =
+        nextPref === "system" ? (media.matches ? "dark" : "light") : nextPref;
+      setPreferenceState(nextPref);
+      setResolved(nextResolved);
+      setReady(true);
+      applyDomTheme(nextPref, nextResolved);
     };
+
     sync();
     media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    window.addEventListener(THEME_CHANGE_EVENT, sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      window.removeEventListener(THEME_CHANGE_EVENT, sync);
+    };
   }, [storageKey]);
-
-  const resolved = useMemo<DashboardResolvedTheme>(() => {
-    if (preference === "system") return systemDark ? "dark" : "light";
-    return preference;
-  }, [preference, systemDark]);
-
-  useEffect(() => {
-    applyDomTheme(preference, resolved);
-  }, [preference, resolved]);
 
   const setPreference = useCallback(
     (next: DashboardThemePreference) => {
       const nextResolved = resolveTheme(next);
-      setPreferenceState(next);
       storeThemePreference(storageKey, next);
+      setPreferenceState(next);
+      setResolved(nextResolved);
+      setReady(true);
       applyDomTheme(next, nextResolved);
     },
     [storageKey],
   );
 
   const value = useMemo(
-    () => ({ preference, resolved, setPreference }),
-    [preference, resolved, setPreference],
+    () => ({ preference, resolved, setPreference, ready }),
+    [preference, resolved, setPreference, ready],
   );
 
-  const style = themeVars(resolved) as CSSProperties;
+  // Before ready: leave class/style alone so the boot script theme stays visible.
+  // After ready: own the theme completely via class + inline vars.
+  const bootResolved = ready ? resolved : readBootResolved();
+  const bootPreference = ready ? preference : readBootPreference() || preference;
+  const activeResolved = bootResolved || resolved;
+  const activePreference = bootPreference;
+
+  const style = ready ? (rootThemeStyle(activeResolved) as CSSProperties) : undefined;
+  const className = ready
+    ? `admin-root min-h-svh theme-${activeResolved}`
+    : "admin-root min-h-svh";
 
   return (
     <DashboardThemeContext.Provider value={value}>
       <div
-        className={`admin-root min-h-svh theme-${resolved}`}
-        data-theme={resolved}
-        data-theme-pref={preference}
+        className={className}
+        data-theme={ready ? activeResolved : undefined}
+        data-theme-pref={ready ? activePreference : undefined}
         style={style}
         suppressHydrationWarning
       >

@@ -3,6 +3,7 @@ export type DashboardResolvedTheme = "light" | "dark";
 
 export const ADMIN_THEME_KEY = "mocha_admin_theme";
 export const RESELLER_THEME_KEY = "mocha_reseller_theme";
+export const THEME_CHANGE_EVENT = "mocha-dashboard-theme-change";
 
 export const LIGHT_THEME_VARS: Record<string, string> = {
   "--mocha-deep": "#0f172a",
@@ -66,7 +67,10 @@ export function readThemePreference(storageKey: string): DashboardThemePreferenc
   if (typeof window === "undefined") return "system";
   try {
     const raw = localStorage.getItem(storageKey);
-    return isThemePreference(raw) ? raw : "system";
+    if (isThemePreference(raw)) return raw;
+    const match = document.cookie.match(new RegExp(`(?:^|; )${storageKey}=([^;]*)`));
+    const cookieValue = match?.[1] ? decodeURIComponent(match[1]) : "";
+    return isThemePreference(cookieValue) ? cookieValue : "system";
   } catch {
     return "system";
   }
@@ -76,7 +80,8 @@ export function storeThemePreference(storageKey: string, preference: DashboardTh
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(storageKey, preference);
-    document.cookie = `${storageKey}=${preference}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `${encodeURIComponent(storageKey)}=${encodeURIComponent(preference)}; path=/; max-age=31536000; samesite=lax`;
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   } catch {
     /* ignore */
   }
@@ -96,4 +101,14 @@ export function cssVarsToInline(vars: Record<string, string>) {
   return Object.entries(vars)
     .map(([key, value]) => `${key}:${value}`)
     .join(";");
+}
+
+export function rootThemeStyle(resolved: DashboardResolvedTheme): Record<string, string> {
+  const vars = themeVars(resolved);
+  return {
+    ...vars,
+    background: vars["--dash-bg"],
+    color: vars["--dash-text"],
+    colorScheme: resolved,
+  };
 }
