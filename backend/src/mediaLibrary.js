@@ -1,0 +1,318 @@
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const { createDocumentStore } = require("./cloudStore");
+const cloudinary = require("./cloudinary");
+
+const DATA_DIR = path.join(__dirname, "..", "data");
+const DATA_FILE = path.join(DATA_DIR, "media_library.json");
+const ROOT_ID = "";
+
+function emptyStore() {
+  return { folders: [], files: [] };
+}
+
+function readFileStore() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return emptyStore();
+    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  } catch {
+    return emptyStore();
+  }
+}
+
+const store = createDocumentStore("media_library", {
+  empty: emptyStore,
+  readFile: readFileStore,
+  writeFile(data) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  },
+});
+
+function shapeFolder(row = {}) {
+  return {
+    id: row.id || crypto.randomUUID(),
+    parent_id: row.parent_id == null || row.parent_id === undefined ? ROOT_ID : String(row.parent_id),
+    name: String(row.name || "Untitled").trim() || "Untitled",
+    created_at: row.created_at || new Date().toISOString(),
+    updated_at: row.updated_at || row.created_at || new Date().toISOString(),
+  };
+}
+
+function shapeFile(row = {}) {
+  return {
+    id: row.id || crypto.randomUUID(),
+    folder_id: row.folder_id == null || row.folder_id === undefined ? ROOT_ID : String(row.folder_id),
+    name: String(row.name || "file").trim() || "file",
+    url: String(row.url || "").trim(),
+    public_id: String(row.public_id || "").trim(),
+    resource_type: ["image", "video", "raw"].includes(row.resource_type) ? row.resource_type : "image",
+    mime: String(row.mime || "").trim(),
+    bytes: Math.max(0, Math.round(Number(row.bytes) || 0)),
+    created_at: row.created_at || new Date().toISOString(),
+  };
+}
+
+function normalize(data = {}) {
+  return {
+    folders: (Array.isArray(data.folders) ? data.folders : []).map(shapeFolder),
+    files: (Array.isArray(data.files) ? data.files : []).map(shapeFile),
+  };
+}
+
+async function readStore() {
+  return normalize(await store.read());
+}
+
+async function writeStore(data) {
+  await store.write(normalize(data));
+}
+
+function folderExists(data, folderId) {
+  const id = String(folderId || ROOT_ID);
+  if (id === ROOT_ID) return true;
+  return data.folders.some((folder) => folder.id === id);
+}
+
+function breadcrumbsFor(data, folderId) {
+  const crumbs = [];
+  let current = String(folderId || ROOT_ID);
+  const guard = new Set();
+  while (current && current !== ROOT_ID) {
+    if (guard.has(current)) break;
+    guard.add(current);
+    const folder = data.folders.find((row) => row.id === current);
+    if (!folder) break;
+    crumbs.unshift({ id: folder.id, name: folder.name });
+    current = folder.parent_id || ROOT_ID;
+  }
+  return [{ id: ROOT_ID, name: "Media" }, ...crumbs];
+}
+
+function listChildren(data, folderId) {
+  const id = String(folderId || ROOT_ID);
+  const folders = data.folders
+    .filter((folder) => (folder.parent_id || ROOT_ID) === id)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const files = data.files
+    .filter((file) => (file.folder_id || ROOT_ID) === id)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return { folders, files };
+}
+
+async function browse(folderId = ROOT_ID) {
+  const data = await readStore();
+  const id = String(folderId || ROOT_ID);
+  if (!folderExists(data, id)) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const current =
+    id === ROOT_ID
+      ? { id: ROOT_ID, parent_id: null, name: "Media" }
+      : data.folders.find((folder) => folder.id === id);
+  const { folders, files } = listChildren(data, id);
+  return {
+    folder: current,
+    breadcrumbs: breadcrumbsFor(data, id),
+    folders,
+    files,
+  };
+}
+
+async function createFolder({ name, parent_id } = {}) {
+  const data = await readStore();
+  const parentId = String(parent_id || ROOT_ID);
+  if (!folderExists(data, parentId)) {
+    const err = new Error("Parent folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const folderName = String(name || "").trim();
+  if (!folderName) {
+    const err = new Error("Folder name is required");
+    err.status = 400;
+    throw err;
+  }
+  if (folderName.length > 80) {
+    const err = new Error("Folder name is too long");
+    err.status = 400;
+    throw err;
+  }
+  const clash = data.folders.find(
+    (folder) =>
+      (folder.parent_id || ROOT_ID) === parentId &&
+      folder.name.toLowerCase() === folderName.toLowerCase(),
+  );
+  if (clash) {
+    const err = new Error("A folder with this name already exists here");
+    err.status = 409;
+    throw err;
+  }
+  const folder = shapeFolder({
+    id: crypto.randomUUID(),
+    parent_id: parentId,
+    name: folderName,
+    created_at: new Date().toISOString(),
+  });
+  data.folders.push(folder);
+  await writeStore(data);
+  return folder;
+}
+
+async function renameFolder(id, { name } = {}) {
+  const data = await readStore();
+  const index = data.folders.findIndex((folder) => folder.id === id);
+  if (index < 0) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const folderName = String(name || "").trim();
+  if (!folderName) {
+    const err = new Error("Folder name is required");
+    err.status = 400;
+    throw err;
+  }
+  const parentId = data.folders[index].parent_id || ROOT_ID;
+  const clash = data.folders.find(
+    (folder) =>
+      folder.id !== id &&
+      (folder.parent_id || ROOT_ID) === parentId &&
+      folder.name.toLowerCase() === folderName.toLowerCase(),
+  );
+  if (clash) {
+    const err = new Error("A folder with this name already exists here");
+    err.status = 409;
+    throw err;
+  }
+  data.folders[index].name = folderName;
+  data.folders[index].updated_at = new Date().toISOString();
+  await writeStore(data);
+  return data.folders[index];
+}
+
+function collectDescendantFolderIds(data, folderId) {
+  const ids = new Set([folderId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const folder of data.folders) {
+      if (ids.has(folder.parent_id) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        grew = true;
+      }
+    }
+  }
+  return ids;
+}
+
+async function deleteFolder(id) {
+  const data = await readStore();
+  if (!data.folders.some((folder) => folder.id === id)) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+  const removeIds = collectDescendantFolderIds(data, id);
+  const filesToDelete = data.files.filter((file) => removeIds.has(String(file.folder_id || ROOT_ID)));
+  for (const file of filesToDelete) {
+    await cloudinary.destroyMedia(file.public_id, file.resource_type);
+  }
+  data.files = data.files.filter((file) => !removeIds.has(String(file.folder_id || ROOT_ID)));
+  data.folders = data.folders.filter((folder) => !removeIds.has(folder.id));
+  await writeStore(data);
+  return { ok: true };
+}
+
+async function uploadFiles(folderId, files = []) {
+  const data = await readStore();
+  const parentId = String(folderId || ROOT_ID);
+  if (!folderExists(data, parentId)) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+  if (!files.length) {
+    const err = new Error("Select at least one file");
+    err.status = 400;
+    throw err;
+  }
+
+  const created = [];
+  for (const file of files) {
+    const folderPath =
+      parentId === ROOT_ID ? "mocha-wear/media" : `mocha-wear/media/${parentId}`;
+    const uploaded = await cloudinary.uploadMedia(file, folderPath);
+    const original = String(file.originalname || "file").trim() || "file";
+    const item = shapeFile({
+      id: crypto.randomUUID(),
+      folder_id: parentId,
+      name: original,
+      url: uploaded.url,
+      public_id: uploaded.publicId,
+      resource_type: uploaded.resourceType || "image",
+      mime: file.mimetype || "",
+      bytes: uploaded.bytes || file.size || 0,
+      created_at: new Date().toISOString(),
+    });
+    data.files.unshift(item);
+    created.push(item);
+  }
+  await writeStore(data);
+  return created;
+}
+
+async function renameFile(id, { name } = {}) {
+  const data = await readStore();
+  const index = data.files.findIndex((file) => file.id === id);
+  if (index < 0) {
+    const err = new Error("File not found");
+    err.status = 404;
+    throw err;
+  }
+  const nextName = String(name || "").trim();
+  if (!nextName) {
+    const err = new Error("File name is required");
+    err.status = 400;
+    throw err;
+  }
+  data.files[index].name = nextName;
+  await writeStore(data);
+  return data.files[index];
+}
+
+async function deleteFile(id) {
+  const data = await readStore();
+  const index = data.files.findIndex((file) => file.id === id);
+  if (index < 0) {
+    const err = new Error("File not found");
+    err.status = 404;
+    throw err;
+  }
+  const file = data.files[index];
+  await cloudinary.destroyMedia(file.public_id, file.resource_type);
+  data.files.splice(index, 1);
+  await writeStore(data);
+  return { ok: true };
+}
+
+function sendError(res, error) {
+  const status = error.status || 500;
+  console.error("Media library error:", error.message);
+  res.status(status).json({ message: error.message || "Could not update media library" });
+}
+
+module.exports = {
+  ROOT_ID,
+  browse,
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  uploadFiles,
+  renameFile,
+  deleteFile,
+  sendError,
+};

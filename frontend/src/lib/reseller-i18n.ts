@@ -8,6 +8,7 @@ const en: Record<string, string> = {
   "nav.productsPending": "Set prices",
   "nav.productsActive": "Live products",
   "nav.link": "My link",
+  "nav.media": "Media",
   "nav.orders": "Orders",
   "nav.earnings": "Earnings",
   "nav.withdraw": "Withdraw",
@@ -281,6 +282,10 @@ const en: Record<string, string> = {
   "settings.passwordError": "Could not update password",
   "settings.passwordTooShort": "New password must be at least 6 characters",
   "settings.passwordMismatch": "New password and confirmation do not match",
+
+  "media.kicker": "Content",
+  "media.title": "Media",
+  "media.copy": "Browse folders and files shared by admin for your posts.",
 };
 
 const ur: Record<string, string> = {
@@ -289,6 +294,7 @@ const ur: Record<string, string> = {
   "nav.productsPending": "Prices set karein",
   "nav.productsActive": "Live products",
   "nav.link": "Meri link",
+  "nav.media": "Media",
   "nav.orders": "Orders",
   "nav.earnings": "Kamai",
   "nav.withdraw": "Withdraw",
@@ -562,6 +568,10 @@ const ur: Record<string, string> = {
   "settings.passwordError": "Password update nahi ho saka",
   "settings.passwordTooShort": "Naya password kam az kam 6 characters ka ho",
   "settings.passwordMismatch": "Naya password aur confirm match nahi karte",
+
+  "media.kicker": "Content",
+  "media.title": "Media",
+  "media.copy": "Admin ke shared folders aur files yahan dekhein — posts ke liye use karein.",
 };
 
 const catalogs: Record<ResellerLocale, Record<string, string>> = { en, ur };

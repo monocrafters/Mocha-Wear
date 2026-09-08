@@ -12,6 +12,7 @@ import {
   Menu,
   Package,
   PackageCheck,
+  FolderOpen,
   Settings,
   ShoppingBag,
   X,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/reseller/products", id: "products", labelKey: "nav.productsPending", icon: Package, badgeKey: "pending_products" as const },
   { href: "/reseller/products/live", id: "products-active", labelKey: "nav.productsActive", icon: PackageCheck, badgeKey: null },
   { href: "/reseller/link", id: "link", labelKey: "nav.link", icon: Link2, badgeKey: null },
+  { href: "/reseller/media", id: "media", labelKey: "nav.media", icon: FolderOpen, badgeKey: null },
   { href: "/reseller/orders", id: "orders", labelKey: "nav.orders", icon: ShoppingBag, badgeKey: "unread_orders" as const },
   { href: "/reseller/earnings", id: "earnings", labelKey: "nav.earnings", icon: Banknote, badgeKey: null },
   { href: "/reseller/withdraw", id: "withdraw", labelKey: "nav.withdraw", icon: ArrowDownToLine, badgeKey: "withdraw_ready" as const },
@@ -102,6 +104,9 @@ export function ResellerSidebar({
     }
     if (item.id === "withdraw") {
       return pathname === "/reseller/withdraw" || pathname.startsWith("/reseller/withdraw/");
+    }
+    if (item.id === "media") {
+      return pathname === "/reseller/media" || pathname.startsWith("/reseller/media/");
     }
     return pathname === item.href || active === item.id;
   }

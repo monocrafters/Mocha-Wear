@@ -13,6 +13,7 @@ import {
   Package,
   Percent,
   Gift,
+  FolderOpen,
   Settings,
   ShoppingBag,
   Star,
@@ -34,6 +35,7 @@ const nav = [
     items: [
       { href: "/admin/product", id: "products", label: "Products", icon: Package },
       { href: "/admin/collection", id: "collections", label: "Collections", icon: Tag },
+      { href: "/admin/media", id: "media", label: "Media", icon: FolderOpen },
     ],
   },
   {

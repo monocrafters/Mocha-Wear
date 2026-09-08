@@ -28,6 +28,7 @@ const resellerPricing = require("./resellerPricing");
 const resellerLinkRequests = require("./resellerLinkRequests");
 const resellerDomains = require("./resellerDomains");
 const resellerPrRequests = require("./resellerPrRequests");
+const mediaLibrary = require("./mediaLibrary");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -103,6 +104,21 @@ const upload = multer({
     cb(new Error("Only image or video files are allowed"));
   },
 });
+
+const libraryUploader = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 60 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const type = String(file.mimetype || "");
+    if (type.startsWith("image/") || type.startsWith("video/") || type === "application/pdf") {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Only image, video, or PDF files are allowed"));
+  },
+});
+
+const libraryUpload = libraryUploader.array("files", 20);
 
 const mediaFields = upload.fields([
   { name: "cover", maxCount: 1 },
@@ -758,6 +774,71 @@ app.post("/api/admin/notifications/read-all", adminAuth.requireAdmin, async (_re
   }
 });
 
+app.get("/api/admin/media", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    res.json(await mediaLibrary.browse(req.query.folder_id));
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
+app.post("/api/admin/media/folders", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await mediaLibrary.createFolder(req.body || {});
+    res.status(201).json({ item });
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
+app.patch("/api/admin/media/folders/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await mediaLibrary.renameFolder(req.params.id, req.body || {});
+    res.json({ item });
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
+app.delete("/api/admin/media/folders/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    res.json(await mediaLibrary.deleteFolder(req.params.id));
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
+app.post("/api/admin/media/files", adminAuth.requireAdmin, (req, res) => {
+  libraryUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Upload failed" });
+    }
+    try {
+      const items = await mediaLibrary.uploadFiles(req.body?.folder_id, req.files || []);
+      res.status(201).json({ items });
+    } catch (error) {
+      mediaLibrary.sendError(res, error);
+    }
+  });
+});
+
+app.patch("/api/admin/media/files/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await mediaLibrary.renameFile(req.params.id, req.body || {});
+    res.json({ item });
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
+app.delete("/api/admin/media/files/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    res.json(await mediaLibrary.deleteFile(req.params.id));
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
+  }
+});
+
 app.get("/api/settings", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ settings: await settings.getPublic() });
@@ -1165,6 +1246,14 @@ app.get("/api/reseller/pr-progress", resellerAuth.requireReseller, async (req, r
     res.json(progress);
   } catch (error) {
     resellerPrRequests.sendError(res, error);
+  }
+});
+
+app.get("/api/reseller/media", resellerAuth.requireReseller, async (req, res) => {
+  try {
+    res.json(await mediaLibrary.browse(req.query.folder_id));
+  } catch (error) {
+    mediaLibrary.sendError(res, error);
   }
 });
 

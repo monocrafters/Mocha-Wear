@@ -45,6 +45,8 @@ function uploadBuffer(buffer, { folder, resourceType = "auto" }) {
           url: result.secure_url,
           publicId: result.public_id,
           resourceType: result.resource_type,
+          bytes: result.bytes || 0,
+          format: result.format || "",
         });
       },
     );
@@ -58,11 +60,27 @@ async function uploadMedia(file, folder) {
     err.status = 400;
     throw err;
   }
-  const isVideo = String(file.mimetype || "").startsWith("video/");
+  const mime = String(file.mimetype || "");
+  const isVideo = mime.startsWith("video/");
+  const isRaw = !mime.startsWith("image/") && !isVideo;
   return uploadBuffer(file.buffer, {
     folder,
-    resourceType: isVideo ? "video" : "image",
+    resourceType: isVideo ? "video" : isRaw ? "raw" : "image",
   });
 }
 
-module.exports = { isConfigured, uploadMedia };
+async function destroyMedia(publicId, resourceType = "image") {
+  if (!publicId) return { result: "ok" };
+  config();
+  try {
+    return await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType || "image",
+      invalidate: true,
+    });
+  } catch (error) {
+    console.error("Cloudinary destroy failed:", error.message);
+    return { result: "error", message: error.message };
+  }
+}
+
+module.exports = { isConfigured, uploadMedia, destroyMedia };
