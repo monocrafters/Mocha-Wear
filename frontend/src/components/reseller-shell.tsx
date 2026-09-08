@@ -49,15 +49,18 @@ export function ResellerShell({
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <div>
+      <div className="lg:pl-[260px]">
         <header className="dash-surface sticky top-0 z-30 overflow-visible border-b dash-border">
-          <div className="mx-auto flex h-14 max-w-lg items-center gap-2 px-4 sm:px-5">
+          <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 sm:px-6">
             <ResellerMenuButton onClick={() => setSidebarOpen(true)} />
             {dock.docked && dock.toolbar ? (
               <div className="flex min-w-0 flex-1 items-center">{dock.toolbar}</div>
             ) : (
               <p className="dash-text min-w-0 flex-1 truncate text-sm font-medium">{title}</p>
             )}
+            <span className="hidden shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline">
+              {name}
+            </span>
             <ResellerNotifications />
           </div>
         </header>
@@ -65,9 +68,9 @@ export function ResellerShell({
           className={
             compact
               ? wide
-                ? "mx-auto max-w-3xl px-3 py-3 sm:px-5"
-                : "mx-auto max-w-lg px-4 py-3"
-              : "mx-auto max-w-lg px-4 py-6"
+                ? "px-3 py-3 sm:px-5 lg:px-6 lg:py-5"
+                : "px-4 py-3 sm:px-6"
+              : "px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
           }
         >
           {!compact ? (

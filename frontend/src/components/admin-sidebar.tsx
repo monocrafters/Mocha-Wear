@@ -72,14 +72,14 @@ export function AdminSidebar({ username, active, onLogout, open, onClose }: Admi
       {open ? (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-slate-900/40"
+          className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden"
           aria-label="Close sidebar"
           onClick={onClose}
         />
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-800 bg-slate-950 text-slate-300 transition-transform duration-200 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-800 bg-slate-950 text-slate-300 transition-transform duration-200 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -92,7 +92,7 @@ export function AdminSidebar({ username, active, onLogout, open, onClose }: Admi
           </Link>
           <button
             type="button"
-            className="grid h-8 w-8 place-items-center text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="grid h-8 w-8 place-items-center text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
             onClick={onClose}
             aria-label="Close menu"
           >
@@ -158,7 +158,7 @@ export function AdminMenuButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700"
+      className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 lg:hidden"
       aria-label="Open sidebar"
     >
       <Menu size={16} />
