@@ -35,6 +35,8 @@ function shapeFolder(row = {}) {
     id: row.id || crypto.randomUUID(),
     parent_id: row.parent_id == null || row.parent_id === undefined ? ROOT_ID : String(row.parent_id),
     name: String(row.name || "Untitled").trim() || "Untitled",
+    cover_file_id: row.cover_file_id ? String(row.cover_file_id) : null,
+    cover_url: String(row.cover_url || "").trim(),
     created_at: row.created_at || new Date().toISOString(),
     updated_at: row.updated_at || row.created_at || new Date().toISOString(),
   };
@@ -94,7 +96,15 @@ function listChildren(data, folderId) {
   const id = String(folderId || ROOT_ID);
   const folders = data.folders
     .filter((folder) => (folder.parent_id || ROOT_ID) === id)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((folder) => {
+      if (!folder.cover_file_id) return { ...folder, cover_url: "" };
+      const cover = data.files.find((file) => file.id === folder.cover_file_id);
+      if (!cover || !isImageFile(cover) || !cover.url) {
+        return { ...folder, cover_file_id: null, cover_url: "" };
+      }
+      return { ...folder, cover_url: cover.url };
+    });
   const files = data.files
     .filter((file) => (file.folder_id || ROOT_ID) === id)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -189,6 +199,72 @@ async function renameFolder(id, { name } = {}) {
     throw err;
   }
   data.folders[index].name = folderName;
+  data.folders[index].updated_at = new Date().toISOString();
+  await writeStore(data);
+  return data.folders[index];
+}
+
+function isImageFile(file) {
+  return file.resource_type === "image" || String(file.mime || "").startsWith("image/");
+}
+
+function clearCoverRefs(data, fileId) {
+  for (const folder of data.folders) {
+    if (folder.cover_file_id === fileId) {
+      folder.cover_file_id = null;
+      folder.cover_url = "";
+      folder.updated_at = new Date().toISOString();
+    }
+  }
+}
+
+async function setFolderCover(folderId, coverFileId) {
+  const data = await readStore();
+  const id = String(folderId || "");
+  if (!id || id === ROOT_ID) {
+    const err = new Error("Cannot set cover on the root Media folder");
+    err.status = 400;
+    throw err;
+  }
+  const index = data.folders.findIndex((folder) => folder.id === id);
+  if (index < 0) {
+    const err = new Error("Folder not found");
+    err.status = 404;
+    throw err;
+  }
+
+  if (coverFileId == null || coverFileId === "") {
+    data.folders[index].cover_file_id = null;
+    data.folders[index].cover_url = "";
+    data.folders[index].updated_at = new Date().toISOString();
+    await writeStore(data);
+    return data.folders[index];
+  }
+
+  const file = data.files.find((row) => row.id === String(coverFileId));
+  if (!file) {
+    const err = new Error("Image not found");
+    err.status = 404;
+    throw err;
+  }
+  if (String(file.folder_id || ROOT_ID) !== id) {
+    const err = new Error("Cover image must be inside this folder");
+    err.status = 400;
+    throw err;
+  }
+  if (!isImageFile(file)) {
+    const err = new Error("Only images can be used as folder cover");
+    err.status = 400;
+    throw err;
+  }
+  if (!file.url) {
+    const err = new Error("Image has no URL");
+    err.status = 400;
+    throw err;
+  }
+
+  data.folders[index].cover_file_id = file.id;
+  data.folders[index].cover_url = file.url;
   data.folders[index].updated_at = new Date().toISOString();
   await writeStore(data);
   return data.folders[index];
@@ -295,6 +371,7 @@ async function deleteFile(id) {
   const file = data.files[index];
   await cloudinary.destroyMedia(file.public_id, file.resource_type);
   data.files.splice(index, 1);
+  clearCoverRefs(data, file.id);
   await writeStore(data);
   return { ok: true };
 }
@@ -310,6 +387,7 @@ module.exports = {
   browse,
   createFolder,
   renameFolder,
+  setFolderCover,
   deleteFolder,
   uploadFiles,
   renameFile,

@@ -9,6 +9,7 @@ import {
   FileVideo,
   Folder,
   FolderPlus,
+  ImagePlus,
   Loader2,
   Pencil,
   Trash2,
@@ -20,6 +21,8 @@ export type MediaFolder = {
   id: string;
   parent_id?: string | null;
   name: string;
+  cover_file_id?: string | null;
+  cover_url?: string;
 };
 
 export type MediaFile = {
@@ -47,6 +50,10 @@ function formatBytes(bytes?: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageFile(file: MediaFile) {
+  return file.resource_type === "image" || String(file.mime || "").startsWith("image/");
 }
 
 function FileIcon({ file }: { file: MediaFile }) {
@@ -104,6 +111,9 @@ export function MediaExplorer({
     return { folders: data.folders.length, files: data.files.length };
   }, [data]);
 
+  const currentCoverId = data?.folder?.cover_file_id || null;
+  const canSetCover = canEdit && Boolean(folderId);
+
   async function createFolder() {
     if (!canEdit || !newFolderName.trim() || busy) return;
     setBusy(true);
@@ -144,6 +154,7 @@ export function MediaExplorer({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not rename folder");
+      setMessage("Folder renamed");
       await load(folderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not rename folder");
@@ -213,6 +224,7 @@ export function MediaExplorer({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not rename file");
+      setMessage("File renamed");
       await load(folderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not rename file");
@@ -236,6 +248,51 @@ export function MediaExplorer({
       await load(folderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete file");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setCover(file: MediaFile) {
+    if (!canSetCover || !isImageFile(file) || busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/media/folders/${encodeURIComponent(folderId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cover_file_id: file.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not set folder cover");
+      setMessage(`Cover set from "${file.name}"`);
+      await load(folderId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not set folder cover");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearCover() {
+    if (!canSetCover || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/media/folders/${encodeURIComponent(folderId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cover_file_id: null }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not clear cover");
+      setMessage("Folder cover cleared");
+      await load(folderId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not clear cover");
     } finally {
       setBusy(false);
     }
@@ -332,6 +389,16 @@ export function MediaExplorer({
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
             Upload files
           </button>
+          {canSetCover && currentCoverId ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void clearCover()}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+            >
+              Clear cover
+            </button>
+          ) : null}
           <input
             ref={fileInputRef}
             type="file"
@@ -344,6 +411,13 @@ export function MediaExplorer({
       ) : (
         <p className="text-sm text-slate-500">Browse and download media shared by admin.</p>
       )}
+
+      {canSetCover ? (
+        <p className="text-xs text-slate-500">
+          Click an image thumbnail or use <span className="font-medium text-slate-700">Set cover</span> to choose
+          this folder&apos;s cover.
+        </p>
+      ) : null}
 
       {loading ? (
         <div className="grid place-items-center border border-dashed border-slate-200 bg-white py-16 text-sm text-slate-500">
@@ -373,8 +447,24 @@ export function MediaExplorer({
                       onClick={() => void load(folder.id)}
                       className="inline-flex items-center gap-2 font-medium text-slate-900 hover:text-blue-600"
                     >
-                      <Folder size={18} className="text-amber-500" />
-                      {folder.name}
+                      {folder.cover_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={folder.cover_url}
+                          alt=""
+                          className="h-10 w-10 rounded object-cover ring-1 ring-slate-200"
+                        />
+                      ) : (
+                        <span className="grid h-10 w-10 place-items-center rounded bg-amber-50">
+                          <Folder size={18} className="text-amber-500" />
+                        </span>
+                      )}
+                      <span className="text-left">
+                        <span className="block">{folder.name}</span>
+                        {folder.cover_url ? (
+                          <span className="mt-0.5 block text-[11px] font-normal text-slate-500">Has cover</span>
+                        ) : null}
+                      </span>
                     </button>
                   </td>
                   <td className="px-4 py-3 text-slate-500">Folder</td>
@@ -412,74 +502,106 @@ export function MediaExplorer({
                   </td>
                 </tr>
               ))}
-              {data.files.map((file) => (
-                <tr key={file.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {file.resource_type === "image" || String(file.mime || "").startsWith("image/") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={file.url} alt="" className="h-9 w-9 rounded object-cover" />
-                      ) : (
-                        <span className="grid h-9 w-9 place-items-center rounded bg-slate-100">
-                          <FileIcon file={file} />
-                        </span>
-                      )}
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 truncate font-medium text-slate-900 hover:text-blue-600"
-                      >
-                        {file.name}
-                      </a>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 capitalize text-slate-500">{file.resource_type || "file"}</td>
-                  <td className="px-4 py-3 text-slate-500">{formatBytes(file.bytes)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={file.name}
-                        className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                      >
-                        <Download size={11} />
-                        Open
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => void copyUrl(file.url)}
-                        className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                      >
-                        <Copy size={11} />
-                        Copy link
-                      </button>
-                      {canEdit ? (
-                        <>
+              {data.files.map((file) => {
+                const image = isImageFile(file);
+                const isCover = currentCoverId === file.id;
+                return (
+                  <tr key={file.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {image ? (
                           <button
                             type="button"
-                            onClick={() => void renameFile(file)}
-                            className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            disabled={!canSetCover || busy}
+                            title={canSetCover ? "Click to set as folder cover" : undefined}
+                            onClick={() => {
+                              if (canSetCover) void setCover(file);
+                            }}
+                            className={`relative shrink-0 rounded ${
+                              canSetCover ? "ring-offset-2 hover:ring-2 hover:ring-sky-400" : ""
+                            } ${isCover ? "ring-2 ring-emerald-500" : ""}`}
                           >
-                            <Pencil size={11} />
-                            Rename
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={file.url} alt="" className="h-10 w-10 rounded object-cover" />
+                            {isCover ? (
+                              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1 text-[8px] font-semibold uppercase text-white">
+                                Cover
+                              </span>
+                            ) : null}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => void removeFile(file)}
-                            className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[10px] uppercase text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 size={11} />
-                            Delete
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        ) : (
+                          <span className="grid h-10 w-10 place-items-center rounded bg-slate-100">
+                            <FileIcon file={file} />
+                          </span>
+                        )}
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 truncate font-medium text-slate-900 hover:text-blue-600"
+                        >
+                          {file.name}
+                        </a>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 capitalize text-slate-500">{file.resource_type || "file"}</td>
+                    <td className="px-4 py-3 text-slate-500">{formatBytes(file.bytes)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={file.name}
+                          className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                        >
+                          <Download size={11} />
+                          Open
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => void copyUrl(file.url)}
+                          className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                        >
+                          <Copy size={11} />
+                          Copy link
+                        </button>
+                        {canEdit ? (
+                          <>
+                            {canSetCover && image ? (
+                              <button
+                                type="button"
+                                disabled={busy || isCover}
+                                onClick={() => void setCover(file)}
+                                className="inline-flex items-center gap-1 rounded border border-emerald-200 px-2 py-1 text-[10px] uppercase text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                              >
+                                <ImagePlus size={11} />
+                                {isCover ? "Cover" : "Set cover"}
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => void renameFile(file)}
+                              className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            >
+                              <Pencil size={11} />
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void removeFile(file)}
+                              className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[10px] uppercase text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 size={11} />
+                              Delete
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

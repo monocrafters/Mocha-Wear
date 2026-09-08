@@ -793,7 +793,11 @@ app.post("/api/admin/media/folders", adminAuth.requireAdmin, async (req, res) =>
 
 app.patch("/api/admin/media/folders/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
-    const item = await mediaLibrary.renameFolder(req.params.id, req.body || {});
+    const body = req.body || {};
+    const item =
+      Object.prototype.hasOwnProperty.call(body, "cover_file_id")
+        ? await mediaLibrary.setFolderCover(req.params.id, body.cover_file_id)
+        : await mediaLibrary.renameFolder(req.params.id, body);
     res.json({ item });
   } catch (error) {
     mediaLibrary.sendError(res, error);
