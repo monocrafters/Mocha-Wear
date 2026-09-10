@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ClipboardPaste,
   Copy,
@@ -289,10 +290,37 @@ export function MediaExplorer({
   mode: "admin" | "reseller";
   apiBase: string;
 }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="mt-6 grid place-items-center border border-dashed border-slate-200 bg-white py-16 text-sm text-slate-500">
+          <Loader2 size={18} className="animate-spin" />
+        </div>
+      }
+    >
+      <MediaExplorerInner mode={mode} apiBase={apiBase} />
+    </Suspense>
+  );
+}
+
+function MediaExplorerInner({
+  mode,
+  apiBase,
+}: {
+  mode: "admin" | "reseller";
+  apiBase: string;
+}) {
   const canEdit = mode === "admin";
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const folderParam = searchParams.get("f") || "";
+  const folderTitleParam = searchParams.get("folder") || "";
+  const videoParam = searchParams.get("v") || "";
+  const videoTitleParam = searchParams.get("video") || "";
   const [driveStatus, setDriveStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [folderId, setFolderId] = useState("");
+  const [folderId, setFolderId] = useState(folderParam);
   const [data, setData] = useState<BrowsePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -303,6 +331,39 @@ export function MediaExplorer({
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const [playing, setPlaying] = useState<PlayingState | null>(null);
   const streamTicketCache = useRef(new Map<string, { url: string; expires: number; inflight?: Promise<string> }>());
+  const videoHistoryPushedRef = useRef(false);
+  const playbackRequestRef = useRef(0);
+
+  function buildMediaHref(opts: {
+    folderId?: string;
+    folderTitle?: string;
+    videoId?: string;
+    videoTitle?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (opts.folderId) {
+      params.set("f", opts.folderId);
+      if (opts.folderTitle) params.set("folder", opts.folderTitle);
+    }
+    if (opts.videoId) {
+      params.set("v", opts.videoId);
+      if (opts.videoTitle) params.set("video", opts.videoTitle);
+    }
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  }
+
+  function navigateToFolder(folder: { id: string; name: string }) {
+    router.push(buildMediaHref({ folderId: folder.id, folderTitle: folder.name }));
+  }
+
+  function navigateToCrumb(crumb: Breadcrumb) {
+    if (!crumb.id) {
+      router.push(pathname);
+      return;
+    }
+    router.push(buildMediaHref({ folderId: crumb.id, folderTitle: crumb.name }));
+  }
 
   useEffect(() => {
     // Hydrate browser-only clipboard state after server rendering.
@@ -313,11 +374,13 @@ export function MediaExplorer({
   useEffect(() => {
     if (!playing) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setPlaying(null);
+      if (event.key === "Escape") closePlayer();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [playing]);
+    // closePlayer is stable enough for this overlay lifecycle
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, videoParam]);
 
   useEffect(() => {
     if (canEdit) void apiFetch(API_URL + "/api/admin/media/drive/status").then(r => r.json()).then(setDriveStatus).catch(() => {});
@@ -391,20 +454,54 @@ export function MediaExplorer({
     void resolveStreamUrl(file).catch(() => {});
   }
 
-  async function playVideo(file: MediaFile) {
+  async function startPlayback(file: MediaFile) {
     if (!isVideoFile(file)) return;
+    const requestId = ++playbackRequestRef.current;
     setError("");
     setPlaying({ file, src: null });
     try {
       const src = await resolveStreamUrl(file);
+      if (playbackRequestRef.current !== requestId) return;
       setPlaying((current) => (current?.file.id === file.id ? { file, src } : current));
     } catch (err) {
+      if (playbackRequestRef.current !== requestId) return;
       const message = err instanceof Error ? err.message : "Could not play video";
       setPlaying((current) => (current?.file.id === file.id ? { file, src: null, error: message } : current));
     }
   }
 
+  function playVideo(file: MediaFile) {
+    if (!isVideoFile(file)) return;
+    const folderTitle = data?.folder?.name || folderTitleParam || undefined;
+    const href = buildMediaHref({
+      folderId: folderId || folderParam || undefined,
+      folderTitle,
+      videoId: file.id,
+      videoTitle: file.name,
+    });
+    void startPlayback(file);
+    if (videoParam !== file.id) {
+      videoHistoryPushedRef.current = true;
+      router.push(href);
+    }
+  }
+
   function closePlayer() {
+    if (videoParam) {
+      if (videoHistoryPushedRef.current) {
+        videoHistoryPushedRef.current = false;
+        router.back();
+        return;
+      }
+      router.replace(
+        buildMediaHref({
+          folderId: folderId || folderParam || undefined,
+          folderTitle: data?.folder?.name || folderTitleParam || undefined,
+        }),
+      );
+      setPlaying(null);
+      return;
+    }
     setPlaying(null);
   }
 
@@ -413,7 +510,8 @@ export function MediaExplorer({
     setClipboard(item);
   }
 
-  async function load(nextFolderId = folderId) {
+  async function load(nextFolderId = folderId, options: { syncUrl?: boolean } = {}) {
+    const syncUrl = options.syncUrl === true;
     setLoading(true);
     setError("");
     try {
@@ -422,20 +520,66 @@ export function MediaExplorer({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not load media");
       setData(json);
-      setFolderId(String(json.folder?.id || ""));
+      const nextId = String(json.folder?.id || "");
+      setFolderId(nextId);
+      if (!syncUrl) return;
+      const nextTitle = String(json.folder?.name || "");
+      // Keep the readable folder name in the URL in sync with the live folder.
+      if (nextId && (folderParam !== nextId || (nextTitle && folderTitleParam !== nextTitle))) {
+        router.replace(
+          buildMediaHref({
+            folderId: nextId,
+            folderTitle: nextTitle || undefined,
+            videoId: videoParam || undefined,
+            videoTitle: videoTitleParam || undefined,
+          }),
+        );
+      } else if (!nextId && folderParam) {
+        router.replace(
+          buildMediaHref({
+            videoId: videoParam || undefined,
+            videoTitle: videoTitleParam || undefined,
+          }),
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load media");
+      if (syncUrl && folderParam) router.replace(pathname);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    // The API base changes when switching between admin and reseller sessions.
+    // URL folder id is the source of truth for browser back/forward.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load("");
+    void load(folderParam, { syncUrl: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiBase]);
+  }, [apiBase, folderParam]);
+
+  useEffect(() => {
+    if (!videoParam) {
+      videoHistoryPushedRef.current = false;
+      setPlaying(null);
+      return;
+    }
+    if (playing?.file.id === videoParam) return;
+    if (loading) return;
+    const file = data?.files.find((row) => row.id === videoParam);
+    if (file && isVideoFile(file)) {
+      void startPlayback(file);
+      return;
+    }
+    if (!data) return;
+    // Invalid/stale video deep-link — drop it without leaving the folder.
+    router.replace(
+      buildMediaHref({
+        folderId: folderId || folderParam || undefined,
+        folderTitle: data.folder?.name || folderTitleParam || undefined,
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoParam, data, loading, folderId, folderParam]);
 
   const counts = useMemo(() => {
     if (!data) return { folders: 0, files: 0 };
@@ -698,7 +842,7 @@ export function MediaExplorer({
               {index > 0 ? <span className="text-slate-300">/</span> : null}
               <button
                 type="button"
-                onClick={() => void load(crumb.id)}
+                onClick={() => navigateToCrumb(crumb)}
                 className={`truncate ${
                   index === list.length - 1
                     ? "font-semibold text-slate-900"
@@ -839,11 +983,11 @@ export function MediaExplorer({
               key={folder.id}
               role="button"
               tabIndex={0}
-              onClick={() => void load(folder.id)}
+              onClick={() => navigateToFolder(folder)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  void load(folder.id);
+                  navigateToFolder(folder);
                 }
               }}
               className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-50/40 active:bg-amber-50 sm:p-4"
@@ -1080,7 +1224,7 @@ export function MediaExplorer({
           playing={playing}
           onClose={closePlayer}
           onDownload={() => void downloadOriginal(playing.file)}
-          onRetry={() => void playVideo(playing.file)}
+          onRetry={() => void startPlayback(playing.file)}
         />
       ) : null}
     </div>
