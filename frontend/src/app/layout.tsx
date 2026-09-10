@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Bodoni_Moda, Inter, Manrope } from "next/font/google";
 import { CartProvider } from "@/components/cart-provider";
 import { SiteSettingsProvider } from "@/components/site-settings";
+import { TikTokPixel } from "@/components/tiktok-pixel";
 import { API_URL } from "@/lib/api";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import "./globals.css";
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Script>
       </head>
       <body className="flex min-h-full min-w-0 max-w-full flex-col bg-ivory text-mocha-deep">
+        <TikTokPixel />
         <CartProvider>
           <SiteSettingsProvider>{children}</SiteSettingsProvider>
         </CartProvider>
