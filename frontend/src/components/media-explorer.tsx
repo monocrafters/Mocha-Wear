@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ClipboardPaste,
   Copy,
@@ -147,125 +148,137 @@ function MediaVideoPlayer({
   onRetry: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [mounted, setMounted] = useState(false);
   const [buffering, setBuffering] = useState(true);
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setBuffering(true);
     setReady(false);
   }, [playing.src, playing.file.id]);
 
-  const showSpinner = Boolean(playing.error) ? false : !playing.src || buffering || !ready;
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
 
-  return (
+  const showSpinner = !playing.error && (!playing.src || buffering || !ready);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
+      className="fixed inset-0 z-[200] flex flex-col bg-black"
       role="dialog"
       aria-modal="true"
       aria-label={playing.file.name}
-      onClick={onClose}
     >
       <div
-        className="flex w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-[#0b0d12] shadow-2xl ring-1 ring-white/10 sm:rounded-2xl"
-        onClick={(event) => event.stopPropagation()}
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5"
       >
-        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold tracking-tight text-white">{playing.file.name}</p>
-            <p className="mt-0.5 text-[11px] text-white/55">
-              {formatBytes(playing.file.bytes)}
-              {playing.src && ready && !buffering ? " · Playing" : playing.error ? " · Failed" : " · Loading stream…"}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={onDownload}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
-            >
-              <Download size={13} />
-              <span className="hidden sm:inline">Download</span>
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full border border-white/15 bg-white/5 p-2 text-white transition hover:bg-white/10"
-              aria-label="Close player"
-            >
-              <X size={16} />
-            </button>
-          </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-tight text-white">{playing.file.name}</p>
+          <p className="mt-0.5 text-[11px] text-white/55">
+            {formatBytes(playing.file.bytes)}
+            {playing.src && ready && !buffering ? " · Playing" : playing.error ? " · Failed" : " · Loading stream…"}
+          </p>
         </div>
-
-        <div className="relative aspect-video bg-black">
-          {playing.file.url ? (
-            <div className={`pointer-events-none absolute inset-0 transition-opacity ${ready ? "opacity-0" : "opacity-100"}`}>
-              <MediaPreview src={playing.file.url} className="h-full w-full object-cover opacity-40" />
-            </div>
-          ) : null}
-
-          {playing.src ? (
-            <video
-              ref={videoRef}
-              key={playing.src}
-              src={playing.src}
-              controls
-              autoPlay
-              playsInline
-              preload="auto"
-              className={`absolute inset-0 h-full w-full bg-black object-contain transition-opacity ${ready ? "opacity-100" : "opacity-0"}`}
-              onLoadStart={() => {
-                setBuffering(true);
-                setReady(false);
-              }}
-              onWaiting={() => setBuffering(true)}
-              onPlaying={() => {
-                setBuffering(false);
-                setReady(true);
-              }}
-              onCanPlay={() => {
-                setBuffering(false);
-                setReady(true);
-              }}
-              onError={() => setBuffering(false)}
-            />
-          ) : null}
-
-          {showSpinner ? (
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="flex flex-col items-center gap-3 rounded-2xl bg-black/45 px-6 py-5 text-center ring-1 ring-white/10">
-                <Loader2 size={28} className="animate-spin text-white" />
-                <p className="text-sm font-medium text-white">Starting video…</p>
-                <p className="max-w-[16rem] text-[11px] leading-relaxed text-white/60">
-                  Fetching a private stream. Large files may take a moment on the first play.
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          {playing.error ? (
-            <div className="absolute inset-0 grid place-items-center p-6">
-              <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl bg-black/55 px-6 py-5 text-center ring-1 ring-white/10">
-                <p className="text-sm font-medium text-white">{playing.error}</p>
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
-                >
-                  Try again
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {ready && buffering && !playing.error ? (
-            <div className="pointer-events-none absolute inset-0 grid place-items-center">
-              <Loader2 size={32} className="animate-spin text-white drop-shadow" />
-            </div>
-          ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onDownload}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">Download</span>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/15 bg-white/5 p-2 text-white transition hover:bg-white/10"
+            aria-label="Close player"
+          >
+            <X size={16} />
+          </button>
         </div>
       </div>
-    </div>
+
+      <div className="relative min-h-0 flex-1 bg-black pb-[env(safe-area-inset-bottom)]">
+        {playing.file.url ? (
+          <div className={`pointer-events-none absolute inset-0 transition-opacity ${ready ? "opacity-0" : "opacity-100"}`}>
+            <MediaPreview src={playing.file.url} className="h-full w-full object-cover opacity-35" />
+          </div>
+        ) : null}
+
+        {playing.src ? (
+          <video
+            ref={videoRef}
+            key={playing.src}
+            src={playing.src}
+            controls
+            autoPlay
+            playsInline
+            preload="auto"
+            className="absolute inset-0 h-full w-full bg-black object-contain"
+            onLoadStart={() => {
+              setBuffering(true);
+              setReady(false);
+            }}
+            onWaiting={() => setBuffering(true)}
+            onPlaying={() => {
+              setBuffering(false);
+              setReady(true);
+            }}
+            onCanPlay={() => {
+              setBuffering(false);
+              setReady(true);
+            }}
+            onError={() => setBuffering(false)}
+          />
+        ) : null}
+
+        {showSpinner ? (
+          <div className="absolute inset-0 z-[1] grid place-items-center p-6">
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-black/55 px-6 py-5 text-center ring-1 ring-white/10">
+              <Loader2 size={28} className="animate-spin text-white" />
+              <p className="text-sm font-medium text-white">Starting video…</p>
+              <p className="max-w-[16rem] text-[11px] leading-relaxed text-white/60">
+                Fetching a private stream. Large files may take a moment on the first play.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {playing.error ? (
+          <div className="absolute inset-0 z-[2] grid place-items-center p-6">
+            <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl bg-black/55 px-6 py-5 text-center ring-1 ring-white/10">
+              <p className="text-sm font-medium text-white">{playing.error}</p>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {ready && buffering && !playing.error ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] grid place-items-center">
+            <Loader2 size={32} className="animate-spin text-white drop-shadow" />
+          </div>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
   );
 }
 
