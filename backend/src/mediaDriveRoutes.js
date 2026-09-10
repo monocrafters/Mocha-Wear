@@ -45,40 +45,79 @@ function register(app, adminAuth, resellerAuth) {
   }));
   for (const [role, auth] of [["admin", adminAuth.requireAdmin], ["reseller", resellerAuth.requireReseller]]) {
     const base = `/api/${role}/media`;
-    app.get(`${base}/files/:id/preview`, auth, safe(async (req, res) => stream(req, res, true)));
+    app.get(`${base}/files/:id/preview`, auth, safe(async (req, res) => stream(req, res, "preview")));
     app.post(`${base}/files/:id/download-ticket`, auth, safe(async (req, res) => {
       await library.getFile(req.params.id);
       prune(tickets);
       if (tickets.size >= 1000) throw Object.assign(new Error("Too many download requests. Retry shortly."), { status: 429 });
       const ticket = crypto.randomBytes(32).toString("hex");
-      tickets.set(ticket, { id: req.params.id, role, authorization: req.headers.authorization, cookie: req.headers.cookie, expires: Date.now() + 60000 });
+      tickets.set(ticket, { id: req.params.id, role, mode: "download", authorization: req.headers.authorization, cookie: req.headers.cookie, expires: Date.now() + 60000 });
       res.json({ url: `${base}/files/${encodeURIComponent(req.params.id)}/download?ticket=${ticket}` });
+    }));
+    app.post(`${base}/files/:id/stream-ticket`, auth, safe(async (req, res) => {
+      const file = await library.getFile(req.params.id);
+      const isVideo = file.resource_type === "video" || String(file.mime || "").startsWith("video/");
+      if (!isVideo) throw Object.assign(new Error("Only videos can be streamed"), { status: 400 });
+      prune(tickets);
+      if (tickets.size >= 1000) throw Object.assign(new Error("Too many stream requests. Retry shortly."), { status: 429 });
+      const ticket = crypto.randomBytes(32).toString("hex");
+      tickets.set(ticket, { id: req.params.id, role, mode: "stream", authorization: req.headers.authorization, cookie: req.headers.cookie, expires: Date.now() + 15 * 60000 });
+      res.json({ url: `${base}/files/${encodeURIComponent(req.params.id)}/stream?ticket=${ticket}` });
     }));
     app.get(`${base}/files/:id/download`, (req, res, next) => {
       const key = String(req.query.ticket || "");
       const t = tickets.get(key);
-      if (t && t.expires > Date.now() && t.id === req.params.id && t.role === role) {
+      if (t && t.expires > Date.now() && t.id === req.params.id && t.role === role && t.mode === "download") {
         tickets.delete(key);
-        // Recheck the originating login, including current reseller suspension status.
         req.headers.authorization = t.authorization;
         req.headers.cookie = t.cookie;
       }
       auth(req, res, next);
-    }, safe(async (req, res) => stream(req, res, false)));
+    }, safe(async (req, res) => stream(req, res, "download")));
+    app.get(`${base}/files/:id/stream`, (req, res, next) => {
+      const key = String(req.query.ticket || "");
+      const t = tickets.get(key);
+      if (t && t.expires > Date.now() && t.id === req.params.id && t.role === role && t.mode === "stream") {
+        // Keep ticket for Range seeks during playback.
+        req.headers.authorization = t.authorization;
+        req.headers.cookie = t.cookie;
+      }
+      auth(req, res, next);
+    }, safe(async (req, res) => stream(req, res, "stream")));
   }
 }
-async function stream(req, res, preview) {
+async function stream(req, res, mode) {
   const file = await library.getFile(req.params.id);
   if (file.provider !== "drive") return res.redirect(file.url);
   const controller = new AbortController();
   res.on("close", () => controller.abort());
   const range = req.headers.range;
   if (range && !/^bytes=\d*-\d*$/.test(range)) throw Object.assign(new Error("Invalid byte range"), { status: 416 });
-  const upstream = preview ? await drive.thumbnail(file.drive_id, controller.signal) : await drive.content(file.drive_id, range, controller.signal);
+  const preview = mode === "preview";
+  const upstream = preview
+    ? await drive.thumbnail(file.drive_id, controller.signal)
+    : await drive.content(file.drive_id, range, controller.signal);
   res.status(upstream.status);
-  res.set({ "Cache-Control": "private, no-store, no-transform", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "Content-Security-Policy": "default-src 'none'; sandbox", "Content-Type": preview ? "image/jpeg" : "application/octet-stream" });
-  for (const header of ["content-length", "content-range", "accept-ranges"]) if (upstream.headers.has(header)) res.set(header, upstream.headers.get(header));
-  if (!preview) { res.attachment(file.name.replace(/[\r\n\x00-\x1f]/g, "_")); res.type("application/octet-stream"); }
+  const mime =
+    preview
+      ? "image/jpeg"
+      : mode === "stream"
+        ? String(file.mime || upstream.headers.get("content-type") || "video/mp4")
+        : "application/octet-stream";
+  res.set({
+    "Cache-Control": "private, no-store, no-transform",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": mode === "stream" ? "default-src 'none'; media-src 'self'" : "default-src 'none'; sandbox",
+    "Content-Type": mime,
+  });
+  for (const header of ["content-length", "content-range", "accept-ranges"]) {
+    if (upstream.headers.has(header)) res.set(header, upstream.headers.get(header));
+  }
+  if (mode === "download") {
+    res.attachment(file.name.replace(/[\r\n\x00-\x1f]/g, "_"));
+    res.type("application/octet-stream");
+  }
   await pipeline(Readable.fromWeb(upstream.body), res);
 }
 module.exports = { register, publicBrowse };

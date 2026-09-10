@@ -13,9 +13,11 @@ import {
   ImagePlus,
   Loader2,
   Pencil,
+  Play,
   Scissors,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 
@@ -93,6 +95,10 @@ function isImageFile(file: MediaFile) {
   return file.resource_type === "image" || String(file.mime || "").startsWith("image/");
 }
 
+function isVideoFile(file: MediaFile) {
+  return file.resource_type === "video" || String(file.mime || "").startsWith("video/");
+}
+
 function MediaPreview({ src, className }: { src: string; className?: string }) {
   const [blobUrl, setBlobUrl] = useState("");
   const privatePreview = src.startsWith("/api/");
@@ -142,12 +148,23 @@ export function MediaExplorer({
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
+  const [playing, setPlaying] = useState<{ file: MediaFile; src: string } | null>(null);
+  const [playBusy, setPlayBusy] = useState(false);
 
   useEffect(() => {
     // Hydrate browser-only clipboard state after server rendering.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setClipboard(readClipboard());
   }, []);
+
+  useEffect(() => {
+    if (!playing) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setPlaying(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [playing]);
 
   useEffect(() => {
     if (canEdit) void apiFetch(API_URL + "/api/admin/media/drive/status").then(r => r.json()).then(setDriveStatus).catch(() => {});
@@ -164,15 +181,57 @@ export function MediaExplorer({
 
   async function downloadOriginal(file: MediaFile) {
     try {
-      const res = await apiFetch(API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket", { method: "POST" }, 0);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Could not download file");
+      if (file.provider === "drive") {
+        const res = await apiFetch(API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket", { method: "POST" }, 0);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Could not download file");
+        const link = document.createElement("a");
+        link.href = API_URL + json.url;
+        link.referrerPolicy = "no-referrer";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return;
+      }
       const link = document.createElement("a");
-      link.href = API_URL + json.url;
-      link.referrerPolicy = "no-referrer";
+      link.href = file.url;
+      link.download = file.name;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
       document.body.appendChild(link);
-      link.click(); link.remove();
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not download file"); }
+      link.click();
+      link.remove();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not download file");
+    }
+  }
+
+  async function playVideo(file: MediaFile) {
+    if (!isVideoFile(file) || playBusy) return;
+    setPlayBusy(true);
+    setError("");
+    try {
+      if (file.provider === "drive") {
+        const res = await apiFetch(
+          API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/stream-ticket",
+          { method: "POST" },
+          0,
+        );
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Could not play video");
+        setPlaying({ file, src: API_URL + json.url });
+      } else {
+        setPlaying({ file, src: file.url });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not play video");
+    } finally {
+      setPlayBusy(false);
+    }
+  }
+
+  function closePlayer() {
+    setPlaying(null);
   }
 
   function setClip(item: ClipboardItem | null) {
@@ -600,217 +659,299 @@ export function MediaExplorer({
           This folder is empty.
         </div>
       ) : (
-        <div className="overflow-hidden border border-slate-200 bg-white">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="border-b border-slate-200 text-[10px] uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Size</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.folders.map((folder) => (
-                <tr key={folder.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-3">
+        <div className="space-y-2">
+          {data.folders.map((folder) => (
+            <div
+              key={folder.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => void load(folder.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  void load(folder.id);
+                }
+              }}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-50/40 active:bg-amber-50 sm:p-4"
+            >
+              {folder.cover_url ? (
+                <MediaPreview
+                  src={folder.cover_url}
+                  className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-slate-200 sm:h-12 sm:w-12"
+                />
+              ) : (
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-amber-50 sm:h-12 sm:w-12">
+                  <Folder size={22} className="text-amber-500" />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-semibold text-slate-900 sm:text-sm">{folder.name}</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Folder{folder.cover_url ? " · Has cover" : ""} · Tap to open
+                </p>
+              </div>
+              {canEdit ? (
+                <div
+                  className="flex shrink-0 flex-wrap justify-end gap-1"
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => copyItem("folder", folder.id, folder.name)}
+                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white"
+                    title="Copy"
+                    aria-label="Copy folder"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cutItem("folder", folder.id, folder.name)}
+                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white"
+                    title="Cut"
+                    aria-label="Cut folder"
+                  >
+                    <Scissors size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void renameFolder(folder)}
+                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white"
+                    title="Rename"
+                    aria-label="Rename folder"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeFolder(folder)}
+                    className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                    title="Delete"
+                    aria-label="Delete folder"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+
+          {data.files.map((file) => {
+            const image = isImageFile(file);
+            const video = isVideoFile(file);
+            const isCover = currentCoverId === file.id;
+            return (
+              <div
+                key={file.id}
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
+              >
+                <div className="flex items-start gap-3">
+                  {video ? (
                     <button
                       type="button"
-                      onClick={() => void load(folder.id)}
-                      className="inline-flex items-center gap-2 font-medium text-slate-900 hover:text-blue-600"
+                      disabled={playBusy}
+                      onClick={() => void playVideo(file)}
+                      className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-900 text-white sm:h-14 sm:w-14"
+                      title="Play video"
+                      aria-label={`Play ${file.name}`}
                     >
-                      {folder.cover_url ? (
-                        <MediaPreview
-                          src={folder.cover_url}
-                          className="h-10 w-10 rounded object-cover ring-1 ring-slate-200"
-                        />
-                      ) : (
-                        <span className="grid h-10 w-10 place-items-center rounded bg-amber-50">
-                          <Folder size={18} className="text-amber-500" />
-                        </span>
-                      )}
-                      <span className="text-left">
-                        <span className="block">{folder.name}</span>
-                        {folder.cover_url ? (
-                          <span className="mt-0.5 block text-[11px] font-normal text-slate-500">Has cover</span>
-                        ) : null}
+                      {file.provider === "drive" || file.url ? (
+                        <MediaPreview src={file.url} className="absolute inset-0 h-full w-full object-cover opacity-70" />
+                      ) : null}
+                      <span className="relative z-[1] grid h-8 w-8 place-items-center rounded-full bg-black/55">
+                        <Play size={14} className="ml-0.5 fill-current" />
                       </span>
                     </button>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">Folder</td>
-                  <td className="px-4 py-3 text-slate-500">—</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
+                  ) : image ? (
+                    <button
+                      type="button"
+                      disabled={!canSetCover || busy}
+                      title={canSetCover ? "Click to set as folder cover" : undefined}
+                      onClick={() => {
+                        if (canSetCover) void setCover(file);
+                      }}
+                      className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg sm:h-14 sm:w-14 ${
+                        canSetCover ? "ring-offset-2 hover:ring-2 hover:ring-sky-400" : ""
+                      } ${isCover ? "ring-2 ring-emerald-500" : ""}`}
+                    >
+                      <MediaPreview src={file.url} className="h-full w-full object-cover" />
+                      {isCover ? (
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1 text-[8px] font-semibold uppercase text-white">
+                          Cover
+                        </span>
+                      ) : null}
+                    </button>
+                  ) : (
+                    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-slate-100 sm:h-14 sm:w-14">
+                      <FileIcon file={file} />
+                    </span>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    {video ? (
                       <button
                         type="button"
-                        onClick={() => void load(folder.id)}
-                        className="rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                        disabled={playBusy}
+                        onClick={() => void playVideo(file)}
+                        className="block w-full truncate text-left text-base font-semibold text-slate-900 hover:text-violet-700 sm:text-sm"
                       >
-                        Open
+                        {file.name}
                       </button>
-                      {canEdit ? (
+                    ) : (
+                      <p className="truncate text-base font-semibold text-slate-900 sm:text-sm">{file.name}</p>
+                    )}
+                    <p className="mt-0.5 text-xs capitalize text-slate-500">
+                      {file.resource_type || "file"} · {formatBytes(file.bytes)}
+                      {video ? " · Tap to play" : ""}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {video ? (
                         <>
                           <button
                             type="button"
-                            onClick={() => copyItem("folder", folder.id, folder.name)}
-                            className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            disabled={playBusy}
+                            onClick={() => void playVideo(file)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium uppercase text-violet-700 hover:bg-violet-100"
                           >
-                            <Copy size={11} />
+                            <Play size={12} />
+                            Play
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void downloadOriginal(file)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
+                          >
+                            <Download size={12} />
+                            Download
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void downloadOriginal(file)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
+                        >
+                          <Download size={12} />
+                          {file.provider === "drive" ? "Download" : "Open"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={file.provider === "drive"}
+                        title={file.provider === "drive" ? "Private Drive files require a website login" : undefined}
+                        onClick={() => void copyUrl(file.url)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <Copy size={12} />
+                        Copy link
+                      </button>
+                      {canEdit ? (
+                        <>
+                          {canSetCover && image ? (
+                            <button
+                              type="button"
+                              disabled={busy || isCover}
+                              onClick={() => void setCover(file)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                              <ImagePlus size={12} />
+                              {isCover ? "Cover" : "Set cover"}
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => copyItem("file", file.id, file.name)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
+                          >
+                            <Copy size={12} />
                             Copy
                           </button>
                           <button
                             type="button"
-                            onClick={() => cutItem("folder", folder.id, folder.name)}
-                            className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            onClick={() => cutItem("file", file.id, file.name)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
                           >
-                            <Scissors size={11} />
+                            <Scissors size={12} />
                             Cut
                           </button>
                           <button
                             type="button"
-                            onClick={() => void renameFolder(folder)}
-                            className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
+                            onClick={() => void renameFile(file)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
                           >
-                            <Pencil size={11} />
+                            <Pencil size={12} />
                             Rename
                           </button>
                           <button
                             type="button"
-                            onClick={() => void removeFolder(folder)}
-                            className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[10px] uppercase text-red-600 hover:bg-red-50"
+                            onClick={() => void removeFile(file)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-red-600 hover:bg-red-50"
                           >
-                            <Trash2 size={11} />
+                            <Trash2 size={12} />
                             Delete
                           </button>
                         </>
                       ) : null}
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {data.files.map((file) => {
-                const image = isImageFile(file);
-                const isCover = currentCoverId === file.id;
-                return (
-                  <tr key={file.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {image ? (
-                          <button
-                            type="button"
-                            disabled={!canSetCover || busy}
-                            title={canSetCover ? "Click to set as folder cover" : undefined}
-                            onClick={() => {
-                              if (canSetCover) void setCover(file);
-                            }}
-                            className={`relative shrink-0 rounded ${
-                              canSetCover ? "ring-offset-2 hover:ring-2 hover:ring-sky-400" : ""
-                            } ${isCover ? "ring-2 ring-emerald-500" : ""}`}
-                          >
-                            <MediaPreview src={file.url} className="h-10 w-10 rounded object-cover" />
-                            {isCover ? (
-                              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1 text-[8px] font-semibold uppercase text-white">
-                                Cover
-                              </span>
-                            ) : null}
-                          </button>
-                        ) : (
-                          <span className="grid h-10 w-10 place-items-center rounded bg-slate-100">
-                            <FileIcon file={file} />
-                          </span>
-                        )}
-                        <a
-                          href={file.provider === "drive" ? "#" : file.url}
-                          onClick={file.provider === "drive" ? (event) => { event.preventDefault(); void downloadOriginal(file); } : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="min-w-0 truncate font-medium text-slate-900 hover:text-blue-600"
-                        >
-                          {file.name}
-                        </a>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 capitalize text-slate-500">{file.resource_type || "file"}</td>
-                    <td className="px-4 py-3 text-slate-500">{formatBytes(file.bytes)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        <a
-                          href={file.provider === "drive" ? undefined : file.url}
-                          onClick={file.provider === "drive" ? (event) => { event.preventDefault(); void downloadOriginal(file); } : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download={file.name}
-                          className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                        >
-                          <Download size={11} />
-                          {file.provider === "drive" ? "Download original" : "Open"}
-                        </a>
-                        <button
-                          type="button"
-                          disabled={file.provider === "drive"}
-                          title={file.provider === "drive" ? "Private Drive files require a website login" : undefined}
-                          onClick={() => void copyUrl(file.url)}
-                          className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                        >
-                          <Copy size={11} />
-                          Copy link
-                        </button>
-                        {canEdit ? (
-                          <>
-                            {canSetCover && image ? (
-                              <button
-                                type="button"
-                                disabled={busy || isCover}
-                                onClick={() => void setCover(file)}
-                                className="inline-flex items-center gap-1 rounded border border-emerald-200 px-2 py-1 text-[10px] uppercase text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                              >
-                                <ImagePlus size={11} />
-                                {isCover ? "Cover" : "Set cover"}
-                              </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              onClick={() => copyItem("file", file.id, file.name)}
-                              className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                            >
-                              <Copy size={11} />
-                              Copy
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => cutItem("file", file.id, file.name)}
-                              className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                            >
-                              <Scissors size={11} />
-                              Cut
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void renameFile(file)}
-                              className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
-                            >
-                              <Pencil size={11} />
-                              Rename
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void removeFile(file)}
-                              className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[10px] uppercase text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 size={11} />
-                              Delete
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {playing ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={playing.file.name}
+          onClick={closePlayer}
+        >
+          <div
+            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-slate-950 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-white">{playing.file.name}</p>
+                <p className="text-xs text-white/60">{formatBytes(playing.file.bytes)}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void downloadOriginal(playing.file)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                >
+                  <Download size={13} />
+                  Download
+                </button>
+                <button
+                  type="button"
+                  onClick={closePlayer}
+                  className="rounded-lg border border-white/20 p-1.5 text-white hover:bg-white/10"
+                  aria-label="Close player"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="bg-black">
+              <video
+                key={playing.src}
+                src={playing.src}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[75vh] w-full"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

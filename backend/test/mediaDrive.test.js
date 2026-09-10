@@ -112,6 +112,31 @@ test("Download tickets are scoped, single-use and stream originals", async () =>
   assert.match(download.headers.get("cache-control"), /no-store/);
   assert.equal((await fetch(base + url)).status, 401);
 });
+test("Stream tickets play videos inline without attachment", async () => {
+  const file = data.files.find(f => f.provider === "drive");
+  file.resource_type = "video";
+  file.mime = "video/mp4";
+  assert.equal((await fetch(base + `/api/reseller/media/files/${file.id}/stream-ticket`, { method: "POST" })).status, 401);
+  const notVideo = await fetch(base + `/api/reseller/media/files/legacy/stream-ticket`, {
+    method: "POST",
+    headers: { authorization: "Bearer reseller" },
+  });
+  assert.equal(notVideo.status, 400);
+  const ticket = await fetch(base + `/api/reseller/media/files/${file.id}/stream-ticket`, {
+    method: "POST",
+    headers: { authorization: "Bearer reseller" },
+  });
+  assert.equal(ticket.status, 200);
+  const { url } = await ticket.json();
+  const first = await fetch(base + url, { headers: { Range: "bytes=0-5" } });
+  assert.equal(first.status, 206);
+  assert.equal(first.headers.get("content-type"), "video/mp4");
+  assert.equal(first.headers.get("content-disposition"), null);
+  assert.equal(await first.text(), "original-bytes");
+  const second = await fetch(base + url);
+  assert.equal(second.status, 200);
+  assert.equal(second.headers.get("content-type"), "video/mp4");
+});
 test("Suspending a reseller invalidates already issued download tickets", async () => {
   const id = data.files.find(f => f.provider === "drive").id;
   const { url } = await (await fetch(base + `/api/reseller/media/files/${id}/download-ticket`, { method: "POST", headers: { authorization: "Bearer reseller" } })).json();
