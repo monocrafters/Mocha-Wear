@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
 
-const PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID || "";
+const PIXEL_ID = "DAHERJRC77UES974T0R0";
 
 /** Skip dashboards/logins — keep ad attribution on the storefront. */
 const SKIP_PATH =
