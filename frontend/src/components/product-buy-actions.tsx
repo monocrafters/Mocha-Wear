@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/components/admin-products";
 import { useCart } from "@/components/cart-provider";
 import { ShopTrustLine } from "@/components/shop-trust-line";
 import { ShopWhatsAppLink } from "@/components/shop-whatsapp-link";
+import { trackAddToCart, trackViewContent } from "@/components/tiktok-pixel";
 import { lineFromProduct, writeBuyNow } from "@/lib/cart";
 import { productSizes } from "@/lib/product";
 
@@ -22,15 +23,34 @@ export function ProductBuyActions({ product }: { product: Product }) {
   const [added, setAdded] = useState(false);
   const [sheet, setSheet] = useState<PendingAction | null>(null);
 
+  useEffect(() => {
+    trackViewContent({
+      id: product.id,
+      code: product.code,
+      slug: product.slug,
+      name: product.name,
+      price: product.price,
+      qty: 1,
+    });
+  }, [product.id, product.code, product.slug, product.name, product.price]);
+
   function complete(action: PendingAction, size: string) {
     if (soldOut) return;
     const qtyToAdd = Math.min(qty, maxQty);
     setSheet(null);
+    const line = lineFromProduct(product, qtyToAdd, size);
     if (action === "buy") {
-      writeBuyNow([lineFromProduct(product, qtyToAdd, size)]);
+      writeBuyNow([line]);
       router.push("/checkout?buy=1");
       return;
     }
+    trackAddToCart({
+      id: line.productId,
+      slug: line.slug,
+      name: line.name,
+      price: line.price,
+      qty: line.qty,
+    });
     addProduct(product, qtyToAdd, size);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1600);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Check } from "lucide-react";
 import { ShopWhatsAppLink } from "@/components/shop-whatsapp-link";
+import { trackPlaceOrder } from "@/components/tiktok-pixel";
 import { formatPkr } from "@/lib/money";
 import { orderTotal, readOrdersCache, type Order } from "@/lib/orders";
 
@@ -19,6 +20,21 @@ export function OrderConfirmed() {
     setOrder((id ? cached.find((row) => row.id === id) : null) || cached[0] || null);
     setReady(true);
   }, [id]);
+
+  useEffect(() => {
+    if (!order?.id || !order.items?.length) return;
+    trackPlaceOrder(
+      order.id,
+      order.items.map((item) => ({
+        id: item.product_id || item.slug,
+        slug: item.slug,
+        name: item.name,
+        price: item.price,
+        qty: item.qty,
+      })),
+      orderTotal(order),
+    );
+  }, [order]);
 
   if (!ready) {
     return <section className="flex-1 px-5 py-16" />;

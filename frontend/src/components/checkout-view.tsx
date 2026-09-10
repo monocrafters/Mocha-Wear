@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/cart-provider";
@@ -26,6 +26,7 @@ import { isListedCity, PK_CITIES } from "@/lib/pk-cities";
 import { CheckoutSkeleton } from "@/components/skeletons";
 import { ShopTrustLine } from "@/components/shop-trust-line";
 import { ShopWhatsAppLink } from "@/components/shop-whatsapp-link";
+import { trackInitiateCheckout } from "@/components/tiktok-pixel";
 
 const fieldClass =
   "mt-1.5 w-full border border-mocha/15 bg-ivory px-3 py-2.5 text-sm outline-none focus:border-mocha-deep";
@@ -52,6 +53,7 @@ export function CheckoutView() {
   const [landmark, setLandmark] = useState("");
   const [error, setError] = useState("");
   const [placing, setPlacing] = useState(false);
+  const checkoutTracked = useRef(false);
 
   const items = useMemo(() => (buyNow ? nowItems || [] : cartItems), [buyNow, nowItems, cartItems]);
   const count = cartCount(items);
@@ -62,6 +64,21 @@ export function CheckoutView() {
   useEffect(() => {
     if (buyNow) setNowItems(readBuyNow());
   }, [buyNow]);
+
+  useEffect(() => {
+    if (!checkoutReady || !items.length || checkoutTracked.current) return;
+    checkoutTracked.current = true;
+    trackInitiateCheckout(
+      items.map((line) => ({
+        id: line.productId,
+        slug: line.slug,
+        name: line.name,
+        price: line.price,
+        qty: line.qty,
+      })),
+      cartSubtotal(items),
+    );
+  }, [buyNow, checkoutReady, items]);
 
   useEffect(() => {
     if (!checkoutReady) return;

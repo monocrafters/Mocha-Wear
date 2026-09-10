@@ -5,6 +5,7 @@ import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
 
 const PIXEL_ID = "DAHERJRC77UES974T0R0";
+const CURRENCY = "PKR";
 
 /** Skip dashboards/logins — keep ad attribution on the storefront. */
 const SKIP_PATH =
@@ -25,8 +26,103 @@ declare global {
   }
 }
 
-function shouldTrack(pathname: string) {
+export type TikTokProductInput = {
+  id?: string;
+  code?: string;
+  slug?: string;
+  name?: string;
+  price?: number;
+  qty?: number;
+};
+
+function shouldTrack(pathname = typeof window !== "undefined" ? window.location.pathname : "") {
   return Boolean(PIXEL_ID) && !SKIP_PATH.test(pathname || "");
+}
+
+function productContentId(product: TikTokProductInput) {
+  return String(product.id || product.code || product.slug || "").trim();
+}
+
+function buildEventPayload(products: TikTokProductInput[], value?: number) {
+  const contents = products
+    .map((product) => {
+      const content_id = productContentId(product);
+      if (!content_id) return null;
+      const quantity = Math.max(1, Number(product.qty) || 1);
+      const price = Number(product.price) || 0;
+      return {
+        content_id,
+        content_type: "product",
+        content_name: String(product.name || content_id),
+        quantity,
+        price,
+      };
+    })
+    .filter(Boolean) as Array<{
+    content_id: string;
+    content_type: string;
+    content_name: string;
+    quantity: number;
+    price: number;
+  }>;
+
+  if (!contents.length) return null;
+
+  const total =
+    value != null && Number.isFinite(value)
+      ? Number(value)
+      : contents.reduce((sum, row) => sum + row.price * row.quantity, 0);
+
+  return {
+    contents,
+    content_type: "product",
+    /** TikTok validators often expect a top-level content_id too. */
+    content_id: contents.map((row) => row.content_id).join(","),
+    value: Math.max(0, total),
+    currency: CURRENCY,
+  };
+}
+
+export function trackTikTok(event: string, params?: Record<string, unknown>) {
+  if (typeof window === "undefined" || !shouldTrack()) return;
+  window.ttq?.track(event, params);
+}
+
+export function trackViewContent(product: TikTokProductInput) {
+  const payload = buildEventPayload([{ ...product, qty: 1 }]);
+  if (!payload) return;
+  trackTikTok("ViewContent", payload);
+}
+
+export function trackAddToCart(product: TikTokProductInput) {
+  const payload = buildEventPayload([product]);
+  if (!payload) return;
+  trackTikTok("AddToCart", payload);
+}
+
+export function trackInitiateCheckout(products: TikTokProductInput[], value?: number) {
+  const payload = buildEventPayload(products, value);
+  if (!payload) return;
+  trackTikTok("InitiateCheckout", payload);
+}
+
+export function trackPlaceOrder(
+  orderId: string,
+  products: TikTokProductInput[],
+  value?: number,
+) {
+  if (typeof window === "undefined" || !orderId) return;
+  const key = `tt_order_${orderId}`;
+  try {
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+  } catch {
+    /* ignore */
+  }
+  const payload = buildEventPayload(products, value);
+  if (!payload) return;
+  trackTikTok("PlaceAnOrder", { ...payload, order_id: orderId });
+  trackTikTok("CompletePayment", { ...payload, order_id: orderId });
 }
 
 function TikTokPageView() {
@@ -39,12 +135,6 @@ function TikTokPageView() {
   }, [pathname, searchParams]);
 
   return null;
-}
-
-export function trackTikTok(event: string, params?: Record<string, unknown>) {
-  if (typeof window === "undefined" || !PIXEL_ID) return;
-  if (SKIP_PATH.test(window.location.pathname || "")) return;
-  window.ttq?.track(event, params);
 }
 
 export function TikTokPixel() {
