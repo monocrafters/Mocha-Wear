@@ -1,8 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { createDocumentStore } = require("./cloudStore");
+const { createDocumentStore, writeDocument } = require("./cloudStore");
 const cloudinary = require("./cloudinary");
+const drive = require("./googleDrive");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "media_library.json");
@@ -48,6 +49,8 @@ function shapeFile(row = {}) {
     folder_id: row.folder_id == null || row.folder_id === undefined ? ROOT_ID : String(row.folder_id),
     name: String(row.name || "file").trim() || "file",
     url: String(row.url || "").trim(),
+    provider: row.provider === "drive" ? "drive" : "cloudinary",
+    drive_id: String(row.drive_id || ""),
     public_id: String(row.public_id || "").trim(),
     resource_type: ["image", "video", "raw"].includes(row.resource_type) ? row.resource_type : "image",
     mime: String(row.mime || "").trim(),
@@ -68,7 +71,8 @@ async function readStore() {
 }
 
 async function writeStore(data) {
-  await store.write(normalize(data));
+  // Publish cached metadata only after durable storage succeeds.
+  await writeDocument("media_library", normalize(data));
 }
 
 function folderExists(data, folderId) {
@@ -294,8 +298,14 @@ async function deleteFolder(id) {
   }
   const removeIds = collectDescendantFolderIds(data, id);
   const filesToDelete = data.files.filter((file) => removeIds.has(String(file.folder_id || ROOT_ID)));
+  const retainedFiles = data.files.filter((file) => !removeIds.has(String(file.folder_id || ROOT_ID)));
+  const removedAssets = new Set();
   for (const file of filesToDelete) {
-    await cloudinary.destroyMedia(file.public_id, file.resource_type);
+    const key = file.provider === "drive" ? `drive:${file.drive_id}` : `cloudinary:${file.resource_type}:${file.public_id}`;
+    const shared = retainedFiles.some(row => file.provider === "drive" ? row.drive_id === file.drive_id : row.public_id === file.public_id && row.resource_type === file.resource_type);
+    if (!shared && !removedAssets.has(key)) await destroy(file);
+    removedAssets.add(key);
+    clearCoverRefs(data, file.id);
   }
   data.files = data.files.filter((file) => !removeIds.has(String(file.folder_id || ROOT_ID)));
   data.folders = data.folders.filter((folder) => !removeIds.has(folder.id));
@@ -319,25 +329,24 @@ async function uploadFiles(folderId, files = []) {
 
   const created = [];
   for (const file of files) {
-    const folderPath =
-      parentId === ROOT_ID ? "mocha-wear/media" : `mocha-wear/media/${parentId}`;
-    const uploaded = await cloudinary.uploadMedia(file, folderPath);
+    const uploaded = await drive.upload(file);
     const original = String(file.originalname || "file").trim() || "file";
     const item = shapeFile({
       id: crypto.randomUUID(),
       folder_id: parentId,
       name: original,
-      url: uploaded.url,
-      public_id: uploaded.publicId,
-      resource_type: uploaded.resourceType || "image",
+      url: "drive:" + uploaded.id,
+      provider: "drive",
+      drive_id: uploaded.id,
+      resource_type: file.mimetype.startsWith("image/") ? "image" : file.mimetype.startsWith("video/") ? "video" : "raw",
       mime: file.mimetype || "",
       bytes: uploaded.bytes || file.size || 0,
       created_at: new Date().toISOString(),
     });
     data.files.unshift(item);
     created.push(item);
+    await writeStore(data);
   }
-  await writeStore(data);
   return created;
 }
 
@@ -369,9 +378,9 @@ async function deleteFile(id) {
     throw err;
   }
   const file = data.files[index];
-  const shared = data.files.filter((row) => row.public_id && row.public_id === file.public_id).length > 1;
+  const shared = data.files.filter((row) => file.provider === "drive" ? row.drive_id === file.drive_id : row.public_id && row.public_id === file.public_id).length > 1;
   if (!shared) {
-    await cloudinary.destroyMedia(file.public_id, file.resource_type);
+    await destroy(file);
   }
   data.files.splice(index, 1);
   clearCoverRefs(data, file.id);
@@ -478,12 +487,14 @@ async function copyFile(id, targetFolderId) {
     throw err;
   }
   const folderPath = targetId === ROOT_ID ? "mocha-wear/media" : `mocha-wear/media/${targetId}`;
-  const duplicated = await cloudinary.duplicateMedia(source.url, folderPath, source.resource_type || "image");
+  const duplicated = await duplicate(source, folderPath);
   const item = shapeFile({
     id: crypto.randomUUID(),
     folder_id: targetId,
     name: uniqueChildName(data, targetId, source.name, "file"),
     url: duplicated.url,
+    provider: duplicated.provider,
+    drive_id: duplicated.drive_id,
     public_id: duplicated.publicId,
     resource_type: duplicated.resourceType || source.resource_type,
     mime: source.mime,
@@ -548,12 +559,14 @@ async function copyFolder(id, targetFolderId) {
     const mappedFolder = idMap.get(String(file.folder_id || ROOT_ID));
     if (!mappedFolder) continue;
     const folderPath = `mocha-wear/media/${mappedFolder}`;
-    const duplicated = await cloudinary.duplicateMedia(file.url, folderPath, file.resource_type || "image");
+    const duplicated = await duplicate(file, folderPath);
     const item = shapeFile({
       id: crypto.randomUUID(),
       folder_id: mappedFolder,
       name: file.name,
       url: duplicated.url,
+    provider: duplicated.provider,
+    drive_id: duplicated.drive_id,
       public_id: duplicated.publicId,
       resource_type: duplicated.resourceType || file.resource_type,
       mime: file.mime,
@@ -600,6 +613,19 @@ async function pasteItem({ action, item_type, id, target_folder_id } = {}) {
   return { item, item_type: "folder", action: act };
 }
 
+async function getFile(id) {
+  const file = (await readStore()).files.find(row => row.id === id);
+  if (!file) throw Object.assign(new Error("File not found"), { status: 404 });
+  return file;
+}
+async function destroy(file) {
+  return file.provider === "drive" ? drive.remove(file.drive_id) : cloudinary.destroyMedia(file.public_id, file.resource_type);
+}
+async function duplicate(file, folder) {
+  if (file.provider !== "drive") return cloudinary.duplicateMedia(file.url, folder, file.resource_type || "image");
+  const result = await drive.copy(file.drive_id);
+  return { provider: "drive", drive_id: result.id, url: "drive:" + result.id, bytes: Number(result.size), resourceType: file.resource_type };
+}
 function sendError(res, error) {
   const status = error.status || 500;
   console.error("Media library error:", error.message);
@@ -607,6 +633,7 @@ function sendError(res, error) {
 }
 
 module.exports = {
+  getFile,
   ROOT_ID,
   browse,
   createFolder,
@@ -619,3 +646,15 @@ module.exports = {
   pasteItem,
   sendError,
 };
+
+// Serialize whole read-modify-write operations, not only the final store write.
+// Run one API replica until metadata storage supports database transactions.
+let mutationQueue = Promise.resolve();
+for (const name of ["createFolder", "renameFolder", "setFolderCover", "deleteFolder", "uploadFiles", "renameFile", "deleteFile", "pasteItem"]) {
+  const operation = module.exports[name];
+  module.exports[name] = (...args) => {
+    const next = mutationQueue.then(() => operation(...args));
+    mutationQueue = next.catch(() => {});
+    return next;
+  };
+}

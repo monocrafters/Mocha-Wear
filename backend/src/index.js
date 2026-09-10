@@ -29,6 +29,7 @@ const resellerLinkRequests = require("./resellerLinkRequests");
 const resellerDomains = require("./resellerDomains");
 const resellerPrRequests = require("./resellerPrRequests");
 const mediaLibrary = require("./mediaLibrary");
+const mediaDriveRoutes = require("./mediaDriveRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -106,8 +107,8 @@ const upload = multer({
 });
 
 const libraryUploader = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 60 * 1024 * 1024 },
+  dest: require("node:os").tmpdir(),
+  limits: { fileSize: 1024 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, cb) => {
     const type = String(file.mimetype || "");
     if (type.startsWith("image/") || type.startsWith("video/") || type === "application/pdf") {
@@ -118,7 +119,7 @@ const libraryUploader = multer({
   },
 });
 
-const libraryUpload = libraryUploader.array("files", 20);
+const libraryUpload = libraryUploader.array("files", 1);
 
 const mediaFields = upload.fields([
   { name: "cover", maxCount: 1 },
@@ -774,9 +775,11 @@ app.post("/api/admin/notifications/read-all", adminAuth.requireAdmin, async (_re
   }
 });
 
+mediaDriveRoutes.register(app, adminAuth, resellerAuth);
+
 app.get("/api/admin/media", adminAuth.requireAdmin, async (req, res) => {
   try {
-    res.json(await mediaLibrary.browse(req.query.folder_id));
+    res.json(mediaDriveRoutes.publicBrowse(await mediaLibrary.browse(req.query.folder_id), "/api/admin/media"));
   } catch (error) {
     mediaLibrary.sendError(res, error);
   }
@@ -819,9 +822,11 @@ app.post("/api/admin/media/files", adminAuth.requireAdmin, (req, res) => {
     }
     try {
       const items = await mediaLibrary.uploadFiles(req.body?.folder_id, req.files || []);
-      res.status(201).json({ items });
+      res.status(201).json({ items: items.map(({ drive_id, ...item }) => item) });
     } catch (error) {
       mediaLibrary.sendError(res, error);
+    } finally {
+      await Promise.allSettled((req.files || []).map(file => require("node:fs").promises.unlink(file.path)));
     }
   });
 });
@@ -1264,7 +1269,7 @@ app.get("/api/reseller/pr-progress", resellerAuth.requireReseller, async (req, r
 
 app.get("/api/reseller/media", resellerAuth.requireReseller, async (req, res) => {
   try {
-    res.json(await mediaLibrary.browse(req.query.folder_id));
+    res.json(mediaDriveRoutes.publicBrowse(await mediaLibrary.browse(req.query.folder_id), "/api/reseller/media"));
   } catch (error) {
     mediaLibrary.sendError(res, error);
   }

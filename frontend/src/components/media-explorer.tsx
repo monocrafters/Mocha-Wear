@@ -32,6 +32,7 @@ export type MediaFile = {
   folder_id?: string;
   name: string;
   url: string;
+  provider?: "cloudinary" | "drive";
   resource_type?: string;
   mime?: string;
   bytes?: number;
@@ -92,6 +93,26 @@ function isImageFile(file: MediaFile) {
   return file.resource_type === "image" || String(file.mime || "").startsWith("image/");
 }
 
+function MediaPreview({ src, className }: { src: string; className?: string }) {
+  const [blobUrl, setBlobUrl] = useState("");
+  const privatePreview = src.startsWith("/api/");
+  useEffect(() => {
+    if (!privatePreview) return;
+    const controller = new AbortController();
+    let objectUrl = "";
+    void apiFetch(API_URL + src, { signal: controller.signal }, 0).then(async response => {
+      if (!response.ok) return;
+      objectUrl = URL.createObjectURL(await response.blob());
+      if (controller.signal.aborted) URL.revokeObjectURL(objectUrl);
+      else setBlobUrl(objectUrl);
+    }).catch(() => {});
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [src, privatePreview]);
+  if (privatePreview && !blobUrl) return <span className={className} aria-label="Preview unavailable"><FileImage size={18} /></span>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={privatePreview ? blobUrl : src} alt="" className={className} loading="lazy" />;
+}
+
 function FileIcon({ file }: { file: MediaFile }) {
   if (file.resource_type === "video" || String(file.mime || "").startsWith("video/")) {
     return <FileVideo size={18} className="text-violet-600" />;
@@ -110,6 +131,7 @@ export function MediaExplorer({
   apiBase: string;
 }) {
   const canEdit = mode === "admin";
+  const [driveStatus, setDriveStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [folderId, setFolderId] = useState("");
   const [data, setData] = useState<BrowsePayload | null>(null);
@@ -122,8 +144,36 @@ export function MediaExplorer({
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
 
   useEffect(() => {
+    // Hydrate browser-only clipboard state after server rendering.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setClipboard(readClipboard());
   }, []);
+
+  useEffect(() => {
+    if (canEdit) void apiFetch(API_URL + "/api/admin/media/drive/status").then(r => r.json()).then(setDriveStatus).catch(() => {});
+  }, [canEdit]);
+
+  async function connectDrive() {
+    try {
+      const res = await apiFetch(API_URL + "/api/admin/media/drive/connect", { method: "POST" }, 0);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not connect Drive");
+      window.location.assign(API_URL + json.url);
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not connect Drive"); }
+  }
+
+  async function downloadOriginal(file: MediaFile) {
+    try {
+      const res = await apiFetch(API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket", { method: "POST" }, 0);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not download file");
+      const link = document.createElement("a");
+      link.href = API_URL + json.url;
+      link.referrerPolicy = "no-referrer";
+      document.body.appendChild(link);
+      link.click(); link.remove();
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not download file"); }
+  }
 
   function setClip(item: ClipboardItem | null) {
     writeClipboard(item);
@@ -148,6 +198,8 @@ export function MediaExplorer({
   }
 
   useEffect(() => {
+    // The API base changes when switching between admin and reseller sessions.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase]);
@@ -235,17 +287,19 @@ export function MediaExplorer({
     setError("");
     setMessage("");
     try {
-      const body = new FormData();
-      body.append("folder_id", folderId || "");
-      Array.from(fileList).forEach((file) => body.append("files", file));
-      const res = await apiFetch(`${API_URL}/api/admin/media/files`, {
-        method: "POST",
-        credentials: "include",
-        body,
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Upload failed");
-      setMessage(`${(json.items || []).length} file(s) uploaded`);
+      let completed = 0;
+      for (const file of Array.from(fileList)) {
+        if (!file.size || file.size > 1024 * 1024 * 1024) throw new Error("Files must be between 1 byte and 1 GB.");
+        setMessage("Uploading " + file.name + " (" + (completed + 1) + "/" + fileList.length + ")…");
+        const body = new FormData();
+        body.append("folder_id", folderId || "");
+        body.append("files", file);
+        const res = await apiFetch(API_URL + "/api/admin/media/files", { method: "POST", credentials: "include", body }, 0);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Upload failed");
+        completed += 1;
+      }
+      setMessage(completed + " file(s) uploaded");
       await load(folderId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -525,6 +579,10 @@ export function MediaExplorer({
       ) : (
         <p className="text-sm text-slate-500">Browse and download media shared by admin.</p>
       )}
+        {canEdit && driveStatus && <div className="text-sm text-slate-600">
+          {driveStatus.connected ? "Google Drive connected · originals stored privately" : driveStatus.configured ? "Connect Google Drive to upload originals." : "Google Drive needs server configuration before new uploads."}
+          {driveStatus.configured && <button type="button" onClick={() => void connectDrive()} className="ml-3 rounded border px-3 py-1">{driveStatus.connected ? "Reconnect Google Drive" : "Connect Google Drive"}</button>}
+        </div>}
 
       {canSetCover ? (
         <p className="text-xs text-slate-500">
@@ -562,10 +620,8 @@ export function MediaExplorer({
                       className="inline-flex items-center gap-2 font-medium text-slate-900 hover:text-blue-600"
                     >
                       {folder.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <MediaPreview
                           src={folder.cover_url}
-                          alt=""
                           className="h-10 w-10 rounded object-cover ring-1 ring-slate-200"
                         />
                       ) : (
@@ -651,8 +707,7 @@ export function MediaExplorer({
                               canSetCover ? "ring-offset-2 hover:ring-2 hover:ring-sky-400" : ""
                             } ${isCover ? "ring-2 ring-emerald-500" : ""}`}
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={file.url} alt="" className="h-10 w-10 rounded object-cover" />
+                            <MediaPreview src={file.url} className="h-10 w-10 rounded object-cover" />
                             {isCover ? (
                               <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1 text-[8px] font-semibold uppercase text-white">
                                 Cover
@@ -665,7 +720,8 @@ export function MediaExplorer({
                           </span>
                         )}
                         <a
-                          href={file.url}
+                          href={file.provider === "drive" ? "#" : file.url}
+                          onClick={file.provider === "drive" ? (event) => { event.preventDefault(); void downloadOriginal(file); } : undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="min-w-0 truncate font-medium text-slate-900 hover:text-blue-600"
@@ -679,17 +735,20 @@ export function MediaExplorer({
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
                         <a
-                          href={file.url}
+                          href={file.provider === "drive" ? undefined : file.url}
+                          onClick={file.provider === "drive" ? (event) => { event.preventDefault(); void downloadOriginal(file); } : undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           download={file.name}
                           className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
                         >
                           <Download size={11} />
-                          Open
+                          {file.provider === "drive" ? "Download original" : "Open"}
                         </a>
                         <button
                           type="button"
+                          disabled={file.provider === "drive"}
+                          title={file.provider === "drive" ? "Private Drive files require a website login" : undefined}
                           onClick={() => void copyUrl(file.url)}
                           className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-white"
                         >
