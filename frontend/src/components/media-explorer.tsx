@@ -129,6 +129,146 @@ function FileIcon({ file }: { file: MediaFile }) {
   return <FileImage size={18} className="text-sky-600" />;
 }
 
+type PlayingState = {
+  file: MediaFile;
+  src: string | null;
+  error?: string;
+};
+
+function MediaVideoPlayer({
+  playing,
+  onClose,
+  onDownload,
+  onRetry,
+}: {
+  playing: PlayingState;
+  onClose: () => void;
+  onDownload: () => void;
+  onRetry: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [buffering, setBuffering] = useState(true);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setBuffering(true);
+    setReady(false);
+  }, [playing.src, playing.file.id]);
+
+  const showSpinner = Boolean(playing.error) ? false : !playing.src || buffering || !ready;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-[2px] sm:items-center sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={playing.file.name}
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-[#0b0d12] shadow-2xl ring-1 ring-white/10 sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold tracking-tight text-white">{playing.file.name}</p>
+            <p className="mt-0.5 text-[11px] text-white/55">
+              {formatBytes(playing.file.bytes)}
+              {playing.src && ready && !buffering ? " · Playing" : playing.error ? " · Failed" : " · Loading stream…"}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onDownload}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+            >
+              <Download size={13} />
+              <span className="hidden sm:inline">Download</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/15 bg-white/5 p-2 text-white transition hover:bg-white/10"
+              aria-label="Close player"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="relative aspect-video bg-black">
+          {playing.file.url ? (
+            <div className={`pointer-events-none absolute inset-0 transition-opacity ${ready ? "opacity-0" : "opacity-100"}`}>
+              <MediaPreview src={playing.file.url} className="h-full w-full object-cover opacity-40" />
+            </div>
+          ) : null}
+
+          {playing.src ? (
+            <video
+              ref={videoRef}
+              key={playing.src}
+              src={playing.src}
+              controls
+              autoPlay
+              playsInline
+              preload="auto"
+              className={`absolute inset-0 h-full w-full bg-black object-contain transition-opacity ${ready ? "opacity-100" : "opacity-0"}`}
+              onLoadStart={() => {
+                setBuffering(true);
+                setReady(false);
+              }}
+              onWaiting={() => setBuffering(true)}
+              onPlaying={() => {
+                setBuffering(false);
+                setReady(true);
+              }}
+              onCanPlay={() => {
+                setBuffering(false);
+                setReady(true);
+              }}
+              onError={() => setBuffering(false)}
+            />
+          ) : null}
+
+          {showSpinner ? (
+            <div className="absolute inset-0 grid place-items-center">
+              <div className="flex flex-col items-center gap-3 rounded-2xl bg-black/45 px-6 py-5 text-center ring-1 ring-white/10">
+                <Loader2 size={28} className="animate-spin text-white" />
+                <p className="text-sm font-medium text-white">Starting video…</p>
+                <p className="max-w-[16rem] text-[11px] leading-relaxed text-white/60">
+                  Fetching a private stream. Large files may take a moment on the first play.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {playing.error ? (
+            <div className="absolute inset-0 grid place-items-center p-6">
+              <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl bg-black/55 px-6 py-5 text-center ring-1 ring-white/10">
+                <p className="text-sm font-medium text-white">{playing.error}</p>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {ready && buffering && !playing.error ? (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center">
+              <Loader2 size={32} className="animate-spin text-white drop-shadow" />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MediaExplorer({
   mode,
   apiBase,
@@ -148,8 +288,8 @@ export function MediaExplorer({
   const [newFolderName, setNewFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
-  const [playing, setPlaying] = useState<{ file: MediaFile; src: string } | null>(null);
-  const [playBusy, setPlayBusy] = useState(false);
+  const [playing, setPlaying] = useState<PlayingState | null>(null);
+  const streamTicketCache = useRef(new Map<string, { url: string; expires: number; inflight?: Promise<string> }>());
 
   useEffect(() => {
     // Hydrate browser-only clipboard state after server rendering.
@@ -206,27 +346,48 @@ export function MediaExplorer({
     }
   }
 
+  async function resolveStreamUrl(file: MediaFile) {
+    if (file.provider !== "drive") return file.url;
+    const cache = streamTicketCache.current;
+    const hit = cache.get(file.id);
+    if (hit?.url && hit.expires > Date.now() + 30000) return hit.url;
+    if (hit?.inflight) return hit.inflight;
+
+    const inflight = (async () => {
+      const res = await apiFetch(
+        API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/stream-ticket",
+        { method: "POST" },
+        0,
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not play video");
+      const url = API_URL + json.url;
+      cache.set(file.id, { url, expires: Date.now() + 12 * 60 * 1000 });
+      return url;
+    })().catch((err) => {
+      cache.delete(file.id);
+      throw err;
+    });
+
+    cache.set(file.id, { url: hit?.url || "", expires: hit?.expires || 0, inflight });
+    return inflight;
+  }
+
+  function prefetchVideo(file: MediaFile) {
+    if (!isVideoFile(file) || file.provider !== "drive") return;
+    void resolveStreamUrl(file).catch(() => {});
+  }
+
   async function playVideo(file: MediaFile) {
-    if (!isVideoFile(file) || playBusy) return;
-    setPlayBusy(true);
+    if (!isVideoFile(file)) return;
     setError("");
+    setPlaying({ file, src: null });
     try {
-      if (file.provider === "drive") {
-        const res = await apiFetch(
-          API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/stream-ticket",
-          { method: "POST" },
-          0,
-        );
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message || "Could not play video");
-        setPlaying({ file, src: API_URL + json.url });
-      } else {
-        setPlaying({ file, src: file.url });
-      }
+      const src = await resolveStreamUrl(file);
+      setPlaying((current) => (current?.file.id === file.id ? { file, src } : current));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not play video");
-    } finally {
-      setPlayBusy(false);
+      const message = err instanceof Error ? err.message : "Could not play video";
+      setPlaying((current) => (current?.file.id === file.id ? { file, src: null, error: message } : current));
     }
   }
 
@@ -745,12 +906,12 @@ export function MediaExplorer({
               <div
                 key={file.id}
                 className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
+                onPointerEnter={video ? () => prefetchVideo(file) : undefined}
               >
                 <div className="flex items-start gap-3">
                   {video ? (
                     <button
                       type="button"
-                      disabled={playBusy}
                       onClick={() => void playVideo(file)}
                       className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-900 text-white sm:h-14 sm:w-14"
                       title="Play video"
@@ -792,7 +953,6 @@ export function MediaExplorer({
                     {video ? (
                       <button
                         type="button"
-                        disabled={playBusy}
                         onClick={() => void playVideo(file)}
                         className="block w-full truncate text-left text-base font-semibold text-slate-900 hover:text-violet-700 sm:text-sm"
                       >
@@ -811,7 +971,6 @@ export function MediaExplorer({
                         <>
                           <button
                             type="button"
-                            disabled={playBusy}
                             onClick={() => void playVideo(file)}
                             className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium uppercase text-violet-700 hover:bg-violet-100"
                           >
@@ -904,53 +1063,12 @@ export function MediaExplorer({
       )}
 
       {playing ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label={playing.file.name}
-          onClick={closePlayer}
-        >
-          <div
-            className="flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-slate-950 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">{playing.file.name}</p>
-                <p className="text-xs text-white/60">{formatBytes(playing.file.bytes)}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void downloadOriginal(playing.file)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
-                >
-                  <Download size={13} />
-                  Download
-                </button>
-                <button
-                  type="button"
-                  onClick={closePlayer}
-                  className="rounded-lg border border-white/20 p-1.5 text-white hover:bg-white/10"
-                  aria-label="Close player"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="bg-black">
-              <video
-                key={playing.src}
-                src={playing.src}
-                controls
-                autoPlay
-                playsInline
-                className="max-h-[75vh] w-full"
-              />
-            </div>
-          </div>
-        </div>
+        <MediaVideoPlayer
+          playing={playing}
+          onClose={closePlayer}
+          onDownload={() => void downloadOriginal(playing.file)}
+          onRetry={() => void playVideo(playing.file)}
+        />
       ) : null}
     </div>
   );

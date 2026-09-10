@@ -60,6 +60,8 @@ function register(app, adminAuth, resellerAuth) {
       if (!isVideo) throw Object.assign(new Error("Only videos can be streamed"), { status: 400 });
       prune(tickets);
       if (tickets.size >= 1000) throw Object.assign(new Error("Too many stream requests. Retry shortly."), { status: 429 });
+      // Warm Drive OAuth before the browser hits /stream so the first Range request is faster.
+      if (file.provider === "drive") await drive.warm();
       const ticket = crypto.randomBytes(32).toString("hex");
       tickets.set(ticket, { id: req.params.id, role, mode: "stream", authorization: req.headers.authorization, cookie: req.headers.cookie, expires: Date.now() + 15 * 60000 });
       res.json({ url: `${base}/files/${encodeURIComponent(req.params.id)}/stream?ticket=${ticket}` });
@@ -114,10 +116,15 @@ async function stream(req, res, mode) {
   for (const header of ["content-length", "content-range", "accept-ranges"]) {
     if (upstream.headers.has(header)) res.set(header, upstream.headers.get(header));
   }
+  if (mode === "stream") {
+    res.set("Accept-Ranges", "bytes");
+    res.set("X-Accel-Buffering", "no");
+  }
   if (mode === "download") {
     res.attachment(file.name.replace(/[\r\n\x00-\x1f]/g, "_"));
     res.type("application/octet-stream");
   }
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
   await pipeline(Readable.fromWeb(upstream.body), res);
 }
 module.exports = { register, publicBrowse };

@@ -147,4 +147,8 @@ async function thumbnail(id, signal) {
   if (!result.ok) throw fail("Preview is not available yet.", 404);
   return result;
 }
-module.exports = { status, authorize, connect, upload, remove, copy, content, thumbnail };
+async function warm() {
+  await token();
+}
+
+module.exports = { status, authorize, connect, upload, remove, copy, content, thumbnail, warm };

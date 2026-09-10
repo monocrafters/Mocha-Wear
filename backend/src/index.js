@@ -54,7 +54,13 @@ const allowedOrigins = new Set(
     .filter(Boolean),
 );
 
-app.use(compression());
+app.use(compression({
+  filter(req, res) {
+    // Never buffer/gzip private media bytes — it stalls video start and downloads.
+    if (/\/media\/files\/[^/]+\/(stream|download|preview)\b/.test(req.path)) return false;
+    return compression.filter(req, res);
+  },
+}));
 app.use(
       cors({
     origin(origin, callback) {
