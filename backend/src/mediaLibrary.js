@@ -67,18 +67,41 @@ function normalize(data = {}) {
 }
 
 async function readStore() {
-  return normalize(await store.read());
+  const data = normalize(await store.read());
+  // Deterministic virtual roots keep assets linked across toggles without writes.
+  const products = await require("./products").listAll();
+  for (const product of products.filter(item => item.media_enabled)) {
+    data.folders.push({ ...shapeFolder({ id: `product:${product.id}`, name: product.name }),
+      product_id: product.id, product_slug: product.slug, product_published: product.is_published,
+      cover_url: product.images[0]?.url || "" });
+  }
+  return data;
 }
 
 async function writeStore(data) {
   // Publish cached metadata only after durable storage succeeds.
-  await writeDocument("media_library", normalize(data));
+  await writeDocument("media_library", normalize({ ...data, folders: data.folders.filter(folder => !folder.product_id) }));
+}
+
+function assertManualFolder(id) {
+  if (String(id).startsWith("product:")) {
+    throw Object.assign(new Error("Manage this folder through the product Media setting; its name and cover follow the product"), { status: 400 });
+  }
 }
 
 function folderExists(data, folderId) {
   const id = String(folderId || ROOT_ID);
   if (id === ROOT_ID) return true;
-  return data.folders.some((folder) => folder.id === id);
+  const seen = new Set();
+  let current = id;
+  while (current) {
+    if (seen.has(current)) return false;
+    seen.add(current);
+    const folder = data.folders.find(row => row.id === current);
+    if (!folder) return false;
+    current = folder.parent_id;
+  }
+  return true;
 }
 
 function breadcrumbsFor(data, folderId) {
@@ -102,6 +125,7 @@ function listChildren(data, folderId) {
     .filter((folder) => (folder.parent_id || ROOT_ID) === id)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((folder) => {
+      if (folder.product_id) return folder;
       if (!folder.cover_file_id) return { ...folder, cover_url: "" };
       const cover = data.files.find((file) => file.id === folder.cover_file_id);
       if (!cover || !isImageFile(cover) || !cover.url) {
@@ -177,6 +201,7 @@ async function createFolder({ name, parent_id } = {}) {
 }
 
 async function renameFolder(id, { name } = {}) {
+  assertManualFolder(id);
   const data = await readStore();
   const index = data.folders.findIndex((folder) => folder.id === id);
   if (index < 0) {
@@ -223,6 +248,7 @@ function clearCoverRefs(data, fileId) {
 }
 
 async function setFolderCover(folderId, coverFileId) {
+  assertManualFolder(folderId);
   const data = await readStore();
   const id = String(folderId || "");
   if (!id || id === ROOT_ID) {
@@ -290,6 +316,7 @@ function collectDescendantFolderIds(data, folderId) {
 }
 
 async function deleteFolder(id) {
+  assertManualFolder(id);
   const data = await readStore();
   if (!data.folders.some((folder) => folder.id === id)) {
     const err = new Error("Folder not found");
@@ -437,6 +464,7 @@ async function moveFile(id, targetFolderId) {
 }
 
 async function moveFolder(id, targetFolderId) {
+  assertManualFolder(id);
   const data = await readStore();
   const index = data.folders.findIndex((folder) => folder.id === id);
   if (index < 0) {
@@ -507,6 +535,7 @@ async function copyFile(id, targetFolderId) {
 }
 
 async function copyFolder(id, targetFolderId) {
+  assertManualFolder(id);
   const data = await readStore();
   const source = data.folders.find((folder) => folder.id === id);
   if (!source) {
@@ -614,7 +643,8 @@ async function pasteItem({ action, item_type, id, target_folder_id } = {}) {
 }
 
 async function getFile(id) {
-  const file = (await readStore()).files.find(row => row.id === id);
+  const data = await readStore();
+  const file = data.files.find(row => row.id === id && folderExists(data, row.folder_id));
   if (!file) throw Object.assign(new Error("File not found"), { status: 404 });
   return file;
 }

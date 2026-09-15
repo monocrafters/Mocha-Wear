@@ -40,6 +40,7 @@ export type Product = {
   compare_at_price: number;
   wholesale_price?: number;
   reseller_enabled?: boolean;
+  media_enabled?: boolean;
   badge: string;
   video_url?: string;
   labels?: ProductLabel[];
@@ -84,6 +85,7 @@ const emptyForm = {
   is_on_sale: true,
   is_published: true,
   reseller_enabled: false,
+  media_enabled: false,
   sort_order: 0,
 };
 
@@ -168,7 +170,7 @@ export function AdminProducts() {
     return sortProducts(filtered, sort);
   }, [items, filter, resellerFilter, sort]);
 
-  async function load() {
+  async function load(openLinkedProduct = false) {
     setLoading(true);
     setError("");
     try {
@@ -180,6 +182,11 @@ export function AdminProducts() {
       const collectionsData = await collectionsRes.json();
       if (!productsRes.ok) throw new Error(productsData.message || "Could not load products");
       setItems(productsData.items || []);
+      if (openLinkedProduct) {
+        const productId = new URLSearchParams(window.location.search).get("product");
+        const linked = (productsData.items as Product[] || []).find(item => item.id === productId);
+        if (linked) startEdit(linked);
+      }
       setCollections(collectionsData.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load products");
@@ -189,7 +196,9 @@ export function AdminProducts() {
   }
 
   useEffect(() => {
-    load();
+    load(true);
+    // The URL opens a linked product only on the initial load, not after saves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function startCreate() {
@@ -226,6 +235,7 @@ export function AdminProducts() {
       is_on_sale: item.is_on_sale,
       is_published: item.is_published,
       reseller_enabled: Boolean(item.reseller_enabled),
+      media_enabled: Boolean(item.media_enabled),
       sort_order: item.sort_order,
     });
     setImages((item.images || []).map((image) => ({ id: image.id, url: image.url })));
@@ -945,6 +955,12 @@ export function AdminProducts() {
               </label>
 
               <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={form.media_enabled}
+                    onChange={(e) => setForm({ ...form, media_enabled: e.target.checked })} />
+                  Media
+                  <span className="text-xs text-slate-500">Show product folder; turning off keeps its files.</span>
+                </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"

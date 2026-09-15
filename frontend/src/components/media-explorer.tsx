@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -24,6 +25,9 @@ import {
 import { API_URL, apiFetch } from "@/lib/api";
 
 export type MediaFolder = {
+  product_id?: string;
+  product_slug?: string;
+  product_published?: boolean;
   id: string;
   parent_id?: string | null;
   name: string;
@@ -587,7 +591,7 @@ function MediaExplorerInner({
   }, [data]);
 
   const currentCoverId = data?.folder?.cover_file_id || null;
-  const canSetCover = canEdit && Boolean(folderId);
+  const canSetCover = canEdit && !data?.folder.product_id && Boolean(folderId);
 
   async function createFolder() {
     if (!canEdit || !newFolderName.trim() || busy) return;
@@ -978,7 +982,18 @@ function MediaExplorerInner({
         </div>
       ) : (
         <div className="space-y-2">
-          {data.folders.map((folder) => (
+          {data.folders.map((folder) => folder.product_id && canEdit ? (
+            <div key={folder.id} className="inline-flex w-64 max-w-full flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 align-top sm:mr-3">
+              <button type="button" onClick={() => navigateToFolder(folder)} aria-label={`Open media for ${folder.name}`}>
+                {folder.cover_url ? <MediaPreview src={folder.cover_url} className="aspect-square w-full rounded-lg object-cover" /> : <span className="grid aspect-square place-items-center rounded-lg bg-amber-50"><Folder size={40} /></span>}
+              </button>
+              <p className="text-base font-semibold text-slate-900">{folder.name}</p>
+              <div className="flex gap-2">
+                <Link href={folder.product_published ? `/products/${encodeURIComponent(folder.product_slug || "")}` : `/admin/products?product=${encodeURIComponent(folder.product_id)}`} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">View</Link>
+                <button type="button" onClick={() => navigateToFolder(folder)} className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">Add</button>
+              </div>
+            </div>
+          ) : (
             <div
               key={folder.id}
               role="button"
