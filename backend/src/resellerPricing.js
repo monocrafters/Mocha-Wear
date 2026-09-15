@@ -62,7 +62,7 @@ async function getGlobalResellerSettings() {
   const minPercent = Number(s.reseller_min_percent) || 10;
   const maxPercent = Number(s.reseller_max_percent) || 40;
   const returnWindowDays = Number(s.reseller_return_window_days) || 7;
-  const minPayout = Number(s.reseller_min_payout) || 2000;
+  const minPayout = Number(s.reseller_min_payout) || 1000;
   return {
     minPercent,
     maxPercent,

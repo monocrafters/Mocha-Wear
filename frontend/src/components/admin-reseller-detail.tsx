@@ -221,6 +221,10 @@ export function AdminResellerDetail() {
   const [clicks, setClicks] = useState<ClickRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paying, setPaying] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     if (!params.id) return;
@@ -245,7 +249,35 @@ export function AdminResellerDetail() {
         setError(err instanceof Error ? err.message : "Reseller not found");
       })
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [params.id, refresh]);
+
+  async function recordManualPayment() {
+    if (!item || paying) return;
+    const amount = Number(paymentAmount);
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      setError("Enter a positive whole PKR amount.");
+      return;
+    }
+    if (!window.confirm(`Confirm you have paid ${formatPkr(amount)} to ${item.name}?`)) return;
+    setPaying(true);
+    setError("");
+    setPaymentMessage("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/resellers/${encodeURIComponent(item.id)}/payment`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not record payment");
+      setPaymentMessage(`${formatPkr(amount)} payment marked done.`);
+      setPaymentAmount("");
+      setRefresh(value => value + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not record payment");
+    } finally {
+      setPaying(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -272,6 +304,19 @@ export function AdminResellerDetail() {
   return (
     <div className="mt-8 space-y-8">
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
+      <section className="rounded-xl border border-emerald-200 bg-white p-5">
+        <h3 className="font-semibold text-slate-900">Manual withdrawal payment</h3>
+        <p className="mt-1 text-sm text-slate-500">Record an amount you have paid to this reseller. Admin payments can be below PKR 1,000, up to the available balance.</p>
+        <form onSubmit={(event) => { event.preventDefault(); void recordManualPayment(); }} className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="text-sm text-slate-700">Amount (PKR)
+            <input type="number" min="1" step="1" required value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} disabled={paying}
+              className="mt-1 block rounded-lg border border-slate-200 px-3 py-2" placeholder="e.g. 250" />
+          </label>
+          <button type="submit" disabled={paying} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{paying ? "Saving…" : "Mark payment done"}</button>
+        </form>
+        {paymentMessage ? <p className="mt-3 text-sm text-emerald-700" role="status">{paymentMessage}</p> : null}
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <article className="border border-slate-200 bg-white px-5 py-5 lg:col-span-2">

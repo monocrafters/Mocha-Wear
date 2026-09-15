@@ -32,7 +32,7 @@ export function ResellerWithdrawMethodDetails() {
     : "";
 
   const [cleared, setCleared] = useState(0);
-  const [minPayout, setMinPayout] = useState(2000);
+  const [minPayout, setMinPayout] = useState(1000);
   const [openRequest, setOpenRequest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<PayoutProfile>(() => ({
@@ -68,7 +68,7 @@ export function ResellerWithdrawMethodDetails() {
         if (!methodRes.ok) throw new Error(methodData.message || "Could not load");
         if (!payoutsRes.ok) throw new Error(payoutsData.message || "Could not load");
         setCleared(Number(payoutsData.wallet_cleared) || 0);
-        setMinPayout(Number(payoutsData.min_payout) || 2000);
+        setMinPayout(Number(payoutsData.min_payout) || 1000);
         setOpenRequest(
           (payoutsData.items || []).some(
             (row: { status: string }) => row.status === "requested" || row.status === "processing",

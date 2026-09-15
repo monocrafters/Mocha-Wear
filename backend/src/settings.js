@@ -58,7 +58,7 @@ function emptySettings() {
     reseller_min_percent: 10,
     reseller_max_percent: 40,
     reseller_return_window_days: 7,
-    reseller_min_payout: 2000,
+    reseller_min_payout: 1000,
   };
 }
 
@@ -172,13 +172,14 @@ function normalize(data = {}) {
     reseller_max_percent: Number(data.reseller_max_percent ?? fallback.reseller_max_percent) || 40,
     reseller_return_window_days:
       Number(data.reseller_return_window_days ?? fallback.reseller_return_window_days) || 7,
-    reseller_min_payout: Number(data.reseller_min_payout ?? fallback.reseller_min_payout) || 2000,
+    reseller_min_payout: data.reseller_payout_version === 1 ? Number(data.reseller_min_payout) || 1000 : 1000,
+    reseller_payout_version: 1,
   };
 }
 
 async function getPublic() {
   const all = await readSettings();
-  const { reseller_min_percent, reseller_max_percent, reseller_return_window_days, reseller_min_payout, ...pub } = all;
+  const { reseller_min_percent, reseller_max_percent, reseller_return_window_days, reseller_min_payout, reseller_payout_version, ...pub } = all;
   return pub;
 }
 

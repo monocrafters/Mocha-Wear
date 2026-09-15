@@ -33,7 +33,7 @@ export function ResellerWithdraw() {
   const { t } = useResellerLocale();
   const router = useRouter();
   const [cleared, setCleared] = useState(0);
-  const [minPayout, setMinPayout] = useState(2000);
+  const [minPayout, setMinPayout] = useState(1000);
   const [requests, setRequests] = useState<WithdrawRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("");
@@ -45,7 +45,7 @@ export function ResellerWithdraw() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Could not load");
         setCleared(Number(data.wallet_cleared) || 0);
-        setMinPayout(Number(data.min_payout) || 2000);
+        setMinPayout(Number(data.min_payout) || 1000);
         setRequests(data.items || []);
       })
       .catch((err) => setError(resellerErrorMessage(err, "Could not load")))

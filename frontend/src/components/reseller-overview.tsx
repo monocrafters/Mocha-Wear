@@ -232,7 +232,7 @@ export function ResellerOverview() {
           code: String(meJson.reseller?.code || linkJson.code || "").trim(),
           pending: Number(earningsJson.wallet_pending ?? earningsJson.pending) || 0,
           cleared: Number(earningsJson.wallet_cleared ?? earningsJson.cleared) || 0,
-          minPayout: Number(earningsJson.min_payout) || 2000,
+          minPayout: Number(earningsJson.min_payout) || 1000,
           clicks: Number(linkJson.clicks ?? earningsJson.clicks) || 0,
           linkPath: String(linkJson.path || ""),
           liveProducts: products.filter(isLiveProduct).length,
@@ -277,7 +277,7 @@ export function ResellerOverview() {
     if (!data?.linkPath || !origin) return;
     navigator.clipboard.writeText(`${origin}${data.linkPath}`).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), 1000);
     });
   }
 

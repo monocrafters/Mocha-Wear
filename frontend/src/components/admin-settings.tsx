@@ -311,7 +311,7 @@ export function AdminSettings() {
         />
         <Field
           label="Min payout (Rs)"
-          value={String(form.reseller_min_payout ?? 2000)}
+          value={String(form.reseller_min_payout ?? 1000)}
           onChange={(v) => set("reseller_min_payout", Number(v) || 0)}
         />
       </Section>

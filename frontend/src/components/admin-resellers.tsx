@@ -45,6 +45,8 @@ export function AdminResellers() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editReseller, setEditReseller] = useState<Reseller | null>(null);
+  const [message, setMessage] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -81,33 +83,81 @@ export function AdminResellers() {
     setSaving(true);
     setError("");
     try {
-      const body: Record<string, string | number | undefined> = {
+      const body: Record<string, string | number | null | undefined> = {
         name: form.name,
         username: form.username,
-        password: form.password,
-        email: form.email || undefined,
-        phone: form.phone || undefined,
-        social_handle: form.social_handle || undefined,
+        password: form.password || undefined,
+        email: form.email,
+        phone: form.phone,
+        social_handle: form.social_handle,
       };
       if (form.code) body.code = form.code;
       if (form.commission_min_percent !== "") body.commission_min_percent = Number(form.commission_min_percent);
       if (form.commission_max_percent !== "") body.commission_max_percent = Number(form.commission_max_percent);
-      const res = await apiFetch(`${API_URL}/api/admin/resellers`, {
-        method: "POST",
+      if (editReseller) {
+        body.commission_min_percent = form.commission_min_percent === "" ? null : Number(form.commission_min_percent);
+        body.commission_max_percent = form.commission_max_percent === "" ? null : Number(form.commission_max_percent);
+      }
+      const res = await apiFetch(`${API_URL}/api/admin/resellers${editReseller ? `/${encodeURIComponent(editReseller.id)}` : ""}`, {
+        method: editReseller ? "PATCH" : "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not create reseller");
+      if (!res.ok) throw new Error(data.message || "Could not save reseller");
       setCreating(false);
+      setEditReseller(null);
       setForm(emptyForm);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create reseller");
+      setError(err instanceof Error ? err.message : "Could not save reseller");
     } finally {
       setSaving(false);
     }
+  }
+
+  function startEdit(reseller: Reseller) {
+    setEditReseller(reseller);
+    setForm({ name: reseller.name, username: reseller.username, password: "",
+      email: reseller.email || "", phone: reseller.phone || "", social_handle: reseller.social_handle || "",
+      code: reseller.code, commission_min_percent: reseller.commission_min_percent == null ? "" : String(reseller.commission_min_percent),
+      commission_max_percent: reseller.commission_max_percent == null ? "" : String(reseller.commission_max_percent) });
+    setCreating(true);
+  }
+
+  async function deleteReseller(reseller: Reseller) {
+    if (!window.confirm(`Delete ${reseller.name}? Their access will end. Order and payment history will be kept.`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/resellers/${encodeURIComponent(reseller.id)}`, { method: "DELETE", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not delete reseller");
+      await load();
+      setMessage("Reseller deleted.");
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not delete reseller"); }
+    finally { setSaving(false); }
+  }
+
+  async function paymentDone(reseller: Reseller) {
+    const entered = window.prompt(`Amount already paid to ${reseller.name} (PKR). This records a payment; it does not transfer money.`, String(reseller.wallet_cleared || ""));
+    if (entered === null) return;
+    const amount = Number(entered);
+    if (!Number.isSafeInteger(amount) || amount <= 0) { setError("Enter a positive whole PKR amount."); return; }
+    if (!window.confirm(`Mark PKR ${amount.toLocaleString()} as paid to ${reseller.name}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/resellers/${encodeURIComponent(reseller.id)}/payment`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not record payment");
+      await load();
+      setMessage(`Payment of ${formatPkr(amount)} marked done for ${reseller.name}.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not record payment"); }
+    finally { setSaving(false); }
   }
 
   async function toggleStatus(reseller: Reseller) {
@@ -178,11 +228,12 @@ export function AdminResellers() {
     <div className="mt-8">
       {error ? <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
+      {message ? <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">{items.length} reseller{items.length === 1 ? "" : "s"}</p>
         <button
           type="button"
-          onClick={() => { setCreating(true); setForm(emptyForm); }}
+          onClick={() => { setEditReseller(null); setCreating(true); setForm(emptyForm); }}
           className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
         >
           Add reseller
@@ -281,6 +332,9 @@ export function AdminResellers() {
                       >
                         View
                       </Link>
+                      <button type="button" disabled={saving} onClick={() => startEdit(r)} className="border border-slate-200 px-2 py-1 text-[10px] uppercase disabled:opacity-50">Edit</button>
+                      <button type="button" disabled={saving} onClick={() => deleteReseller(r)} className="border border-red-200 px-2 py-1 text-[10px] uppercase text-red-700 disabled:opacity-50">Delete</button>
+                      <button type="button" disabled={saving} onClick={() => paymentDone(r)} className="border border-emerald-200 px-2 py-1 text-[10px] uppercase text-emerald-700 disabled:opacity-50">Payment done</button>
                       <button type="button" onClick={() => toggleStatus(r)}
                         className="border border-slate-200 px-2 py-1 text-[10px] uppercase hover:bg-slate-50">
                         {r.status === "suspended" ? "Approve" : "Suspend"}
@@ -322,10 +376,11 @@ export function AdminResellers() {
             className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h2 className="font-semibold text-xl text-slate-900">New reseller</h2>
+              <h2 className="font-semibold text-xl text-slate-900">{editReseller ? "Edit reseller" : "New reseller"}</h2>
               <button type="button" onClick={() => setCreating(false)} className="text-sm text-slate-500">Close</button>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+              {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
               <label className="block">
                 <span className="text-sm font-medium text-slate-600">Name *</span>
                 <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -337,8 +392,8 @@ export function AdminResellers() {
                   className="mt-1 w-full border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
               </label>
               <label className="block">
-                <span className="text-sm font-medium text-slate-600">Password *</span>
-                <input required type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                <span className="text-sm font-medium text-slate-600">{editReseller ? "New password (leave blank to keep current)" : "Password *"}</span>
+                <input required={!editReseller} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="mt-1 w-full border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
               </label>
               <label className="block">
@@ -378,7 +433,7 @@ export function AdminResellers() {
             <div className="border-t border-slate-200 px-5 py-4">
               <button type="submit" disabled={saving}
                 className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white disabled:opacity-60">
-                {saving ? "Creating…" : "Create reseller"}
+                {saving ? "Saving…" : editReseller ? "Save changes" : "Create reseller"}
               </button>
             </div>
           </form>

@@ -1,0 +1,16 @@
+---
+description: Do not change live catalog or backend data files unless the user explicitly asks
+alwaysApply: true
+---
+
+# Catalog and live data are off-limits
+
+The store catalog is set. Do not change it.
+
+Never PATCH, POST, or DELETE live Railway admin data: products, collections, sales, hero, reviews, help, settings, orders, customers.
+
+Never edit `backend/data/*.json` unless the user explicitly asks to change catalog data.
+
+Never restore, revert, seed, or "sync" catalog from git, Cloudinary, or screenshots unless the user explicitly asks.
+
+Code, UI, and deploy work is fine. Leave the live database and catalog files alone.

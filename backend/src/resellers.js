@@ -127,6 +127,7 @@ function shape(row = {}, index = 0) {
     payout_iban: String(row.payout_iban || "").trim(),
     pricing_page_seen_at: String(row.pricing_page_seen_at || "").trim(),
     created_at: created,
+    deleted_at: String(row.deleted_at || ""),
     updated_at: row.updated_at || created,
   };
 }
@@ -189,7 +190,7 @@ async function markPricingPageSeen(resellerId) {
 }
 
 async function listAll() {
-  return (await readStore()).resellers.sort(
+  return (await readStore()).resellers.filter(row => !row.deleted_at).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 }
@@ -240,7 +241,7 @@ async function uniqueCode(preferred, excludeId = "") {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
   if (want && want.length >= 4 && want.length <= 24) {
-    const owner = await getByCode(want);
+    const owner = (await readStore()).resellers.find(row => row.code === want || row.previous_codes.includes(want));
     if (!owner || owner.id === excludeId) return want;
     const err = new Error("Referral code already in use");
     err.status = 409;
@@ -248,7 +249,7 @@ async function uniqueCode(preferred, excludeId = "") {
   }
   for (let i = 0; i < 20; i += 1) {
     const code = generateCode(7);
-    if (!(await getByCode(code))) return code;
+    if (!(await readStore()).resellers.some(row => row.code === code || row.previous_codes.includes(code))) return code;
   }
   return generateCode(8) + generateCode(2);
 }
@@ -262,7 +263,7 @@ async function createOne(body = {}) {
     err.status = 400;
     throw err;
   }
-  if (await getByUsername(username)) {
+  if ((await readStore()).resellers.some(row => row.username === username)) {
     const err = new Error("Username already exists");
     err.status = 409;
     throw err;
@@ -396,6 +397,18 @@ async function updateOne(id, body = {}) {
   return publicSafe(data.resellers[index]);
 }
 
+// Retain identity and accounting records while revoking login/referral access.
+async function removeOne(id) {
+  const data = await readStore();
+  const row = data.resellers.find(item => item.id === id && !item.deleted_at);
+  if (!row) throw Object.assign(new Error("Reseller not found"), { status: 404 });
+  row.deleted_at = new Date().toISOString();
+  row.status = "suspended";
+  row.updated_at = row.deleted_at;
+  await writeStore(data);
+  return { ok: true };
+}
+
 async function changePassword(resellerId, { current_password, new_password } = {}) {
   const currentPassword = String(current_password || "");
   const nextPassword = String(new_password || "");
@@ -450,6 +463,7 @@ module.exports = {
   getByCustomDomainAny,
   createOne,
   updateOne,
+  removeOne,
   changePassword,
   markPricingPageSeen,
   payoutProfile,

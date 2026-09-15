@@ -1581,6 +1581,23 @@ app.patch("/api/admin/resellers/:id", adminAuth.requireAdmin, async (req, res) =
   }
 });
 
+app.delete("/api/admin/resellers/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    res.json(await resellers.removeOne(req.params.id));
+  } catch (error) {
+    resellers.sendError(res, error);
+  }
+});
+
+app.post("/api/admin/resellers/:id/payment", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await resellerWallet.recordPayment(req.params.id, req.body || {});
+    res.json({ item });
+  } catch (error) {
+    resellerWallet.sendError(res, error);
+  }
+});
+
 app.get("/api/admin/payouts", adminAuth.requireAdmin, async (_req, res) => {
   try {
     const items = await resellerWallet.listPayouts();

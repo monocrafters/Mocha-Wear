@@ -51,7 +51,7 @@ export function ResellerWithdrawMethod() {
   const [savedProfile, setSavedProfile] = useState<PayoutProfile>(emptyPayoutProfile());
   const [savedReady, setSavedReady] = useState(false);
   const [cleared, setCleared] = useState(0);
-  const [minPayout, setMinPayout] = useState(2000);
+  const [minPayout, setMinPayout] = useState(1000);
   const [openRequest, setOpenRequest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [addingNew, setAddingNew] = useState(false);
@@ -77,7 +77,7 @@ export function ResellerWithdrawMethod() {
         setSelectedMethod(profile.payout_method || "");
         setAddingNew(!methodData.ready);
         setCleared(Number(payoutsData.wallet_cleared) || 0);
-        setMinPayout(Number(payoutsData.min_payout) || 2000);
+        setMinPayout(Number(payoutsData.min_payout) || 1000);
         setOpenRequest(
           (payoutsData.items || []).some(
             (row: { status: string }) => row.status === "requested" || row.status === "processing",

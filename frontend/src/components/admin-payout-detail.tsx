@@ -159,7 +159,7 @@ export function AdminPayoutDetail({ payoutId }: { payoutId: string }) {
               <p className="mt-1 text-sm text-slate-500">Requested {fmtDateTime(item.requested_at)}</p>
             </div>
             <span className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${statusTone(item.status)}`}>
-              {item.status === "completed" ? "Processed" : item.status}
+              {item.status === "completed" ? "Payment done" : item.status}
             </span>
           </div>
 
@@ -228,13 +228,13 @@ export function AdminPayoutDetail({ payoutId }: { payoutId: string }) {
               <button
                 key={status}
                 type="button"
-                disabled={saving || item.status === status}
+                disabled={saving || item.status === status || ["completed", "rejected"].includes(item.status)}
                 onClick={() => setStatus(status)}
                 className={`rounded-lg px-4 py-2 text-sm font-medium uppercase disabled:opacity-40 ${
                   item.status === status ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-700"
                 }`}
               >
-                {status === "completed" ? "Processed" : status}
+                {status === "completed" ? "Payment done" : status}
               </button>
             ))}
           </div>

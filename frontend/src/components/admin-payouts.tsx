@@ -38,7 +38,7 @@ function statusTone(status: string) {
 }
 
 function statusLabel(status: string) {
-  if (status === "completed") return "Processed";
+  if (status === "completed") return "Payment done";
   if (status === "processing") return "Processing";
   if (status === "requested") return "Requested";
   if (status === "rejected") return "Rejected";
@@ -213,11 +213,11 @@ export function AdminPayouts() {
                     <button
                       key={status}
                       type="button"
-                      disabled={updatingId === p.id || p.status === status}
+                      disabled={updatingId === p.id || p.status === status || ["completed", "rejected"].includes(p.status)}
                       onClick={() => updateStatus(p.id, status)}
                       className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-medium uppercase text-slate-600 disabled:opacity-40"
                     >
-                      {status === "completed" ? "Processed" : status}
+                      {status === "completed" ? "Payment done" : status}
                     </button>
                   ))}
                 </div>
@@ -261,7 +261,7 @@ export function AdminPayouts() {
                       <div className="flex flex-wrap items-center gap-2">
                         <select
                           value={p.status}
-                          disabled={updatingId === p.id}
+                          disabled={updatingId === p.id || ["completed", "rejected"].includes(p.status)}
                           onChange={(e) => updateStatus(p.id, e.target.value)}
                           className="rounded-lg border border-slate-200 px-2 py-1 text-xs outline-none"
                         >

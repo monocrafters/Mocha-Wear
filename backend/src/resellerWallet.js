@@ -273,7 +273,7 @@ async function listByReseller(resellerId) {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
-async function requestPayout(resellerId, { amount } = {}, minThreshold = 2000) {
+async function requestPayout(resellerId, { amount } = {}, minThreshold = 1000, { manual = false } = {}) {
   await reconcileResellerWallet(resellerId);
   const value = Math.round(Number(amount) || 0);
   const min = Math.max(0, Math.round(Number(minThreshold) || 0));
@@ -283,7 +283,7 @@ async function requestPayout(resellerId, { amount } = {}, minThreshold = 2000) {
     err.status = 404;
     throw err;
   }
-  if (!resellers.payoutProfileReady(row)) {
+  if (!manual && !resellers.payoutProfileReady(row)) {
     const err = new Error("Set up your payment method before requesting a withdrawal.");
     err.status = 400;
     throw err;
@@ -367,6 +367,12 @@ async function updatePayout(id, fields = {}) {
   const current = data.payouts[index];
   const prevStatus = current.status;
   const nextStatus = fields.status || current.status;
+  if (!["requested", "processing", "completed", "rejected"].includes(nextStatus)) {
+    throw Object.assign(new Error("Invalid payout status"), { status: 400 });
+  }
+  if (["completed", "rejected"].includes(prevStatus) && nextStatus !== prevStatus) {
+    throw Object.assign(new Error("A finalized payout cannot change status"), { status: 409 });
+  }
   if (fields.note !== undefined) current.note = String(fields.note || "").trim();
   if (fields.admin_note !== undefined) current.admin_note = String(fields.admin_note || "").trim();
 
@@ -411,6 +417,21 @@ async function updatePayout(id, fields = {}) {
   return updated;
 }
 
+async function recordPayment(resellerId, { amount } = {}) {
+  if (!Number.isSafeInteger(Number(amount)) || Number(amount) <= 0) {
+    throw Object.assign(new Error("Enter a positive whole PKR amount"), { status: 400 });
+  }
+  if (!(await resellers.getById(resellerId))) {
+    throw Object.assign(new Error("Reseller not found"), { status: 404 });
+  }
+  const open = (await listPayouts(resellerId)).find(row => ["requested", "processing"].includes(row.status));
+  if (open && Number(amount) !== open.amount) {
+    throw Object.assign(new Error(`An open payout exists for Rs ${open.amount}. Mark that amount as paid from Payouts.`), { status: 409 });
+  }
+  const payout = open || await requestPayout(resellerId, { amount }, 1, { manual: true });
+  return updatePayout(payout.id, { status: "completed" });
+}
+
 function sendError(res, error) {
   const status = error.status || 500;
   console.error("Reseller wallet error:", error.message);
@@ -429,5 +450,17 @@ module.exports = {
   listPayouts,
   getPayoutById,
   updatePayout,
+  recordPayment,
   sendError,
 };
+
+// Serialize payout requests and status changes to avoid duplicate balance debits.
+let payoutQueue = Promise.resolve();
+for (const name of ["requestPayout", "updatePayout", "recordPayment"]) {
+  const operation = module.exports[name];
+  module.exports[name] = (...args) => {
+    const next = payoutQueue.then(() => operation(...args));
+    payoutQueue = next.catch(() => {});
+    return next;
+  };
+}
