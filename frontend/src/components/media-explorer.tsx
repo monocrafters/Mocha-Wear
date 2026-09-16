@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -19,10 +19,13 @@ import {
   Loader2,
   Pencil,
   Play,
+  RotateCcw,
   Scissors,
   Trash2,
   Upload,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 
@@ -295,14 +298,22 @@ function MediaImageViewer({
   onClose,
   onDownload,
   onSelect,
+  loadOriginal,
 }: {
   file: MediaFile;
   files: MediaFile[];
   onClose: () => void;
   onDownload: () => void;
   onSelect: (file: MediaFile) => void;
+  loadOriginal: (file: MediaFile) => Promise<string>;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [loadingOriginal, setLoadingOriginal] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const index = files.findIndex((row) => row.id === file.id);
   const hasPrev = index > 0;
   const hasNext = index >= 0 && index < files.length - 1;
@@ -320,40 +331,143 @@ function MediaImageViewer({
   }, []);
 
   useEffect(() => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+    setLoadError("");
+    setLoadingOriginal(true);
+    setOriginalUrl("");
+    let cancelled = false;
+    void loadOriginal(file)
+      .then((url) => {
+        if (cancelled) return;
+        setOriginalUrl(url);
+        setLoadingOriginal(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : "Could not load image");
+        setLoadingOriginal(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [file, loadOriginal]);
+
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
       if (event.key === "ArrowLeft" && hasPrev) onSelect(files[index - 1]);
       if (event.key === "ArrowRight" && hasNext) onSelect(files[index + 1]);
+      if (event.key === "+" || event.key === "=") setScale((value) => Math.min(5, Number((value + 0.25).toFixed(2))));
+      if (event.key === "-" || event.key === "_") {
+        setScale((value) => {
+          const next = Math.max(1, Number((value - 0.25).toFixed(2)));
+          if (next === 1) setOffset({ x: 0, y: 0 });
+          return next;
+        });
+      }
+      if (event.key === "0") {
+        setScale(1);
+        setOffset({ x: 0, y: 0 });
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [files, hasNext, hasPrev, index, onClose, onSelect]);
 
+  function zoomBy(delta: number) {
+    setScale((value) => {
+      const next = Math.min(5, Math.max(1, Number((value + delta).toFixed(2))));
+      if (next === 1) setOffset({ x: 0, y: 0 });
+      return next;
+    });
+  }
+
+  function resetView() {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  }
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (scale <= 1) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragRef.current || scale <= 1) return;
+    setOffset({
+      x: dragRef.current.ox + (event.clientX - dragRef.current.x),
+      y: dragRef.current.oy + (event.clientY - dragRef.current.y),
+    });
+  }
+
+  function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+  }
+
+  function onWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    zoomBy(event.deltaY < 0 ? 0.2 : -0.2);
+  }
+
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-black" role="dialog" aria-modal="true" aria-label={file.name}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
+    <div className="fixed inset-0 z-[200] flex flex-col bg-[#07080c]" role="dialog" aria-modal="true" aria-label={file.name}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-black/70 px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-5">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tracking-tight text-white">{file.name}</p>
           <p className="mt-0.5 text-[11px] text-white/55">
             {formatBytes(file.bytes)}
             {files.length > 1 ? ` · ${index + 1} / ${files.length}` : ""}
+            {loadingOriginal ? " · Loading original…" : loadError ? " · Preview fallback" : " · Full quality"}
+            {scale > 1 ? ` · ${Math.round(scale * 100)}%` : ""}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => zoomBy(-0.25)}
+            className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            <ZoomOut size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => zoomBy(0.25)}
+            className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            <ZoomIn size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={resetView}
+            className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
+            aria-label="Reset zoom"
+            title="Reset"
+          >
+            <RotateCcw size={16} />
+          </button>
           <button
             type="button"
             onClick={onDownload}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
           >
-            <Download size={13} />
-            <span className="hidden sm:inline">Download</span>
+            <Download size={14} />
+            Download
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/15 bg-white/5 p-2 text-white transition hover:bg-white/10"
+            className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
             aria-label="Close viewer"
           >
             <X size={16} />
@@ -361,15 +475,56 @@ function MediaImageViewer({
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 bg-black pb-[env(safe-area-inset-bottom)]">
+      <div
+        className={`relative min-h-0 flex-1 overflow-hidden bg-black pb-[env(safe-area-inset-bottom)] ${scale > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onWheel={onWheel}
+        onDoubleClick={() => {
+          if (scale > 1) resetView();
+          else setScale(2);
+        }}
+      >
         <div className="absolute inset-0 grid place-items-center p-3 sm:p-6">
-          <MediaPreview src={file.url} className="max-h-full max-w-full object-contain" />
+          {originalUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={originalUrl}
+              alt={file.name}
+              draggable={false}
+              className="max-h-full max-w-full select-none object-contain transition-transform duration-150 will-change-transform"
+              style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
+            />
+          ) : (
+            <MediaPreview
+              src={file.url}
+              className={`max-h-full max-w-full object-contain transition-opacity ${loadingOriginal ? "opacity-40 blur-[1px]" : "opacity-100"}`}
+            />
+          )}
         </div>
+
+        {loadingOriginal ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] grid place-items-center">
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-black/55 px-6 py-5 text-center ring-1 ring-white/10">
+              <Loader2 size={26} className="animate-spin text-white" />
+              <p className="text-sm font-medium text-white">Loading clear original…</p>
+            </div>
+          </div>
+        ) : null}
+
+        {loadError && !originalUrl ? (
+          <div className="absolute inset-x-0 bottom-4 z-[2] flex justify-center px-4">
+            <p className="rounded-full bg-black/70 px-4 py-2 text-xs text-amber-200 ring-1 ring-white/10">{loadError}</p>
+          </div>
+        ) : null}
+
         {hasPrev ? (
           <button
             type="button"
             onClick={() => onSelect(files[index - 1])}
-            className="absolute left-2 top-1/2 z-[1] -translate-y-1/2 rounded-full border border-white/15 bg-black/50 p-2 text-white hover:bg-black/70 sm:left-4"
+            className="absolute left-2 top-1/2 z-[2] -translate-y-1/2 rounded-full border border-white/15 bg-black/55 p-2.5 text-white hover:bg-black/75 sm:left-4"
             aria-label="Previous image"
           >
             <ChevronLeft size={20} />
@@ -379,12 +534,32 @@ function MediaImageViewer({
           <button
             type="button"
             onClick={() => onSelect(files[index + 1])}
-            className="absolute right-2 top-1/2 z-[1] -translate-y-1/2 rounded-full border border-white/15 bg-black/50 p-2 text-white hover:bg-black/70 sm:right-4"
+            className="absolute right-2 top-1/2 z-[2] -translate-y-1/2 rounded-full border border-white/15 bg-black/55 p-2.5 text-white hover:bg-black/75 sm:right-4"
             aria-label="Next image"
           >
             <ChevronRight size={20} />
           </button>
         ) : null}
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-[2] flex justify-center px-3 sm:bottom-5">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/65 px-2 py-1.5 backdrop-blur-md">
+            <button type="button" onClick={() => zoomBy(-0.25)} className="rounded-full p-2 text-white hover:bg-white/10" aria-label="Zoom out">
+              <ZoomOut size={15} />
+            </button>
+            <span className="min-w-12 text-center text-[11px] font-medium tabular-nums text-white/80">{Math.round(scale * 100)}%</span>
+            <button type="button" onClick={() => zoomBy(0.25)} className="rounded-full p-2 text-white hover:bg-white/10" aria-label="Zoom in">
+              <ZoomIn size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={onDownload}
+              className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900"
+            >
+              <Download size={13} />
+              Download
+            </button>
+          </div>
+        </div>
       </div>
     </div>,
     document.body,
@@ -443,6 +618,7 @@ function MediaExplorerInner({
   const [viewing, setViewing] = useState<MediaFile | null>(null);
   const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
   const streamTicketCache = useRef(new Map<string, { url: string; expires: number; inflight?: Promise<string> }>());
+  const imageOriginalCache = useRef(new Map<string, string>());
   const videoHistoryPushedRef = useRef(false);
   const playbackRequestRef = useRef(0);
 
@@ -602,6 +778,35 @@ function MediaExplorerInner({
     if (!isImageFile(file)) return;
     setViewing(file);
   }
+
+  const resolveImageOriginal = useCallback(async (nextFile: MediaFile) => {
+    const cached = imageOriginalCache.current.get(nextFile.id);
+    if (cached) return cached;
+    // Public Cloudinary URLs can render directly at full quality.
+    if (nextFile.provider !== "drive" && nextFile.url && !nextFile.url.startsWith("/api/")) {
+      imageOriginalCache.current.set(nextFile.id, nextFile.url);
+      return nextFile.url;
+    }
+    if (nextFile.provider === "drive") {
+      const ticketRes = await apiFetch(
+        API_URL + apiBase + "/files/" + encodeURIComponent(nextFile.id) + "/download-ticket",
+        { method: "POST" },
+        0,
+      );
+      const ticketJson = await ticketRes.json();
+      if (!ticketRes.ok) throw new Error(ticketJson.message || "Could not load original image");
+      const fileRes = await fetch(API_URL + ticketJson.url, { credentials: "include", referrerPolicy: "no-referrer" });
+      if (!fileRes.ok) throw new Error("Could not load original image");
+      const objectUrl = URL.createObjectURL(await fileRes.blob());
+      imageOriginalCache.current.set(nextFile.id, objectUrl);
+      return objectUrl;
+    }
+    const fileRes = await fetch(nextFile.url);
+    if (!fileRes.ok) throw new Error("Could not load original image");
+    const objectUrl = URL.createObjectURL(await fileRes.blob());
+    imageOriginalCache.current.set(nextFile.id, objectUrl);
+    return objectUrl;
+  }, [apiBase]);
 
   async function resolveStreamUrl(file: MediaFile) {
     if (file.provider !== "drive") return file.url;
@@ -1442,6 +1647,7 @@ function MediaExplorerInner({
           onClose={() => setViewing(null)}
           onDownload={() => void downloadOriginal(viewing)}
           onSelect={setViewing}
+          loadOriginal={resolveImageOriginal}
         />
       ) : null}
     </div>
