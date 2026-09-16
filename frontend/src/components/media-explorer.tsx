@@ -700,10 +700,10 @@ function MediaExplorerInner({
   const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     kind: "image" | "video";
-    current: number;
+    percent: number;
+    label: string;
+    received: number;
     total: number;
-    name: string;
-    failed: number;
   } | null>(null);
   const streamTicketCache = useRef(new Map<string, { url: string; expires: number; inflight?: Promise<string> }>());
   const imageOriginalCache = useRef(new Map<string, string>());
@@ -809,32 +809,106 @@ function MediaExplorerInner({
       setMessage(kind === "image" ? "No images in this folder" : "No videos in this folder");
       return;
     }
+
+    const estimate = Math.max(
+      1,
+      files.reduce((sum, file) => sum + (Number(file.bytes) || 0), 0),
+    );
+    const folderLabel = String(data.folder?.name || "media").replace(/[\\/:*?"<>|]+/g, "-") || "media";
+    const query = `?kind=${kind}${folderId ? `&folder_id=${encodeURIComponent(folderId)}` : ""}`;
+
     setBulkBusy(kind);
     setError("");
     setMessage("");
-    let failed = 0;
-    setBulkProgress({ kind, current: 0, total: files.length, name: "Starting…", failed: 0 });
+    setBulkProgress({
+      kind,
+      percent: 1,
+      label: `Preparing ${files.length} ${kind}${files.length === 1 ? "" : "s"}…`,
+      received: 0,
+      total: estimate,
+    });
+
     try {
-      for (let i = 0; i < files.length; i += 1) {
-        const file = files[i];
-        setBulkProgress({ kind, current: i + 1, total: files.length, name: file.name, failed });
+      const res = await apiFetch(`${API_URL}${apiBase}/download-zip${query}`, {}, 0);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error((json as { message?: string }).message || "Could not download zip");
+      }
+      if (!res.body) throw new Error("Could not download zip");
+
+      const headerEstimate = Number(res.headers.get("X-Media-Bytes-Estimate")) || estimate;
+      const total = Math.max(1, headerEstimate);
+
+      type SavePickerWindow = Window & {
+        showSaveFilePicker?: (options: {
+          suggestedName?: string;
+          types?: Array<{ description: string; accept: Record<string, string[]> }>;
+        }) => Promise<{ createWritable: () => Promise<{ write: (chunk: Uint8Array) => Promise<void>; close: () => Promise<void> }> }>;
+      };
+
+      let writable: { write: (chunk: Uint8Array) => Promise<void>; close: () => Promise<void> } | null = null;
+      const picker = window as SavePickerWindow;
+      if (typeof picker.showSaveFilePicker === "function") {
         try {
-          // Native browser download so Chrome shows its own progress for each file.
-          await startChromeDownload(file);
-          await new Promise((resolve) => setTimeout(resolve, 700));
-        } catch {
-          failed += 1;
-          setBulkProgress({ kind, current: i + 1, total: files.length, name: file.name, failed });
+          const handle = await picker.showSaveFilePicker({
+            suggestedName: `${folderLabel}-${kind}s.zip`,
+            types: [{ description: "ZIP archive", accept: { "application/zip": [".zip"] } }],
+          });
+          writable = await handle.createWritable();
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            setMessage("Download cancelled");
+            return;
+          }
         }
       }
-      setMessage(
-        failed
-          ? `Started ${files.length - failed}/${files.length} Chrome downloads. ${failed} failed.`
-          : `Started ${files.length} Chrome downloads. Check the browser download bar for progress.`,
-      );
+
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        received += value.byteLength;
+        if (writable) await writable.write(value);
+        else chunks.push(value);
+        setBulkProgress({
+          kind,
+          percent: Math.min(99, Math.round((received / total) * 100)),
+          label: writable ? "Saving zip to your computer…" : "Downloading zip…",
+          received,
+          total,
+        });
+      }
+
+      if (writable) {
+        await writable.close();
+      } else {
+        const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `${folderLabel}-${kind}s.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      }
+
+      setBulkProgress({
+        kind,
+        percent: 100,
+        label: "Download complete",
+        received,
+        total: Math.max(total, received),
+      });
+      setMessage(`Downloaded all ${files.length} ${kind}${files.length === 1 ? "" : "s"} as a zip.`);
+      window.setTimeout(() => setBulkProgress(null), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not download zip");
+      setBulkProgress(null);
     } finally {
       setBulkBusy(null);
-      setBulkProgress(null);
     }
   }
 
@@ -1285,25 +1359,17 @@ function MediaExplorerInner({
       {bulkProgress ? (
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between gap-3 text-sm text-slate-800">
-            <p className="font-medium">
-              Sending {bulkProgress.kind === "image" ? "images" : "videos"} to Chrome downloads
-            </p>
-            <p className="shrink-0 tabular-nums text-slate-500">
-              {bulkProgress.current}/{bulkProgress.total}
-            </p>
+            <p className="min-w-0 truncate font-medium">{bulkProgress.label}</p>
+            <p className="shrink-0 tabular-nums text-slate-500">{bulkProgress.percent}%</p>
           </div>
-          <p className="mt-1 truncate text-xs text-slate-500">{bulkProgress.name}</p>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
             <div
-              className="h-full rounded-full bg-slate-900 transition-[width] duration-300 ease-out"
-              style={{
-                width: `${Math.max(4, Math.round((bulkProgress.current / Math.max(bulkProgress.total, 1)) * 100))}%`,
-              }}
+              className="h-full rounded-full bg-emerald-600 transition-[width] duration-200 ease-out"
+              style={{ width: `${Math.max(2, bulkProgress.percent)}%` }}
             />
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">
-            Progress for each file shows in Chrome&apos;s download bar
-            {bulkProgress.failed ? ` · ${bulkProgress.failed} failed` : ""}.
+          <p className="mt-2 text-[11px] tabular-nums text-slate-500">
+            {formatBytes(bulkProgress.received)} / {formatBytes(bulkProgress.total)}
           </p>
         </div>
       ) : message ? (
