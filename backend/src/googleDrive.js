@@ -137,8 +137,14 @@ async function content(id, range, signal) {
   return request(`${API}/${encodeURIComponent(id)}?alt=media`, { headers: range ? { Range: range } : {}, signal });
 }
 async function thumbnail(id, signal) {
-  const r = await request(`${API}/${encodeURIComponent(id)}?fields=thumbnailLink`, { signal });
-  const { thumbnailLink } = await r.json();
+  let thumbnailLink = "";
+  // Fresh uploads often need a brief moment before Drive exposes thumbnailLink.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const r = await request(`${API}/${encodeURIComponent(id)}?fields=thumbnailLink`, { signal });
+    thumbnailLink = String((await r.json()).thumbnailLink || "");
+    if (thumbnailLink) break;
+    if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
+  }
   if (!thumbnailLink) throw fail("Preview is still processing. Download the original to view it.", 404);
   const url = new URL(thumbnailLink);
   if (url.protocol !== "https:" || !(url.hostname.endsWith(".googleusercontent.com") || url.hostname.endsWith(".google.com"))) throw fail("Invalid Drive preview.");

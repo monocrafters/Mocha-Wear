@@ -167,6 +167,113 @@ function MediaPreview({ src, className }: { src: string; className?: string }) {
   return <img src={privatePreview ? blobUrl : src} alt="" className={className} loading="lazy" />;
 }
 
+/** Drive thumbnails lag after upload — fall back to the video's first frame. */
+function VideoCover({
+  file,
+  className,
+  resolveStream,
+}: {
+  file: MediaFile;
+  className?: string;
+  resolveStream: (file: MediaFile) => Promise<string>;
+}) {
+  const [thumbUrl, setThumbUrl] = useState("");
+  const [streamUrl, setStreamUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl = "";
+    const controller = new AbortController();
+    setThumbUrl("");
+    setStreamUrl("");
+    setFailed(false);
+
+    async function load() {
+      if (file.provider !== "drive") {
+        if (!cancelled) setStreamUrl(file.url);
+        return;
+      }
+
+      try {
+        const href = file.url.startsWith("http://") || file.url.startsWith("https://") ? file.url : API_URL + file.url;
+        const response = await apiFetch(href, { signal: controller.signal }, 0);
+        if (response.ok) {
+          const blob = await response.blob();
+          const looksLikeImage =
+            blob.type.startsWith("image/") ||
+            ((!blob.type || blob.type === "application/octet-stream") && blob.size > 0 && blob.size < 2_500_000);
+          if (looksLikeImage && !blob.type.startsWith("video/")) {
+            objectUrl = URL.createObjectURL(blob);
+            if (cancelled) URL.revokeObjectURL(objectUrl);
+            else {
+              setThumbUrl(objectUrl);
+              return;
+            }
+          }
+        }
+      } catch {
+        if (controller.signal.aborted) return;
+      }
+
+      try {
+        const src = await resolveStream(file);
+        if (!cancelled) setStreamUrl(src);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.id, file.url, file.provider, resolveStream]);
+
+  if (thumbUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={thumbUrl} alt="" className={className} loading="lazy" />;
+  }
+
+  if (streamUrl) {
+    return (
+      <video
+        src={streamUrl}
+        muted
+        playsInline
+        preload="metadata"
+        className={className}
+        onLoadedData={(event) => {
+          const el = event.currentTarget;
+          try {
+            if (el.currentTime < 0.05) el.currentTime = 0.1;
+          } catch {
+            /* seek can fail before enough data arrives */
+          }
+        }}
+      />
+    );
+  }
+
+  if (failed) {
+    return (
+      <span className={`grid place-items-center bg-slate-900 ${className || ""}`} aria-label="Preview unavailable">
+        <FileVideo size={28} className="text-white/45" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`skeleton skeleton-admin block bg-slate-900/80 ${className || ""}`}
+      aria-hidden
+      aria-label="Loading preview"
+    />
+  );
+}
+
 function FileIcon({ file }: { file: MediaFile }) {
   if (file.resource_type === "video" || String(file.mime || "").startsWith("video/")) {
     return <FileVideo size={18} className="text-violet-600" />;
@@ -989,7 +1096,7 @@ function MediaExplorerInner({
     return objectUrl;
   }, [apiBase]);
 
-  async function resolveStreamUrl(file: MediaFile) {
+  const resolveStreamUrl = useCallback(async (file: MediaFile) => {
     if (file.provider !== "drive") return file.url;
     const cache = streamTicketCache.current;
     const hit = cache.get(file.id);
@@ -1014,7 +1121,7 @@ function MediaExplorerInner({
 
     cache.set(file.id, { url: hit?.url || "", expires: hit?.expires || 0, inflight });
     return inflight;
-  }
+  }, [apiBase]);
 
   function prefetchVideo(file: MediaFile) {
     if (!isVideoFile(file) || file.provider !== "drive") return;
@@ -1702,7 +1809,11 @@ function MediaExplorerInner({
                         className="relative block w-full overflow-hidden bg-slate-900"
                         aria-label={`Play ${file.name}`}
                       >
-                        <MediaPreview src={file.url} className="aspect-square w-full object-cover opacity-80" />
+                        <VideoCover
+                          file={file}
+                          resolveStream={resolveStreamUrl}
+                          className="aspect-square w-full object-cover opacity-80"
+                        />
                         <span className="absolute inset-0 grid place-items-center">
                           <span className="grid h-10 w-10 place-items-center rounded-full bg-black/55 text-white">
                             <Play size={16} className="ml-0.5 fill-current" />
