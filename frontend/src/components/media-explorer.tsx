@@ -267,6 +267,107 @@ function VideoCover({
   );
 }
 
+/** Folder card cover — Drive thumb when ready, otherwise video first frame. */
+function FolderCoverPreview({
+  coverUrl,
+  coverFileId,
+  className,
+  resolveStream,
+}: {
+  coverUrl: string;
+  coverFileId?: string | null;
+  className?: string;
+  resolveStream: (file: MediaFile) => Promise<string>;
+}) {
+  const [thumbUrl, setThumbUrl] = useState("");
+  const [streamUrl, setStreamUrl] = useState("");
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let acquiredSrc = "";
+    const controller = new AbortController();
+    setThumbUrl("");
+    setStreamUrl("");
+    setFailed(false);
+
+    async function load() {
+      try {
+        const url = await acquireMediaPreview(coverUrl, controller.signal);
+        if (cancelled) {
+          releaseMediaPreview(coverUrl);
+          return;
+        }
+        acquiredSrc = coverUrl;
+        setThumbUrl(url);
+        return;
+      } catch {
+        if (controller.signal.aborted) return;
+      }
+
+      if (!coverFileId) {
+        if (!cancelled) setFailed(true);
+        return;
+      }
+
+      try {
+        const src = await resolveStream({
+          id: coverFileId,
+          name: "cover",
+          url: coverUrl,
+          provider: coverUrl.includes("/api/") || coverUrl.startsWith("drive:") ? "drive" : undefined,
+          resource_type: "video",
+        });
+        if (!cancelled) setStreamUrl(src);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (acquiredSrc) releaseMediaPreview(acquiredSrc);
+    };
+  }, [coverUrl, coverFileId, resolveStream]);
+
+  if (thumbUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={thumbUrl} alt="" className={className} loading="lazy" />;
+  }
+
+  if (streamUrl) {
+    return (
+      <video
+        src={streamUrl}
+        muted
+        playsInline
+        preload="metadata"
+        className={className}
+        onLoadedData={(event) => {
+          const el = event.currentTarget;
+          try {
+            if (el.currentTime < 0.05) el.currentTime = 0.1;
+          } catch {
+            /* seek can fail before enough data arrives */
+          }
+        }}
+      />
+    );
+  }
+
+  if (failed) {
+    return (
+      <span className={`grid place-items-center bg-amber-50 ${className || ""}`} aria-label="Cover unavailable">
+        <Folder size={28} className="text-amber-500" />
+      </span>
+    );
+  }
+
+  return <span className={`skeleton skeleton-admin block ${className || ""}`} aria-hidden />;
+}
+
 function FileIcon({ file }: { file: MediaFile }) {
   if (file.resource_type === "video" || String(file.mime || "").startsWith("video/")) {
     return <FileVideo size={18} className="text-violet-600" />;
@@ -1491,7 +1592,8 @@ function MediaExplorerInner({
   }
 
   async function setCover(file: MediaFile) {
-    if (!canSetCover || !isImageFile(file) || busy) return;
+    if (!canSetCover || busy) return;
+    if (!isImageFile(file) && !isVideoFile(file)) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -1504,7 +1606,11 @@ function MediaExplorerInner({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not set folder cover");
-      setMessage(`Cover set from "${file.name}"`);
+      setMessage(
+        isVideoFile(file)
+          ? `Cover set from first frame of "${file.name}"`
+          : `Cover set from "${file.name}"`,
+      );
       await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not set folder cover");
@@ -1757,7 +1863,8 @@ function MediaExplorerInner({
 
       {canSetCover ? (
         <p className="text-xs text-slate-500">
-          Tap an image to view it. Use the cover icon on a card to set this folder&apos;s cover.
+          Tap to view or play. Use the cover icon on an image or video to set this folder&apos;s cover
+          (videos use the first frame).
         </p>
       ) : (
         <p className="text-xs text-slate-500">Tap an image to view · tap a video to play.</p>
@@ -1790,7 +1897,12 @@ function MediaExplorerInner({
                       aria-label={`Open ${folder.name}`}
                     >
                       {folder.cover_url ? (
-                        <MediaPreview src={folder.cover_url} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+                        <FolderCoverPreview
+                          coverUrl={folder.cover_url}
+                          coverFileId={folder.cover_file_id}
+                          resolveStream={resolveStreamUrl}
+                          className="aspect-square w-full object-cover transition group-hover:scale-[1.02]"
+                        />
                       ) : (
                         <span className="grid aspect-square w-full place-items-center">
                           <Folder size={28} className="text-amber-500" />
@@ -1887,7 +1999,7 @@ function MediaExplorerInner({
                       <button
                         type="button"
                         onClick={() => void playVideo(file)}
-                        className="relative block w-full overflow-hidden bg-slate-900"
+                        className={`relative block w-full overflow-hidden bg-slate-900 ${isCover ? "ring-2 ring-inset ring-emerald-500" : ""}`}
                         aria-label={`Play ${file.name}`}
                       >
                         <VideoCover
@@ -1900,6 +2012,11 @@ function MediaExplorerInner({
                             <Play size={16} className="ml-0.5 fill-current" />
                           </span>
                         </span>
+                        {isCover ? (
+                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1.5 text-[8px] font-semibold uppercase text-white">
+                            Cover
+                          </span>
+                        ) : null}
                       </button>
                     ) : image ? (
                       <button
@@ -1962,13 +2079,13 @@ function MediaExplorerInner({
                         </button>
                         {canEdit ? (
                           <>
-                            {canSetCover && image ? (
+                            {canSetCover && (image || video) ? (
                               <button
                                 type="button"
                                 disabled={busy || isCover}
                                 onClick={() => void setCover(file)}
                                 className="rounded border border-emerald-200 p-1.5 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                                title={isCover ? "Cover" : "Set cover"}
+                                title={isCover ? "Cover" : video ? "Set cover from first frame" : "Set cover"}
                                 aria-label="Set cover"
                               >
                                 <ImagePlus size={12} />

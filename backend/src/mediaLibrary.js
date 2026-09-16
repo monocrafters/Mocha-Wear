@@ -199,7 +199,7 @@ function listChildren(data, folderId) {
       if (folder.product_id) return folder;
       if (!folder.cover_file_id) return { ...folder, cover_url: "" };
       const cover = data.files.find((file) => file.id === folder.cover_file_id);
-      if (!cover || !isImageFile(cover)) {
+      if (!cover || !isCoverMedia(cover)) {
         return { ...folder, cover_file_id: null, cover_url: "" };
       }
       const cover_url =
@@ -318,6 +318,14 @@ function isImageFile(file) {
   return file.resource_type === "image" || String(file.mime || "").startsWith("image/");
 }
 
+function isVideoFile(file) {
+  return file.resource_type === "video" || String(file.mime || "").startsWith("video/");
+}
+
+function isCoverMedia(file) {
+  return isImageFile(file) || isVideoFile(file);
+}
+
 function clearCoverRefs(data, fileId) {
   for (const folder of data.folders) {
     if (folder.cover_file_id === fileId) {
@@ -354,22 +362,22 @@ async function setFolderCover(folderId, coverFileId) {
 
   const file = data.files.find((row) => row.id === String(coverFileId));
   if (!file) {
-    const err = new Error("Image not found");
+    const err = new Error("Cover media not found");
     err.status = 404;
     throw err;
   }
   if (String(file.folder_id || ROOT_ID) !== id) {
-    const err = new Error("Cover image must be inside this folder");
+    const err = new Error("Cover must be a file inside this folder");
     err.status = 400;
     throw err;
   }
-  if (!isImageFile(file)) {
-    const err = new Error("Only images can be used as folder cover");
+  if (!isCoverMedia(file)) {
+    const err = new Error("Only images or videos can be used as folder cover");
     err.status = 400;
     throw err;
   }
   if (!file.url) {
-    const err = new Error("Image has no URL");
+    const err = new Error("Cover file has no URL");
     err.status = 400;
     throw err;
   }
