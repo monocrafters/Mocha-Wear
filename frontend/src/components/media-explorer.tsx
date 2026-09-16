@@ -377,8 +377,8 @@ function MediaImageViewer({
 
   function zoomBy(delta: number) {
     setScale((value) => {
-      const next = Math.min(5, Math.max(1, Number((value + delta).toFixed(2))));
-      if (next === 1) setOffset({ x: 0, y: 0 });
+      const next = Math.min(4, Math.max(1, Math.round((value + delta) * 100) / 100));
+      if (next <= 1) setOffset({ x: 0, y: 0 });
       return next;
     });
   }
@@ -388,8 +388,12 @@ function MediaImageViewer({
     setOffset({ x: 0, y: 0 });
   }
 
+  function isChromeControl(target: EventTarget | null) {
+    return target instanceof Element && Boolean(target.closest("[data-media-chrome]"));
+  }
+
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (scale <= 1) return;
+    if (scale <= 1 || isChromeControl(event.target)) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { x: event.clientX, y: event.clientY, ox: offset.x, oy: offset.y };
   }
@@ -410,28 +414,45 @@ function MediaImageViewer({
   }
 
   function onWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (isChromeControl(event.target)) return;
     event.preventDefault();
-    zoomBy(event.deltaY < 0 ? 0.2 : -0.2);
+    zoomBy(event.deltaY < 0 ? 0.25 : -0.25);
   }
 
   if (!mounted) return null;
 
+  const imageStyle = {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    width: "auto",
+    height: "auto",
+    objectFit: "contain" as const,
+    transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
+    transformOrigin: "center center",
+  };
+
   return createPortal(
     <div className="fixed inset-0 z-[200] flex flex-col bg-[#07080c]" role="dialog" aria-modal="true" aria-label={file.name}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-black/70 px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-5">
+      <div
+        data-media-chrome
+        className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-black/70 px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-5"
+      >
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tracking-tight text-white">{file.name}</p>
           <p className="mt-0.5 text-[11px] text-white/55">
             {formatBytes(file.bytes)}
             {files.length > 1 ? ` · ${index + 1} / ${files.length}` : ""}
             {loadingOriginal ? " · Loading original…" : loadError ? " · Preview fallback" : " · Full quality"}
-            {scale > 1 ? ` · ${Math.round(scale * 100)}%` : ""}
+            {` · ${Math.round(scale * 100)}%`}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
           <button
             type="button"
-            onClick={() => zoomBy(-0.25)}
+            onClick={(event) => {
+              event.stopPropagation();
+              zoomBy(-0.25);
+            }}
             className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
             aria-label="Zoom out"
             title="Zoom out"
@@ -440,7 +461,10 @@ function MediaImageViewer({
           </button>
           <button
             type="button"
-            onClick={() => zoomBy(0.25)}
+            onClick={(event) => {
+              event.stopPropagation();
+              zoomBy(0.25);
+            }}
             className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
             aria-label="Zoom in"
             title="Zoom in"
@@ -449,16 +473,22 @@ function MediaImageViewer({
           </button>
           <button
             type="button"
-            onClick={resetView}
+            onClick={(event) => {
+              event.stopPropagation();
+              resetView();
+            }}
             className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
             aria-label="Reset zoom"
-            title="Reset"
+            title="Fit image"
           >
             <RotateCcw size={16} />
           </button>
           <button
             type="button"
-            onClick={onDownload}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDownload();
+            }}
             className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
           >
             <Download size={14} />
@@ -466,7 +496,10 @@ function MediaImageViewer({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
             className="rounded-full border border-white/15 bg-white/5 p-2 text-white hover:bg-white/10"
             aria-label="Close viewer"
           >
@@ -476,31 +509,32 @@ function MediaImageViewer({
       </div>
 
       <div
-        className={`relative min-h-0 flex-1 overflow-hidden bg-black pb-[env(safe-area-inset-bottom)] ${scale > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+        className={`relative min-h-0 flex-1 overflow-hidden bg-black pb-[env(safe-area-inset-bottom)] ${scale > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onWheel={onWheel}
-        onDoubleClick={() => {
+        onDoubleClick={(event) => {
+          if (isChromeControl(event.target)) return;
           if (scale > 1) resetView();
           else setScale(2);
         }}
       >
-        <div className="absolute inset-0 grid place-items-center p-3 sm:p-6">
+        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-8">
           {originalUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={originalUrl}
               alt={file.name}
               draggable={false}
-              className="max-h-full max-w-full select-none object-contain transition-transform duration-150 will-change-transform"
-              style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
+              className="block select-none will-change-transform"
+              style={imageStyle}
             />
           ) : (
             <MediaPreview
               src={file.url}
-              className={`max-h-full max-w-full object-contain transition-opacity ${loadingOriginal ? "opacity-40 blur-[1px]" : "opacity-100"}`}
+              className={`block h-auto w-auto max-h-full max-w-full object-contain transition-opacity ${loadingOriginal ? "opacity-40" : "opacity-100"}`}
             />
           )}
         </div>
@@ -515,7 +549,7 @@ function MediaImageViewer({
         ) : null}
 
         {loadError && !originalUrl ? (
-          <div className="absolute inset-x-0 bottom-4 z-[2] flex justify-center px-4">
+          <div className="absolute inset-x-0 bottom-20 z-[2] flex justify-center px-4">
             <p className="rounded-full bg-black/70 px-4 py-2 text-xs text-amber-200 ring-1 ring-white/10">{loadError}</p>
           </div>
         ) : null}
@@ -523,6 +557,7 @@ function MediaImageViewer({
         {hasPrev ? (
           <button
             type="button"
+            data-media-chrome
             onClick={() => onSelect(files[index - 1])}
             className="absolute left-2 top-1/2 z-[2] -translate-y-1/2 rounded-full border border-white/15 bg-black/55 p-2.5 text-white hover:bg-black/75 sm:left-4"
             aria-label="Previous image"
@@ -533,6 +568,7 @@ function MediaImageViewer({
         {hasNext ? (
           <button
             type="button"
+            data-media-chrome
             onClick={() => onSelect(files[index + 1])}
             className="absolute right-2 top-1/2 z-[2] -translate-y-1/2 rounded-full border border-white/15 bg-black/55 p-2.5 text-white hover:bg-black/75 sm:right-4"
             aria-label="Next image"
@@ -541,18 +577,39 @@ function MediaImageViewer({
           </button>
         ) : null}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-[2] flex justify-center px-3 sm:bottom-5">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/65 px-2 py-1.5 backdrop-blur-md">
-            <button type="button" onClick={() => zoomBy(-0.25)} className="rounded-full p-2 text-white hover:bg-white/10" aria-label="Zoom out">
+        <div data-media-chrome className="absolute inset-x-0 bottom-3 z-[2] flex justify-center px-3 sm:bottom-5">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-2 py-1.5 backdrop-blur-md">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                zoomBy(-0.25);
+              }}
+              className="rounded-full p-2 text-white hover:bg-white/10"
+              aria-label="Zoom out"
+            >
               <ZoomOut size={15} />
             </button>
-            <span className="min-w-12 text-center text-[11px] font-medium tabular-nums text-white/80">{Math.round(scale * 100)}%</span>
-            <button type="button" onClick={() => zoomBy(0.25)} className="rounded-full p-2 text-white hover:bg-white/10" aria-label="Zoom in">
+            <span className="min-w-12 text-center text-[11px] font-medium tabular-nums text-white/80">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                zoomBy(0.25);
+              }}
+              className="rounded-full p-2 text-white hover:bg-white/10"
+              aria-label="Zoom in"
+            >
               <ZoomIn size={15} />
             </button>
             <button
               type="button"
-              onClick={onDownload}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDownload();
+              }}
               className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900"
             >
               <Download size={13} />
