@@ -267,7 +267,7 @@ function VideoCover({
   );
 }
 
-/** Folder card cover — Drive thumb when ready, otherwise video first frame. */
+/** Folder card cover — public product images load directly; Drive thumbs / video frames use auth. */
 function FolderCoverPreview({
   coverUrl,
   coverFileId,
@@ -279,11 +279,13 @@ function FolderCoverPreview({
   className?: string;
   resolveStream: (file: MediaFile) => Promise<string>;
 }) {
+  const privateCover = isPrivateMediaSrc(coverUrl);
   const [thumbUrl, setThumbUrl] = useState("");
   const [streamUrl, setStreamUrl] = useState("");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (!privateCover) return;
     let cancelled = false;
     let acquiredSrc = "";
     const controller = new AbortController();
@@ -330,7 +332,12 @@ function FolderCoverPreview({
       controller.abort();
       if (acquiredSrc) releaseMediaPreview(acquiredSrc);
     };
-  }, [coverUrl, coverFileId, resolveStream]);
+  }, [coverUrl, coverFileId, privateCover, resolveStream]);
+
+  if (!privateCover) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={coverUrl} alt="" className={className} loading="lazy" />;
+  }
 
   if (thumbUrl) {
     // eslint-disable-next-line @next/next/no-img-element

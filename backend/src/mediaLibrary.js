@@ -79,27 +79,15 @@ async function readStore() {
   const products = await require("./products").listAll();
   for (const product of products.filter(item => item.media_enabled)) {
     const folderId = `product:${product.id}`;
-    let cover_url = product.images[0]?.url || "";
-    let cover_file_id = null;
-    if (!cover_url) {
-      const mediaCover = data.files.find(
-        (file) =>
-          String(file.folder_id || ROOT_ID) === folderId &&
-          (file.resource_type === "image" || String(file.mime || "").startsWith("image/")) &&
-          file.url,
-      );
-      if (mediaCover) {
-        cover_url = mediaCover.url;
-        cover_file_id = mediaCover.id;
-      }
-    }
+    // Product media folders always use the catalog product image — never a Drive media file.
+    const cover_url = product.images[0]?.url || "";
     data.folders.push({
-      ...shapeFolder({ id: folderId, name: product.name, cover_file_id, cover_url }),
+      ...shapeFolder({ id: folderId, name: product.name, cover_url }),
       product_id: product.id,
       product_slug: product.slug,
       product_published: product.is_published,
       cover_url,
-      cover_file_id,
+      cover_file_id: null,
     });
   }
   return data;
