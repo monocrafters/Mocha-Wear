@@ -521,7 +521,7 @@ function MediaImageViewer({
           else setScale(2);
         }}
       >
-        <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-8">
+        <div className="absolute inset-0 flex items-center justify-center bg-black p-3 sm:p-8">
           {originalUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -529,14 +529,12 @@ function MediaImageViewer({
               alt={file.name}
               draggable={false}
               className="block select-none will-change-transform"
-              style={imageStyle}
+              style={{
+                ...imageStyle,
+                imageRendering: "auto",
+              }}
             />
-          ) : (
-            <MediaPreview
-              src={file.url}
-              className={`block h-auto w-auto max-h-full max-w-full object-contain transition-opacity ${loadingOriginal ? "opacity-40" : "opacity-100"}`}
-            />
-          )}
+          ) : null}
         </div>
 
         {loadingOriginal ? (
@@ -845,22 +843,24 @@ function MediaExplorerInner({
       return nextFile.url;
     }
     if (nextFile.provider === "drive") {
+      // Stream with the real image Content-Type — download tickets force octet-stream and look blocky/gridy when scaled.
       const ticketRes = await apiFetch(
-        API_URL + apiBase + "/files/" + encodeURIComponent(nextFile.id) + "/download-ticket",
+        API_URL + apiBase + "/files/" + encodeURIComponent(nextFile.id) + "/stream-ticket",
         { method: "POST" },
         0,
       );
       const ticketJson = await ticketRes.json();
       if (!ticketRes.ok) throw new Error(ticketJson.message || "Could not load original image");
-      const fileRes = await fetch(API_URL + ticketJson.url, { credentials: "include", referrerPolicy: "no-referrer" });
-      if (!fileRes.ok) throw new Error("Could not load original image");
-      const objectUrl = URL.createObjectURL(await fileRes.blob());
-      imageOriginalCache.current.set(nextFile.id, objectUrl);
-      return objectUrl;
+      const url = API_URL + ticketJson.url;
+      imageOriginalCache.current.set(nextFile.id, url);
+      return url;
     }
     const fileRes = await fetch(nextFile.url);
     if (!fileRes.ok) throw new Error("Could not load original image");
-    const objectUrl = URL.createObjectURL(await fileRes.blob());
+    const blob = await fileRes.blob();
+    const mime = nextFile.mime && nextFile.mime.startsWith("image/") ? nextFile.mime : blob.type || "image/jpeg";
+    const typed = mime && mime !== blob.type ? new Blob([await blob.arrayBuffer()], { type: mime }) : blob;
+    const objectUrl = URL.createObjectURL(typed);
     imageOriginalCache.current.set(nextFile.id, objectUrl);
     return objectUrl;
   }, [apiBase]);

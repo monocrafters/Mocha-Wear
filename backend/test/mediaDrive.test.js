@@ -117,11 +117,14 @@ test("Stream tickets play videos inline without attachment", async () => {
   file.resource_type = "video";
   file.mime = "video/mp4";
   assert.equal((await fetch(base + `/api/reseller/media/files/${file.id}/stream-ticket`, { method: "POST" })).status, 401);
-  const notVideo = await fetch(base + `/api/reseller/media/files/legacy/stream-ticket`, {
+  const legacy = data.files.find(f => f.id === "legacy");
+  legacy.resource_type = "raw";
+  legacy.mime = "application/pdf";
+  const notMedia = await fetch(base + `/api/reseller/media/files/legacy/stream-ticket`, {
     method: "POST",
     headers: { authorization: "Bearer reseller" },
   });
-  assert.equal(notVideo.status, 400);
+  assert.equal(notMedia.status, 400);
   const ticket = await fetch(base + `/api/reseller/media/files/${file.id}/stream-ticket`, {
     method: "POST",
     headers: { authorization: "Bearer reseller" },

@@ -56,8 +56,13 @@ function register(app, adminAuth, resellerAuth) {
     }));
     app.post(`${base}/files/:id/stream-ticket`, auth, safe(async (req, res) => {
       const file = await library.getFile(req.params.id);
-      const isVideo = file.resource_type === "video" || String(file.mime || "").startsWith("video/");
-      if (!isVideo) throw Object.assign(new Error("Only videos can be streamed"), { status: 400 });
+      const mime = String(file.mime || "");
+      const isMedia =
+        file.resource_type === "video" ||
+        file.resource_type === "image" ||
+        mime.startsWith("video/") ||
+        mime.startsWith("image/");
+      if (!isMedia) throw Object.assign(new Error("Only images and videos can be streamed"), { status: 400 });
       prune(tickets);
       if (tickets.size >= 1000) throw Object.assign(new Error("Too many stream requests. Retry shortly."), { status: 429 });
       // Warm Drive OAuth before the browser hits /stream so the first Range request is faster.
@@ -104,13 +109,16 @@ async function stream(req, res, mode) {
     preview
       ? "image/jpeg"
       : mode === "stream"
-        ? String(file.mime || upstream.headers.get("content-type") || "video/mp4")
+        ? String(file.mime || upstream.headers.get("content-type") || (file.resource_type === "image" ? "image/jpeg" : "video/mp4"))
         : "application/octet-stream";
   res.set({
     "Cache-Control": "private, no-store, no-transform",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": mode === "stream" ? "default-src 'none'; media-src 'self'" : "default-src 'none'; sandbox",
+    "Content-Security-Policy":
+      mode === "stream"
+        ? "default-src 'none'; img-src 'self' blob: data:; media-src 'self'"
+        : "default-src 'none'; sandbox",
     "Content-Type": mime,
   });
   for (const header of ["content-length", "content-range", "accept-ranges"]) {
