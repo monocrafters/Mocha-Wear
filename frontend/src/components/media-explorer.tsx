@@ -823,6 +823,7 @@ function MediaExplorerInner({
   const videoHistoryPushedRef = useRef(false);
   const playbackRequestRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
+  const loadRequestRef = useRef(0);
 
   function buildMediaHref(opts: {
     folderId?: string;
@@ -844,12 +845,26 @@ function MediaExplorerInner({
   }
 
   function navigateToFolder(folder: { id: string; name: string }) {
+    // If the URL is already this folder (e.g. a cancelled load left us here), push is a no-op —
+    // force the browse load so the click always responds.
+    if (folder.id === folderParam) {
+      void load(folder.id, { syncUrl: true });
+      return;
+    }
     router.push(buildMediaHref({ folderId: folder.id, folderTitle: folder.name }));
   }
 
   function navigateToCrumb(crumb: Breadcrumb) {
     if (!crumb.id) {
+      if (!folderParam) {
+        void load("", { syncUrl: true });
+        return;
+      }
       router.push(pathname);
+      return;
+    }
+    if (crumb.id === folderParam) {
+      void load(crumb.id, { syncUrl: true });
       return;
     }
     router.push(buildMediaHref({ folderId: crumb.id, folderTitle: crumb.name }));
@@ -1221,6 +1236,7 @@ function MediaExplorerInner({
     const syncUrl = options.syncUrl === true;
     const force = options.force === true;
     const targetId = String(nextFolderId || "");
+    const requestId = ++loadRequestRef.current;
 
     loadAbortRef.current?.abort();
     const controller = new AbortController();
@@ -1233,8 +1249,8 @@ function MediaExplorerInner({
       setLoading(false);
       if (syncUrl) syncBrowseUrl(cached);
     } else {
-      // Avoid flashing a different folder's grid while this one loads.
-      setData((current) => (String(current?.folder?.id || "") === targetId ? current : null));
+      // Keep the previous grid visible while loading — clearing to null + abort caused
+      // an empty screen stuck on the new URL where a second click does nothing.
       setLoading(true);
     }
     setError("");
@@ -1244,7 +1260,7 @@ function MediaExplorerInner({
 
     try {
       const json = await fetchBrowsePayload(targetId, controller.signal);
-      if (controller.signal.aborted) return;
+      if (requestId !== loadRequestRef.current) return;
       setMediaBrowse(apiBase, targetId, json);
       setMediaBrowse(apiBase, String(json.folder?.id || ""), json);
       setData(json);
@@ -1252,13 +1268,17 @@ function MediaExplorerInner({
       setFolderId(nextId);
       if (syncUrl) syncBrowseUrl(json);
     } catch (err) {
-      if (controller.signal.aborted) return;
-      if (!cached) {
-        setError(err instanceof Error ? err.message : "Could not load media");
-        if (syncUrl && folderParam) router.replace(pathname);
+      if (requestId !== loadRequestRef.current || controller.signal.aborted) return;
+      const fallback = getMediaBrowse<BrowsePayload>(apiBase, targetId);
+      if (fallback) {
+        setData(fallback);
+        setFolderId(String(fallback.folder?.id || ""));
+        return;
       }
+      setError(err instanceof Error ? err.message : "Could not load media");
+      if (syncUrl && folderParam) router.replace(pathname);
     } finally {
-      if (loadAbortRef.current === controller) setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
   }
 
@@ -1271,9 +1291,6 @@ function MediaExplorerInner({
     // URL folder id is the source of truth for browser back/forward.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(folderParam, { syncUrl: true });
-    return () => {
-      loadAbortRef.current?.abort();
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase, folderParam]);
 
