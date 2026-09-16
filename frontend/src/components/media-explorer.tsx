@@ -698,6 +698,13 @@ function MediaExplorerInner({
   const [playing, setPlaying] = useState<PlayingState | null>(null);
   const [viewing, setViewing] = useState<MediaFile | null>(null);
   const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{
+    kind: "image" | "video";
+    current: number;
+    total: number;
+    name: string;
+    failed: number;
+  } | null>(null);
   const streamTicketCache = useRef(new Map<string, { url: string; expires: number; inflight?: Promise<string> }>());
   const imageOriginalCache = useRef(new Map<string, string>());
   const videoHistoryPushedRef = useRef(false);
@@ -767,58 +774,32 @@ function MediaExplorerInner({
 
   async function downloadOriginal(file: MediaFile) {
     try {
-      if (file.provider === "drive") {
-        const res = await apiFetch(API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket", { method: "POST" }, 0);
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message || "Could not download file");
-        const link = document.createElement("a");
-        link.href = API_URL + json.url;
-        link.referrerPolicy = "no-referrer";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = file.url;
-      link.download = file.name;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await startChromeDownload(file);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not download file");
     }
   }
 
-  async function fetchFileBlob(file: MediaFile) {
+  async function startChromeDownload(file: MediaFile) {
     if (file.provider === "drive") {
-      const ticketRes = await apiFetch(
-        API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket",
-        { method: "POST" },
-        0,
-      );
-      const ticketJson = await ticketRes.json();
-      if (!ticketRes.ok) throw new Error(ticketJson.message || "Could not download file");
-      const fileRes = await fetch(API_URL + ticketJson.url, { credentials: "include", referrerPolicy: "no-referrer" });
-      if (!fileRes.ok) throw new Error("Could not download file");
-      return fileRes.blob();
+      const res = await apiFetch(API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket", { method: "POST" }, 0);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Could not download file");
+      const link = document.createElement("a");
+      link.href = API_URL + json.url;
+      link.referrerPolicy = "no-referrer";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
     }
-    const fileRes = await fetch(file.url);
-    if (!fileRes.ok) throw new Error("Could not download file");
-    return fileRes.blob();
-  }
-
-  function saveBlob(blob: Blob, name: string) {
-    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = name || "download";
+    link.href = file.url;
+    link.download = file.name;
+    link.rel = "noopener noreferrer";
     document.body.appendChild(link);
     link.click();
     link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
   }
 
   async function downloadAllInFolder(kind: "image" | "video") {
@@ -830,28 +811,30 @@ function MediaExplorerInner({
     }
     setBulkBusy(kind);
     setError("");
-    setMessage(`Downloading ${files.length} ${kind === "image" ? "image" : "video"}${files.length === 1 ? "" : "s"}…`);
+    setMessage("");
     let failed = 0;
+    setBulkProgress({ kind, current: 0, total: files.length, name: "Starting…", failed: 0 });
     try {
       for (let i = 0; i < files.length; i += 1) {
         const file = files[i];
-        setMessage(`Downloading ${i + 1}/${files.length}: ${file.name}`);
+        setBulkProgress({ kind, current: i + 1, total: files.length, name: file.name, failed });
         try {
-          const blob = await fetchFileBlob(file);
-          saveBlob(blob, file.name);
-          // Give the browser a beat so multiple saves are not blocked.
-          await new Promise((resolve) => setTimeout(resolve, 350));
+          // Native browser download so Chrome shows its own progress for each file.
+          await startChromeDownload(file);
+          await new Promise((resolve) => setTimeout(resolve, 700));
         } catch {
           failed += 1;
+          setBulkProgress({ kind, current: i + 1, total: files.length, name: file.name, failed });
         }
       }
       setMessage(
         failed
-          ? `Downloaded ${files.length - failed}/${files.length}. ${failed} failed.`
-          : `Downloaded all ${files.length} ${kind === "image" ? "image" : "video"}${files.length === 1 ? "" : "s"}.`,
+          ? `Started ${files.length - failed}/${files.length} Chrome downloads. ${failed} failed.`
+          : `Started ${files.length} Chrome downloads. Check the browser download bar for progress.`,
       );
     } finally {
       setBulkBusy(null);
+      setBulkProgress(null);
     }
   }
 
@@ -1299,7 +1282,33 @@ function MediaExplorerInner({
   return (
     <div className="mt-6 space-y-4">
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-      {message ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p> : null}
+      {bulkProgress ? (
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex items-center justify-between gap-3 text-sm text-slate-800">
+            <p className="font-medium">
+              Sending {bulkProgress.kind === "image" ? "images" : "videos"} to Chrome downloads
+            </p>
+            <p className="shrink-0 tabular-nums text-slate-500">
+              {bulkProgress.current}/{bulkProgress.total}
+            </p>
+          </div>
+          <p className="mt-1 truncate text-xs text-slate-500">{bulkProgress.name}</p>
+          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-slate-900 transition-[width] duration-300 ease-out"
+              style={{
+                width: `${Math.max(4, Math.round((bulkProgress.current / Math.max(bulkProgress.total, 1)) * 100))}%`,
+              }}
+            />
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            Progress for each file shows in Chrome&apos;s download bar
+            {bulkProgress.failed ? ` · ${bulkProgress.failed} failed` : ""}.
+          </p>
+        </div>
+      ) : message ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{message}</p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
