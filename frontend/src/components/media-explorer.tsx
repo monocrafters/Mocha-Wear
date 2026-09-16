@@ -824,6 +824,8 @@ function MediaExplorerInner({
   const playbackRequestRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
   const loadRequestRef = useRef(0);
+  /** Folder id opened via click — skip the URL-effect duplicate load. */
+  const clickNavRef = useRef<string | null>(null);
 
   function buildMediaHref(opts: {
     folderId?: string;
@@ -845,29 +847,44 @@ function MediaExplorerInner({
   }
 
   function navigateToFolder(folder: { id: string; name: string }) {
-    // If the URL is already this folder (e.g. a cancelled load left us here), push is a no-op —
-    // force the browse load so the click always responds.
-    if (folder.id === folderParam) {
-      void load(folder.id, { syncUrl: true });
-      return;
-    }
-    router.push(buildMediaHref({ folderId: folder.id, folderTitle: folder.name }));
+    openFolder(folder.id, folder.name);
   }
 
   function navigateToCrumb(crumb: Breadcrumb) {
-    if (!crumb.id) {
-      if (!folderParam) {
-        void load("", { syncUrl: true });
-        return;
-      }
-      router.push(pathname);
+    openFolder(crumb.id || "", crumb.name || "Media");
+  }
+
+  /** Open a folder from click immediately — do not wait for URL/searchParams. */
+  function openFolder(id: string, title: string) {
+    const targetId = String(id || "");
+    clickNavRef.current = targetId;
+
+    const cached = getMediaBrowse<BrowsePayload>(apiBase, targetId);
+    if (cached) {
+      setData(cached);
+      setFolderId(String(cached.folder?.id || targetId));
+      setLoading(false);
+      setError("");
+    } else {
+      setData(null);
+      setFolderId(targetId);
+      setLoading(true);
+      setError("");
+    }
+
+    const href = targetId
+      ? buildMediaHref({ folderId: targetId, folderTitle: title || undefined })
+      : pathname;
+
+    // Always drive the fetch from the click itself.
+    void load(targetId, { syncUrl: false, force: !cached });
+
+    if (targetId === folderParam) {
+      // URL already points here (stuck after back/abort) — still refresh title if needed.
+      if (title && title !== folderTitleParam) router.replace(href);
       return;
     }
-    if (crumb.id === folderParam) {
-      void load(crumb.id, { syncUrl: true });
-      return;
-    }
-    router.push(buildMediaHref({ folderId: crumb.id, folderTitle: crumb.name }));
+    router.push(href);
   }
 
   useEffect(() => {
@@ -1219,6 +1236,7 @@ function MediaExplorerInner({
 
   async function fetchBrowsePayload(nextFolderId: string, signal?: AbortSignal) {
     const query = nextFolderId ? `?folder_id=${encodeURIComponent(nextFolderId)}` : "";
+    // retries=0 so AbortError does not get swallowed into long retry loops
     const res = await apiFetch(`${API_URL}${apiBase}${query}`, { credentials: "include", signal }, 0);
     const json = (await res.json()) as BrowsePayload & { message?: string };
     if (!res.ok) throw new Error(json.message || "Could not load media");
@@ -1245,12 +1263,10 @@ function MediaExplorerInner({
     const cached = getMediaBrowse<BrowsePayload>(apiBase, targetId);
     if (cached) {
       setData(cached);
-      setFolderId(String(cached.folder?.id || ""));
+      setFolderId(String(cached.folder?.id || targetId));
       setLoading(false);
       if (syncUrl) syncBrowseUrl(cached);
     } else {
-      // Keep the previous grid visible while loading — clearing to null + abort caused
-      // an empty screen stuck on the new URL where a second click does nothing.
       setLoading(true);
     }
     setError("");
@@ -1264,19 +1280,19 @@ function MediaExplorerInner({
       setMediaBrowse(apiBase, targetId, json);
       setMediaBrowse(apiBase, String(json.folder?.id || ""), json);
       setData(json);
-      const nextId = String(json.folder?.id || "");
-      setFolderId(nextId);
+      setFolderId(String(json.folder?.id || targetId));
       if (syncUrl) syncBrowseUrl(json);
     } catch (err) {
-      if (requestId !== loadRequestRef.current || controller.signal.aborted) return;
+      if (requestId !== loadRequestRef.current) return;
+      if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
       const fallback = getMediaBrowse<BrowsePayload>(apiBase, targetId);
       if (fallback) {
         setData(fallback);
-        setFolderId(String(fallback.folder?.id || ""));
+        setFolderId(String(fallback.folder?.id || targetId));
         return;
       }
       setError(err instanceof Error ? err.message : "Could not load media");
-      if (syncUrl && folderParam) router.replace(pathname);
+      if (syncUrl && targetId) router.replace(pathname);
     } finally {
       if (requestId === loadRequestRef.current) setLoading(false);
     }
@@ -1288,7 +1304,12 @@ function MediaExplorerInner({
   }
 
   useEffect(() => {
-    // URL folder id is the source of truth for browser back/forward.
+    // Browser back/forward (and first mount). Clicks use openFolder() and skip a duplicate fetch.
+    if (clickNavRef.current !== null && clickNavRef.current === folderParam) {
+      clickNavRef.current = null;
+      return;
+    }
+    clickNavRef.current = null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(folderParam, { syncUrl: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
