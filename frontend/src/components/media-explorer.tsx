@@ -846,16 +846,15 @@ function MediaExplorerInner({
     return query ? `${pathname}?${query}` : pathname;
   }
 
-  function navigateToFolder(folder: { id: string; name: string }) {
-    openFolder(folder.id, folder.name);
+  function folderHref(id: string, title?: string) {
+    const targetId = String(id || "");
+    return targetId
+      ? buildMediaHref({ folderId: targetId, folderTitle: title || undefined })
+      : pathname;
   }
 
-  function navigateToCrumb(crumb: Breadcrumb) {
-    openFolder(crumb.id || "", crumb.name || "Media");
-  }
-
-  /** Open a folder from click immediately — do not wait for URL/searchParams. */
-  function openFolder(id: string, title: string) {
+  /** Optimistic paint + fetch on tap. Real <Link> owns history (critical on mobile Back). */
+  function paintFolder(id: string) {
     const targetId = String(id || "");
     clickNavRef.current = targetId;
 
@@ -872,19 +871,13 @@ function MediaExplorerInner({
       setError("");
     }
 
-    const href = targetId
-      ? buildMediaHref({ folderId: targetId, folderTitle: title || undefined })
-      : pathname;
-
-    // Always drive the fetch from the click itself.
     void load(targetId, { syncUrl: false, force: !cached });
+  }
 
-    if (targetId === folderParam) {
-      // URL already points here (stuck after back/abort) — still refresh title if needed.
-      if (title && title !== folderTitleParam) router.replace(href);
-      return;
-    }
-    router.push(href);
+  function onFolderPointerEnter(folder: { id: string }, event: { pointerType?: string }) {
+    // Touch fires pointerenter before click and races the open fetch — desktop hover only.
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    prefetchFolder(folder);
   }
 
   useEffect(() => {
@@ -1306,7 +1299,7 @@ function MediaExplorerInner({
   }
 
   useEffect(() => {
-    // Browser back/forward (and first mount). Clicks use openFolder() and skip a duplicate fetch.
+    // Browser back/forward (and first mount). Taps use <Link> + paintFolder() and skip a duplicate fetch.
     if (clickNavRef.current !== null && clickNavRef.current === folderParam) {
       clickNavRef.current = null;
       return;
@@ -1615,17 +1608,17 @@ function MediaExplorerInner({
           {(data?.breadcrumbs || [{ id: "", name: "Media" }]).map((crumb, index, list) => (
             <span key={`${crumb.id}-${index}`} className="flex items-center gap-1">
               {index > 0 ? <span className="text-slate-300">/</span> : null}
-              <button
-                type="button"
-                onClick={() => navigateToCrumb(crumb)}
-                className={`truncate ${
-                  index === list.length - 1
-                    ? "font-semibold text-slate-900"
-                    : "text-blue-600 hover:underline"
-                }`}
-              >
-                {crumb.name}
-              </button>
+              {index === list.length - 1 ? (
+                <span className="truncate font-semibold text-slate-900">{crumb.name}</span>
+              ) : (
+                <Link
+                  href={folderHref(crumb.id, crumb.name)}
+                  onClick={() => paintFolder(crumb.id || "")}
+                  className="truncate text-blue-600 hover:underline"
+                >
+                  {crumb.name}
+                </Link>
+              )}
             </span>
           ))}
         </nav>
@@ -1788,11 +1781,11 @@ function MediaExplorerInner({
                   <div
                     key={folder.id}
                     className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-                    onPointerEnter={() => prefetchFolder(folder)}
                   >
-                    <button
-                      type="button"
-                      onClick={() => navigateToFolder(folder)}
+                    <Link
+                      href={folderHref(folder.id, folder.name)}
+                      onClick={() => paintFolder(folder.id)}
+                      onPointerEnter={(event) => onFolderPointerEnter(folder, event)}
                       className="relative block w-full overflow-hidden bg-amber-50/60"
                       aria-label={`Open ${folder.name}`}
                     >
@@ -1803,74 +1796,75 @@ function MediaExplorerInner({
                           <Folder size={28} className="text-amber-500" />
                         </span>
                       )}
-                    </button>
-                    <div className="space-y-2 p-2">
-                      <p className="truncate text-[12px] font-semibold text-slate-900" title={folder.name}>
-                        {folder.name}
-                      </p>
-                      {productFolder ? (
-                        <div className="flex gap-1">
-                          <Link
-                            href={
-                              folder.product_published
-                                ? `/products/${encodeURIComponent(folder.product_slug || "")}`
-                                : `/admin/products?product=${encodeURIComponent(folder.product_id || "")}`
-                            }
-                            className="flex-1 rounded-md border border-slate-200 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-slate-700"
-                          >
-                            View
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => navigateToFolder(folder)}
-                            className="flex-1 rounded-md bg-slate-900 px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-white"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      ) : canEdit ? (
-                        <div className="flex flex-wrap gap-1" onClick={(event) => event.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => copyItem("folder", folder.id, folder.name)}
-                            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
-                            title="Copy"
-                            aria-label="Copy folder"
-                          >
-                            <Copy size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => cutItem("folder", folder.id, folder.name)}
-                            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
-                            title="Cut"
-                            aria-label="Cut folder"
-                          >
-                            <Scissors size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void renameFolder(folder)}
-                            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
-                            title="Rename"
-                            aria-label="Rename folder"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void removeFolder(folder)}
-                            className="rounded border border-red-200 p-1.5 text-red-600 hover:bg-red-50"
-                            title="Delete"
-                            aria-label="Delete folder"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-slate-500">Tap to open</p>
-                      )}
-                    </div>
+                      <div className="space-y-1 bg-white p-2">
+                        <p className="truncate text-[12px] font-semibold text-slate-900" title={folder.name}>
+                          {folder.name}
+                        </p>
+                        {!productFolder && !canEdit ? (
+                          <p className="text-[10px] text-slate-500">Tap to open</p>
+                        ) : null}
+                      </div>
+                    </Link>
+                    {productFolder ? (
+                      <div className="flex gap-1 px-2 pb-2">
+                        <Link
+                          href={
+                            folder.product_published
+                              ? `/products/${encodeURIComponent(folder.product_slug || "")}`
+                              : `/admin/products?product=${encodeURIComponent(folder.product_id || "")}`
+                          }
+                          className="flex-1 rounded-md border border-slate-200 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-slate-700"
+                        >
+                          View
+                        </Link>
+                        <Link
+                          href={folderHref(folder.id, folder.name)}
+                          onClick={() => paintFolder(folder.id)}
+                          className="flex-1 rounded-md bg-slate-900 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-white"
+                        >
+                          Add
+                        </Link>
+                      </div>
+                    ) : canEdit ? (
+                      <div className="flex flex-wrap gap-1 px-2 pb-2" onClick={(event) => event.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => copyItem("folder", folder.id, folder.name)}
+                          className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                          title="Copy"
+                          aria-label="Copy folder"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => cutItem("folder", folder.id, folder.name)}
+                          className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                          title="Cut"
+                          aria-label="Cut folder"
+                        >
+                          <Scissors size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void renameFolder(folder)}
+                          className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                          title="Rename"
+                          aria-label="Rename folder"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeFolder(folder)}
+                          className="rounded border border-red-200 p-1.5 text-red-600 hover:bg-red-50"
+                          title="Delete"
+                          aria-label="Delete folder"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
