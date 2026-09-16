@@ -275,6 +275,9 @@ async function createOne(body) {
   }
   data.products.push(product);
   await writeStore(data);
+  if (product.media_enabled) {
+    await require("./mediaLibrary").ensureDefaultProductFolders(product.id);
+  }
   return product;
 }
 
@@ -286,7 +289,8 @@ async function updateOne(id, body) {
     err.status = 404;
     throw err;
   }
-  const product = payloadFromBody(body, data.products[index]);
+  const previous = data.products[index];
+  const product = payloadFromBody(body, previous);
   assertResellerPricing(product);
   if (data.products.some((item) => sameCode(item.code || item.slug, product.code) && item.id !== id)) {
     const err = new Error("Product code already exists");
@@ -295,6 +299,9 @@ async function updateOne(id, body) {
   }
   data.products[index] = { ...product, id };
   await writeStore(data);
+  if (product.media_enabled && !previous.media_enabled) {
+    await require("./mediaLibrary").ensureDefaultProductFolders(product.id);
+  }
   return data.products[index];
 }
 

@@ -10,7 +10,7 @@ const DATA_FILE = path.join(DATA_DIR, "media_library.json");
 const ROOT_ID = "";
 
 function emptyStore() {
-  return { folders: [], files: [] };
+  return { folders: [], files: [], seeded_product_media: [] };
 }
 
 function readFileStore() {
@@ -63,6 +63,13 @@ function normalize(data = {}) {
   return {
     folders: (Array.isArray(data.folders) ? data.folders : []).map(shapeFolder),
     files: (Array.isArray(data.files) ? data.files : []).map(shapeFile),
+    seeded_product_media: [
+      ...new Set(
+        (Array.isArray(data.seeded_product_media) ? data.seeded_product_media : [])
+          .map((id) => String(id || "").trim())
+          .filter(Boolean),
+      ),
+    ],
   };
 }
 
@@ -100,7 +107,51 @@ async function readStore() {
 
 async function writeStore(data) {
   // Publish cached metadata only after durable storage succeeds.
-  await writeDocument("media_library", normalize({ ...data, folders: data.folders.filter(folder => !folder.product_id) }));
+  await writeDocument(
+    "media_library",
+    normalize({
+      ...data,
+      folders: data.folders.filter((folder) => !folder.product_id),
+    }),
+  );
+}
+
+const DEFAULT_PRODUCT_MEDIA_FOLDERS = ["Raw Images", "Raw Videos"];
+
+/** Create default Raw Images / Raw Videos once when a product is added to Media. Deleting them later is allowed. */
+async function ensureDefaultProductFolders(productId) {
+  const id = String(productId || "").trim();
+  if (!id) return { created: [] };
+
+  const products = await require("./products").listAll();
+  const product = products.find((item) => item.id === id && item.media_enabled);
+  if (!product) return { created: [] };
+
+  const data = await readStore();
+  if ((data.seeded_product_media || []).includes(id)) return { created: [] };
+
+  const parentId = `product:${id}`;
+  const created = [];
+  for (const name of DEFAULT_PRODUCT_MEDIA_FOLDERS) {
+    const exists = data.folders.some(
+      (folder) =>
+        (folder.parent_id || ROOT_ID) === parentId &&
+        folder.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (exists) continue;
+    const folder = shapeFolder({
+      id: crypto.randomUUID(),
+      parent_id: parentId,
+      name,
+      created_at: new Date().toISOString(),
+    });
+    data.folders.push(folder);
+    created.push(folder);
+  }
+
+  data.seeded_product_media = [...new Set([...(data.seeded_product_media || []), id])];
+  await writeStore(data);
+  return { created };
 }
 
 function assertManualFolder(id) {
@@ -166,8 +217,12 @@ function listChildren(data, folderId) {
 }
 
 async function browse(folderId = ROOT_ID) {
-  const data = await readStore();
   const id = String(folderId || ROOT_ID);
+  if (id.startsWith("product:")) {
+    // Use the queued export so seeding cannot race other media writes.
+    await module.exports.ensureDefaultProductFolders(id.slice("product:".length));
+  }
+  const data = await readStore();
   if (!folderExists(data, id)) {
     const err = new Error("Folder not found");
     err.status = 404;
@@ -700,13 +755,24 @@ module.exports = {
   renameFile,
   deleteFile,
   pasteItem,
+  ensureDefaultProductFolders,
   sendError,
 };
 
 // Serialize whole read-modify-write operations, not only the final store write.
 // Run one API replica until metadata storage supports database transactions.
 let mutationQueue = Promise.resolve();
-for (const name of ["createFolder", "renameFolder", "setFolderCover", "deleteFolder", "uploadFiles", "renameFile", "deleteFile", "pasteItem"]) {
+for (const name of [
+  "createFolder",
+  "renameFolder",
+  "setFolderCover",
+  "deleteFolder",
+  "uploadFiles",
+  "renameFile",
+  "deleteFile",
+  "pasteItem",
+  "ensureDefaultProductFolders",
+]) {
   const operation = module.exports[name];
   module.exports[name] = (...args) => {
     const next = mutationQueue.then(() => operation(...args));
