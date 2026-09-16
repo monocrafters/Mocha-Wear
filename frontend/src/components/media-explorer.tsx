@@ -1215,22 +1215,25 @@ function MediaExplorerInner({
   function syncBrowseUrl(payload: BrowsePayload) {
     const nextId = String(payload.folder?.id || "");
     const nextTitle = String(payload.folder?.name || "");
-    if (nextId && (folderParam !== nextId || (nextTitle && folderTitleParam !== nextTitle))) {
-      router.replace(
-        buildMediaHref({
-          folderId: nextId,
-          folderTitle: nextTitle || undefined,
-          videoId: videoParam || undefined,
-          videoTitle: videoTitleParam || undefined,
-        }),
-      );
-    } else if (!nextId && folderParam) {
-      router.replace(
-        buildMediaHref({
-          videoId: videoParam || undefined,
-          videoTitle: videoTitleParam || undefined,
-        }),
-      );
+    // Only polish the title on the *current* history entry.
+    // Never router.replace() into a different folder id — that overwrites `/media` in
+    // the stack, so Back leaves Media entirely instead of returning to the folder list.
+    if (nextId && nextId === folderParam) {
+      if (nextTitle && folderTitleParam !== nextTitle) {
+        router.replace(
+          buildMediaHref({
+            folderId: nextId,
+            folderTitle: nextTitle,
+            videoId: videoParam || undefined,
+            videoTitle: videoTitleParam || undefined,
+          }),
+        );
+      }
+      return;
+    }
+    if (!nextId && !folderParam && (videoParam || videoTitleParam || folderTitleParam)) {
+      // Already on media root — drop stale title/video query crumbs without adding history.
+      router.replace(pathname);
     }
   }
 
@@ -1292,7 +1295,6 @@ function MediaExplorerInner({
         return;
       }
       setError(err instanceof Error ? err.message : "Could not load media");
-      if (syncUrl && targetId) router.replace(pathname);
     } finally {
       if (requestId === loadRequestRef.current) setLoading(false);
     }
