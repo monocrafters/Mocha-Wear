@@ -780,13 +780,34 @@ function MediaExplorerInner({
     }
   }
 
-  async function startChromeDownload(file: MediaFile) {
+  async function resolveDownloadUrl(file: MediaFile) {
     if (file.provider === "drive") {
       const res = await apiFetch(API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket", { method: "POST" }, 0);
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not download file");
+      return API_URL + json.url;
+    }
+    if (file.url.startsWith("http://") || file.url.startsWith("https://")) return file.url;
+    return API_URL + file.url;
+  }
+
+  function saveBlobDownload(blob: Blob, name: string) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = name;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  }
+
+  async function startChromeDownload(file: MediaFile) {
+    if (file.provider === "drive") {
+      const url = await resolveDownloadUrl(file);
       const link = document.createElement("a");
-      link.href = API_URL + json.url;
+      link.href = url;
       link.referrerPolicy = "no-referrer";
       document.body.appendChild(link);
       link.click();
@@ -810,12 +831,10 @@ function MediaExplorerInner({
       return;
     }
 
-    const estimate = Math.max(
+    let total = Math.max(
       1,
       files.reduce((sum, file) => sum + (Number(file.bytes) || 0), 0),
     );
-    const folderLabel = String(data.folder?.name || "media").replace(/[\\/:*?"<>|]+/g, "-") || "media";
-    const query = `?kind=${kind}${folderId ? `&folder_id=${encodeURIComponent(folderId)}` : ""}`;
 
     setBulkBusy(kind);
     setError("");
@@ -823,92 +842,100 @@ function MediaExplorerInner({
     setBulkProgress({
       kind,
       percent: 1,
-      label: `Preparing ${files.length} ${kind}${files.length === 1 ? "" : "s"}…`,
+      label: `Starting ${files.length} ${kind}${files.length === 1 ? "" : "s"}…`,
       received: 0,
-      total: estimate,
+      total,
     });
 
+    let received = 0;
+    let saved = 0;
+    const failed: string[] = [];
+
     try {
-      const res = await apiFetch(`${API_URL}${apiBase}/download-zip${query}`, {}, 0);
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error((json as { message?: string }).message || "Could not download zip");
-      }
-      if (!res.body) throw new Error("Could not download zip");
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const priorReceived = received;
+        const listedBytes = Number(file.bytes) || 0;
 
-      const fileCount = Number(res.headers.get("X-Media-File-Count")) || files.length;
-      const headerEstimate = Number(res.headers.get("X-Media-Bytes-Estimate")) || estimate;
-      let total = Math.max(1, headerEstimate);
-
-      type SavePickerWindow = Window & {
-        showSaveFilePicker?: (options: {
-          suggestedName?: string;
-          types?: Array<{ description: string; accept: Record<string, string[]> }>;
-        }) => Promise<{ createWritable: () => Promise<{ write: (chunk: Uint8Array) => Promise<void>; close: () => Promise<void> }> }>;
-      };
-
-      let writable: { write: (chunk: Uint8Array) => Promise<void>; close: () => Promise<void> } | null = null;
-      const picker = window as SavePickerWindow;
-      if (typeof picker.showSaveFilePicker === "function") {
-        try {
-          const handle = await picker.showSaveFilePicker({
-            suggestedName: `${folderLabel}-${kind}s.zip`,
-            types: [{ description: "ZIP archive", accept: { "application/zip": [".zip"] } }],
-          });
-          writable = await handle.createWritable();
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "AbortError") {
-            setMessage("Download cancelled");
-            return;
-          }
-        }
-      }
-
-      const reader = res.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        received += value.byteLength;
-        // Zip overhead can exceed the raw-file estimate — keep the bar honest.
-        if (received > total) total = received;
-        if (writable) await writable.write(value);
-        else chunks.push(value);
         setBulkProgress({
           kind,
           percent: Math.min(99, Math.round((received / total) * 100)),
-          label: `Downloading ${fileCount} ${kind}${fileCount === 1 ? "" : "s"}… ${formatBytes(received)}`,
+          label: `Downloading ${index + 1}/${files.length}: ${file.name}`,
           received,
           total,
         });
-      }
 
-      if (writable) {
-        await writable.close();
-      } else {
-        const blob = new Blob(chunks as BlobPart[], { type: "application/zip" });
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = objectUrl;
-        link.download = `${folderLabel}-${kind}s.zip`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+        try {
+          const url = await resolveDownloadUrl(file);
+          const res = await fetch(url, { credentials: "include", referrerPolicy: "no-referrer" });
+          if (!res.ok || !res.body) throw new Error(`Could not download ${file.name}`);
+
+          const contentLength = Number(res.headers.get("content-length")) || 0;
+          if (contentLength > 0) {
+            total = Math.max(1, total - listedBytes + contentLength);
+          }
+
+          const chunks: Uint8Array[] = [];
+          const reader = res.body.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.byteLength;
+            if (received > total) total = received;
+            setBulkProgress({
+              kind,
+              percent: Math.min(99, Math.round((received / total) * 100)),
+              label: `Downloading ${index + 1}/${files.length}: ${file.name}`,
+              received,
+              total,
+            });
+          }
+
+          saveBlobDownload(
+            new Blob(chunks as BlobPart[], { type: file.mime || "application/octet-stream" }),
+            file.name,
+          );
+          saved += 1;
+          // Let Chrome register each file before the next download starts.
+          if (index < files.length - 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 700));
+          }
+        } catch {
+          try {
+            // Cross-origin / blocked fetch: fall back to native browser download.
+            await startChromeDownload(file);
+            saved += 1;
+            received = Math.max(received, priorReceived + Math.max(listedBytes, 1));
+            if (received > total) total = received;
+            if (index < files.length - 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 700));
+            }
+          } catch {
+            failed.push(file.name);
+            received = Math.max(received, priorReceived + listedBytes);
+            if (received > total) total = received;
+          }
+        }
       }
 
       setBulkProgress({
         kind,
         percent: 100,
-        label: `Downloaded ${fileCount} ${kind}${fileCount === 1 ? "" : "s"}`,
+        label: failed.length
+          ? `Saved ${saved}/${files.length} files`
+          : `Downloaded ${saved} ${kind}${saved === 1 ? "" : "s"}`,
         received,
         total: Math.max(total, received),
       });
-      setMessage(`Downloaded all ${fileCount} ${kind}${fileCount === 1 ? "" : "s"} as a zip.`);
+      if (failed.length) {
+        setError(`Could not download ${failed.length} file${failed.length === 1 ? "" : "s"}: ${failed.slice(0, 3).join(", ")}${failed.length > 3 ? "…" : ""}`);
+      } else {
+        setMessage(`Downloaded all ${saved} ${kind}${saved === 1 ? "" : "s"} one by one.`);
+      }
       window.setTimeout(() => setBulkProgress(null), 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not download zip");
+      setError(err instanceof Error ? err.message : "Could not download files");
       setBulkProgress(null);
     } finally {
       setBulkBusy(null);

@@ -1,100 +1,16 @@
 const crypto = require("node:crypto");
-const { Readable, PassThrough } = require("node:stream");
+const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
-const archiver = require("archiver");
 const drive = require("./googleDrive");
 const library = require("./mediaLibrary");
 const pending = new Map();
 const tickets = new Map();
 function prune(map) { for (const [key, value] of map) if (value.expires < Date.now()) map.delete(key); }
 function safe(handler) { return async (req, res) => { try { await handler(req, res); } catch (e) { if (!res.headersSent) library.sendError(res, e); else res.destroy(); } }; }
-function isImage(file) {
-  return file.resource_type === "image" || String(file.mime || "").startsWith("image/");
-}
-function isVideo(file) {
-  return file.resource_type === "video" || String(file.mime || "").startsWith("video/");
-}
-function uniqueZipName(name, used) {
-  const base = String(name || "file").replace(/[\\/:*?"<>|\x00-\x1f]/g, "_") || "file";
-  if (!used.has(base.toLowerCase())) {
-    used.add(base.toLowerCase());
-    return base;
-  }
-  const dot = base.lastIndexOf(".");
-  const stem = dot > 0 ? base.slice(0, dot) : base;
-  const ext = dot > 0 ? base.slice(dot) : "";
-  let i = 2;
-  let next = `${stem}-${i}${ext}`;
-  while (used.has(next.toLowerCase())) {
-    i += 1;
-    next = `${stem}-${i}${ext}`;
-  }
-  used.add(next.toLowerCase());
-  return next;
-}
 function publicBrowse(payload, base) {
   const url = id => `${base}/files/${encodeURIComponent(id)}/preview`;
   return { ...payload, folders: payload.folders.map(f => ({ ...f, cover_url: f.cover_url?.startsWith("drive:") ? url(f.cover_file_id) : f.cover_url })),
     files: payload.files.map(f => { const { drive_id, ...item } = f; return { ...item, url: f.provider === "drive" ? url(f.id) : f.url }; }) };
-}
-async function zipFolder(req, res, kind) {
-  const folderId = String(req.query.folder_id || "");
-  const browse = await library.browse(folderId);
-  const files = browse.files.filter((file) => (kind === "video" ? isVideo(file) : isImage(file)));
-  if (!files.length) throw Object.assign(new Error(kind === "video" ? "No videos in this folder" : "No images in this folder"), { status: 404 });
-  const folderName = String(browse.folder?.name || "media").replace(/[\\/:*?"<>|\x00-\x1f]+/g, "-") || "media";
-  const estimate = files.reduce((sum, file) => sum + (Number(file.bytes) || 0), 0);
-  res.status(200);
-  res.set({
-    "Content-Type": "application/zip",
-    "Content-Disposition": `attachment; filename="${folderName}-${kind}s.zip"`,
-    "Cache-Control": "private, no-store, no-transform",
-    "X-Content-Type-Options": "nosniff",
-    "X-Accel-Buffering": "no",
-    "Access-Control-Expose-Headers": "X-Media-File-Count, X-Media-Bytes-Estimate",
-    "X-Media-File-Count": String(files.length),
-    "X-Media-Bytes-Estimate": String(estimate),
-  });
-  if (typeof res.flushHeaders === "function") res.flushHeaders();
-
-  const archive = archiver("zip", { zlib: { level: 0 }, store: true });
-  const used = new Set();
-  const controller = new AbortController();
-  const onClose = () => controller.abort();
-  res.on("close", onClose);
-  archive.on("error", (error) => {
-    if (!res.headersSent) library.sendError(res, error);
-    else res.destroy(error);
-  });
-  archive.pipe(res);
-
-  // Fetch + pipe one file at a time. Opening every Drive stream upfront stalls/aborts
-  // while archiver's queue drains, so "Download all" used to miss most files.
-  for (const file of files) {
-    const entryName = uniqueZipName(file.name, used);
-    const entry = new PassThrough();
-    archive.append(entry, { name: entryName, store: true });
-    try {
-      let upstream;
-      if (file.provider === "drive") {
-        upstream = await drive.content(file.drive_id, undefined, controller.signal);
-        if (!upstream.ok && upstream.status !== 206) {
-          throw Object.assign(new Error(`Could not read ${file.name}`), { status: 502 });
-        }
-      } else {
-        upstream = await fetch(file.url, { signal: controller.signal });
-        if (!upstream.ok || !upstream.body) {
-          throw Object.assign(new Error(`Could not read ${file.name}`), { status: 502 });
-        }
-      }
-      await pipeline(Readable.fromWeb(upstream.body), entry);
-    } catch (error) {
-      entry.destroy(error);
-      throw error;
-    }
-  }
-  res.off("close", onClose);
-  await archive.finalize();
 }
 function register(app, adminAuth, resellerAuth) {
   app.get("/api/admin/media/drive/status", adminAuth.requireAdmin, safe(async (_req, res) => res.json(await drive.status())));
@@ -175,10 +91,6 @@ function register(app, adminAuth, resellerAuth) {
       }
       auth(req, res, next);
     }, safe(async (req, res) => stream(req, res, "stream")));
-    app.get(`${base}/download-zip`, auth, safe(async (req, res) => {
-      const kind = req.query.kind === "video" ? "video" : "image";
-      await zipFolder(req, res, kind);
-    }));
   }
 }
 async function stream(req, res, mode) {

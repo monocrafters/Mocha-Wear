@@ -58,7 +58,6 @@ app.use(compression({
   filter(req, res) {
     // Never buffer/gzip private media bytes — it stalls video start and downloads.
     if (/\/media\/files\/[^/]+\/(stream|download|preview)\b/.test(req.path)) return false;
-    if (/\/media\/download-zip\b/.test(req.path)) return false;
     return compression.filter(req, res);
   },
 }));
@@ -87,7 +86,7 @@ app.use(
     },
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "X-Reseller-Code"],
-    exposedHeaders: ["Set-Cookie", "X-Media-File-Count", "X-Media-Bytes-Estimate"],
+    exposedHeaders: ["Set-Cookie"],
   }),
 );
 app.use(express.json());
