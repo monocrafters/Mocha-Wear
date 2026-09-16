@@ -71,9 +71,29 @@ async function readStore() {
   // Deterministic virtual roots keep assets linked across toggles without writes.
   const products = await require("./products").listAll();
   for (const product of products.filter(item => item.media_enabled)) {
-    data.folders.push({ ...shapeFolder({ id: `product:${product.id}`, name: product.name }),
-      product_id: product.id, product_slug: product.slug, product_published: product.is_published,
-      cover_url: product.images[0]?.url || "" });
+    const folderId = `product:${product.id}`;
+    let cover_url = product.images[0]?.url || "";
+    let cover_file_id = null;
+    if (!cover_url) {
+      const mediaCover = data.files.find(
+        (file) =>
+          String(file.folder_id || ROOT_ID) === folderId &&
+          (file.resource_type === "image" || String(file.mime || "").startsWith("image/")) &&
+          file.url,
+      );
+      if (mediaCover) {
+        cover_url = mediaCover.url;
+        cover_file_id = mediaCover.id;
+      }
+    }
+    data.folders.push({
+      ...shapeFolder({ id: folderId, name: product.name, cover_file_id, cover_url }),
+      product_id: product.id,
+      product_slug: product.slug,
+      product_published: product.is_published,
+      cover_url,
+      cover_file_id,
+    });
   }
   return data;
 }
@@ -128,10 +148,16 @@ function listChildren(data, folderId) {
       if (folder.product_id) return folder;
       if (!folder.cover_file_id) return { ...folder, cover_url: "" };
       const cover = data.files.find((file) => file.id === folder.cover_file_id);
-      if (!cover || !isImageFile(cover) || !cover.url) {
+      if (!cover || !isImageFile(cover)) {
         return { ...folder, cover_file_id: null, cover_url: "" };
       }
-      return { ...folder, cover_url: cover.url };
+      const cover_url =
+        cover.url ||
+        (cover.provider === "drive" && cover.drive_id ? `drive:${cover.drive_id}` : "");
+      if (!cover_url) {
+        return { ...folder, cover_file_id: null, cover_url: "" };
+      }
+      return { ...folder, cover_url };
     });
   const files = data.files
     .filter((file) => (file.folder_id || ROOT_ID) === id)

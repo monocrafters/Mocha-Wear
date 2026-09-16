@@ -8,9 +8,25 @@ const tickets = new Map();
 function prune(map) { for (const [key, value] of map) if (value.expires < Date.now()) map.delete(key); }
 function safe(handler) { return async (req, res) => { try { await handler(req, res); } catch (e) { if (!res.headersSent) library.sendError(res, e); else res.destroy(); } }; }
 function publicBrowse(payload, base) {
-  const url = id => `${base}/files/${encodeURIComponent(id)}/preview`;
-  return { ...payload, folders: payload.folders.map(f => ({ ...f, cover_url: f.cover_url?.startsWith("drive:") ? url(f.cover_file_id) : f.cover_url })),
-    files: payload.files.map(f => { const { drive_id, ...item } = f; return { ...item, url: f.provider === "drive" ? url(f.id) : f.url }; }) };
+  const previewUrl = (id) => `${base}/files/${encodeURIComponent(id)}/preview`;
+  return {
+    ...payload,
+    folders: payload.folders.map((f) => {
+      const raw = String(f.cover_url || "");
+      // Drive-backed covers must go through the auth preview route (not a bare drive: id).
+      const cover_url =
+        f.cover_file_id && (raw.startsWith("drive:") || !raw)
+          ? previewUrl(f.cover_file_id)
+          : raw.startsWith("drive:")
+            ? ""
+            : raw;
+      return { ...f, cover_url };
+    }),
+    files: payload.files.map((f) => {
+      const { drive_id, ...item } = f;
+      return { ...item, url: f.provider === "drive" ? previewUrl(f.id) : f.url };
+    }),
+  };
 }
 function register(app, adminAuth, resellerAuth) {
   app.get("/api/admin/media/drive/status", adminAuth.requireAdmin, safe(async (_req, res) => res.json(await drive.status())));
@@ -101,13 +117,26 @@ async function stream(req, res, mode) {
   const range = req.headers.range;
   if (range && !/^bytes=\d*-\d*$/.test(range)) throw Object.assign(new Error("Invalid byte range"), { status: 416 });
   const preview = mode === "preview";
-  const upstream = preview
-    ? await drive.thumbnail(file.drive_id, controller.signal)
-    : await drive.content(file.drive_id, range, controller.signal);
+  let upstream;
+  if (preview) {
+    try {
+      upstream = await drive.thumbnail(file.drive_id, controller.signal);
+    } catch {
+      // Thumbnails are often missing right after upload — fall back to the real image bytes
+      // so folder covers and grid cards still render.
+      if (file.resource_type === "image" || String(file.mime || "").startsWith("image/")) {
+        upstream = await drive.content(file.drive_id, undefined, controller.signal);
+      } else {
+        throw Object.assign(new Error("Preview is not available yet."), { status: 404 });
+      }
+    }
+  } else {
+    upstream = await drive.content(file.drive_id, range, controller.signal);
+  }
   res.status(upstream.status);
   const mime =
     preview
-      ? "image/jpeg"
+      ? String(upstream.headers.get("content-type") || file.mime || "image/jpeg")
       : mode === "stream"
         ? String(file.mime || upstream.headers.get("content-type") || (file.resource_type === "image" ? "image/jpeg" : "video/mp4"))
         : "application/octet-stream";

@@ -110,17 +110,28 @@ function isVideoFile(file: MediaFile) {
   return file.resource_type === "video" || String(file.mime || "").startsWith("video/");
 }
 
+function isPrivateMediaSrc(src: string) {
+  if (src.startsWith("/api/")) return true;
+  try {
+    const path = new URL(src, "https://local.invalid").pathname;
+    return /\/api\/(?:admin|reseller)\/media\/files\/[^/]+\/(?:preview|stream|download)\b/.test(path);
+  } catch {
+    return false;
+  }
+}
+
 function MediaPreview({ src, className }: { src: string; className?: string }) {
   const [blobUrl, setBlobUrl] = useState("");
   const [failed, setFailed] = useState(false);
-  const privatePreview = src.startsWith("/api/");
+  const privatePreview = isPrivateMediaSrc(src);
   useEffect(() => {
     if (!privatePreview) return;
     const controller = new AbortController();
     let objectUrl = "";
     setBlobUrl("");
     setFailed(false);
-    void apiFetch(API_URL + src, { signal: controller.signal }, 0)
+    const href = src.startsWith("http://") || src.startsWith("https://") ? src : API_URL + src;
+    void apiFetch(href, { signal: controller.signal }, 0)
       .then(async (response) => {
         if (!response.ok) {
           setFailed(true);
