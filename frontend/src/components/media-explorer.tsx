@@ -7,6 +7,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ClipboardPaste,
   Copy,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileImage,
   FileText,
@@ -287,6 +289,110 @@ function MediaVideoPlayer({
   );
 }
 
+function MediaImageViewer({
+  file,
+  files,
+  onClose,
+  onDownload,
+  onSelect,
+}: {
+  file: MediaFile;
+  files: MediaFile[];
+  onClose: () => void;
+  onDownload: () => void;
+  onSelect: (file: MediaFile) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const index = files.findIndex((row) => row.id === file.id);
+  const hasPrev = index > 0;
+  const hasNext = index >= 0 && index < files.length - 1;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft" && hasPrev) onSelect(files[index - 1]);
+      if (event.key === "ArrowRight" && hasNext) onSelect(files[index + 1]);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [files, hasNext, hasPrev, index, onClose, onSelect]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex flex-col bg-black" role="dialog" aria-modal="true" aria-label={file.name}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold tracking-tight text-white">{file.name}</p>
+          <p className="mt-0.5 text-[11px] text-white/55">
+            {formatBytes(file.bytes)}
+            {files.length > 1 ? ` · ${index + 1} / ${files.length}` : ""}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onDownload}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">Download</span>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/15 bg-white/5 p-2 text-white transition hover:bg-white/10"
+            aria-label="Close viewer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative min-h-0 flex-1 bg-black pb-[env(safe-area-inset-bottom)]">
+        <div className="absolute inset-0 grid place-items-center p-3 sm:p-6">
+          <MediaPreview src={file.url} className="max-h-full max-w-full object-contain" />
+        </div>
+        {hasPrev ? (
+          <button
+            type="button"
+            onClick={() => onSelect(files[index - 1])}
+            className="absolute left-2 top-1/2 z-[1] -translate-y-1/2 rounded-full border border-white/15 bg-black/50 p-2 text-white hover:bg-black/70 sm:left-4"
+            aria-label="Previous image"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        ) : null}
+        {hasNext ? (
+          <button
+            type="button"
+            onClick={() => onSelect(files[index + 1])}
+            className="absolute right-2 top-1/2 z-[1] -translate-y-1/2 rounded-full border border-white/15 bg-black/50 p-2 text-white hover:bg-black/70 sm:right-4"
+            aria-label="Next image"
+          >
+            <ChevronRight size={20} />
+          </button>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+const MEDIA_GRID_CLASS = "grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-8";
+
 export function MediaExplorer({
   mode,
   apiBase,
@@ -334,6 +440,8 @@ function MediaExplorerInner({
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const [playing, setPlaying] = useState<PlayingState | null>(null);
+  const [viewing, setViewing] = useState<MediaFile | null>(null);
+  const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
   const streamTicketCache = useRef(new Map<string, { url: string; expires: number; inflight?: Promise<string> }>());
   const videoHistoryPushedRef = useRef(false);
   const playbackRequestRef = useRef(0);
@@ -376,15 +484,16 @@ function MediaExplorerInner({
   }, []);
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing && !viewing) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") closePlayer();
+      if (event.key !== "Escape") return;
+      if (playing) closePlayer();
+      else setViewing(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // closePlayer is stable enough for this overlay lifecycle
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, videoParam]);
+  }, [playing, viewing, videoParam]);
 
   useEffect(() => {
     if (canEdit) void apiFetch(API_URL + "/api/admin/media/drive/status").then(r => r.json()).then(setDriveStatus).catch(() => {});
@@ -424,6 +533,74 @@ function MediaExplorerInner({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not download file");
     }
+  }
+
+  async function fetchFileBlob(file: MediaFile) {
+    if (file.provider === "drive") {
+      const ticketRes = await apiFetch(
+        API_URL + apiBase + "/files/" + encodeURIComponent(file.id) + "/download-ticket",
+        { method: "POST" },
+        0,
+      );
+      const ticketJson = await ticketRes.json();
+      if (!ticketRes.ok) throw new Error(ticketJson.message || "Could not download file");
+      const fileRes = await fetch(API_URL + ticketJson.url, { credentials: "include", referrerPolicy: "no-referrer" });
+      if (!fileRes.ok) throw new Error("Could not download file");
+      return fileRes.blob();
+    }
+    const fileRes = await fetch(file.url);
+    if (!fileRes.ok) throw new Error("Could not download file");
+    return fileRes.blob();
+  }
+
+  function saveBlob(blob: Blob, name: string) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = name || "download";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  }
+
+  async function downloadAllInFolder(kind: "image" | "video") {
+    if (!data || bulkBusy) return;
+    const files = data.files.filter((file) => (kind === "image" ? isImageFile(file) : isVideoFile(file)));
+    if (!files.length) {
+      setMessage(kind === "image" ? "No images in this folder" : "No videos in this folder");
+      return;
+    }
+    setBulkBusy(kind);
+    setError("");
+    setMessage(`Downloading ${files.length} ${kind === "image" ? "image" : "video"}${files.length === 1 ? "" : "s"}…`);
+    let failed = 0;
+    try {
+      for (let i = 0; i < files.length; i += 1) {
+        const file = files[i];
+        setMessage(`Downloading ${i + 1}/${files.length}: ${file.name}`);
+        try {
+          const blob = await fetchFileBlob(file);
+          saveBlob(blob, file.name);
+          // Give the browser a beat so multiple saves are not blocked.
+          await new Promise((resolve) => setTimeout(resolve, 350));
+        } catch {
+          failed += 1;
+        }
+      }
+      setMessage(
+        failed
+          ? `Downloaded ${files.length - failed}/${files.length}. ${failed} failed.`
+          : `Downloaded all ${files.length} ${kind === "image" ? "image" : "video"}${files.length === 1 ? "" : "s"}.`,
+      );
+    } finally {
+      setBulkBusy(null);
+    }
+  }
+
+  function openImage(file: MediaFile) {
+    if (!isImageFile(file)) return;
+    setViewing(file);
   }
 
   async function resolveStreamUrl(file: MediaFile) {
@@ -586,9 +763,16 @@ function MediaExplorerInner({
   }, [videoParam, data, loading, folderId, folderParam]);
 
   const counts = useMemo(() => {
-    if (!data) return { folders: 0, files: 0 };
-    return { folders: data.folders.length, files: data.files.length };
+    if (!data) return { folders: 0, files: 0, images: 0, videos: 0 };
+    return {
+      folders: data.folders.length,
+      files: data.files.length,
+      images: data.files.filter(isImageFile).length,
+      videos: data.files.filter(isVideoFile).length,
+    };
   }, [data]);
+
+  const imageFiles = useMemo(() => (data?.files || []).filter(isImageFile), [data]);
 
   const currentCoverId = data?.folder?.cover_file_id || null;
   const canSetCover = canEdit && !data?.folder.product_id && Boolean(folderId);
@@ -824,16 +1008,6 @@ function MediaExplorerInner({
     }
   }
 
-  async function copyUrl(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setMessage("Link copied");
-      setTimeout(() => setMessage(""), 1600);
-    } catch {
-      setError("Could not copy link");
-    }
-  }
-
   return (
     <div className="mt-6 space-y-4">
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
@@ -864,6 +1038,32 @@ function MediaExplorerInner({
         </p>
       </div>
 
+      {(counts.images > 0 || counts.videos > 0) && !loading ? (
+        <div className="flex flex-wrap gap-2">
+          {counts.images > 0 ? (
+            <button
+              type="button"
+              disabled={Boolean(bulkBusy)}
+              onClick={() => void downloadAllInFolder("image")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800 hover:bg-sky-100 disabled:opacity-60"
+            >
+              {bulkBusy === "image" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Download all images ({counts.images})
+            </button>
+          ) : null}
+          {counts.videos > 0 ? (
+            <button
+              type="button"
+              disabled={Boolean(bulkBusy)}
+              onClick={() => void downloadAllInFolder("video")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-medium text-violet-800 hover:bg-violet-100 disabled:opacity-60"
+            >
+              {bulkBusy === "video" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Download all videos ({counts.videos})
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-2">
           {creatingFolder ? (
@@ -967,10 +1167,11 @@ function MediaExplorerInner({
 
       {canSetCover ? (
         <p className="text-xs text-slate-500">
-          Click an image thumbnail or use <span className="font-medium text-slate-700">Set cover</span> to choose
-          this folder&apos;s cover.
+          Tap an image to view it. Use the cover icon on a card to set this folder&apos;s cover.
         </p>
-      ) : null}
+      ) : (
+        <p className="text-xs text-slate-500">Tap an image to view · tap a video to play.</p>
+      )}
 
       {loading ? (
         <div className="grid place-items-center border border-dashed border-slate-200 bg-white py-16 text-sm text-slate-500">
@@ -981,256 +1182,247 @@ function MediaExplorerInner({
           This folder is empty.
         </div>
       ) : (
-        <div className="space-y-2">
-          {data.folders.map((folder) => folder.product_id && canEdit ? (
-            <div key={folder.id} className="inline-flex w-64 max-w-full flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 align-top sm:mr-3">
-              <button type="button" onClick={() => navigateToFolder(folder)} aria-label={`Open media for ${folder.name}`}>
-                {folder.cover_url ? <MediaPreview src={folder.cover_url} className="aspect-square w-full rounded-lg object-cover" /> : <span className="grid aspect-square place-items-center rounded-lg bg-amber-50"><Folder size={40} /></span>}
-              </button>
-              <p className="text-base font-semibold text-slate-900">{folder.name}</p>
-              <div className="flex gap-2">
-                <Link href={folder.product_published ? `/products/${encodeURIComponent(folder.product_slug || "")}` : `/admin/products?product=${encodeURIComponent(folder.product_id)}`} className="rounded-lg border border-slate-200 px-4 py-2 text-sm">View</Link>
-                <button type="button" onClick={() => navigateToFolder(folder)} className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">Add</button>
-              </div>
-            </div>
-          ) : (
-            <div
-              key={folder.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigateToFolder(folder)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  navigateToFolder(folder);
-                }
-              }}
-              className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-50/40 active:bg-amber-50 sm:p-4"
-            >
-              {folder.cover_url ? (
-                <MediaPreview
-                  src={folder.cover_url}
-                  className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-slate-200 sm:h-12 sm:w-12"
-                />
-              ) : (
-                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-amber-50 sm:h-12 sm:w-12">
-                  <Folder size={22} className="text-amber-500" />
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-semibold text-slate-900 sm:text-sm">{folder.name}</p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Folder{folder.cover_url ? " · Has cover" : ""} · Tap to open
-                </p>
-              </div>
-              {canEdit ? (
-                <div
-                  className="flex shrink-0 flex-wrap justify-end gap-1"
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  <button
-                    type="button"
-                    onClick={() => copyItem("folder", folder.id, folder.name)}
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white"
-                    title="Copy"
-                    aria-label="Copy folder"
+        <div className="space-y-4">
+          {data.folders.length ? (
+            <div className={MEDIA_GRID_CLASS}>
+              {data.folders.map((folder) => {
+                const productFolder = Boolean(folder.product_id && canEdit);
+                return (
+                  <div
+                    key={folder.id}
+                    className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
                   >
-                    <Copy size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cutItem("folder", folder.id, folder.name)}
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white"
-                    title="Cut"
-                    aria-label="Cut folder"
-                  >
-                    <Scissors size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void renameFolder(folder)}
-                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-white"
-                    title="Rename"
-                    aria-label="Rename folder"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void removeFolder(folder)}
-                    className="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
-                    title="Delete"
-                    aria-label="Delete folder"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ))}
-
-          {data.files.map((file) => {
-            const image = isImageFile(file);
-            const video = isVideoFile(file);
-            const isCover = currentCoverId === file.id;
-            return (
-              <div
-                key={file.id}
-                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
-                onPointerEnter={video ? () => prefetchVideo(file) : undefined}
-              >
-                <div className="flex items-start gap-3">
-                  {video ? (
                     <button
                       type="button"
-                      onClick={() => void playVideo(file)}
-                      className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-900 text-white sm:h-14 sm:w-14"
-                      title="Play video"
-                      aria-label={`Play ${file.name}`}
+                      onClick={() => navigateToFolder(folder)}
+                      className="relative block w-full overflow-hidden bg-amber-50/60"
+                      aria-label={`Open ${folder.name}`}
                     >
-                      {file.provider === "drive" || file.url ? (
-                        <MediaPreview src={file.url} className="absolute inset-0 h-full w-full object-cover opacity-70" />
-                      ) : null}
-                      <span className="relative z-[1] grid h-8 w-8 place-items-center rounded-full bg-black/55">
-                        <Play size={14} className="ml-0.5 fill-current" />
-                      </span>
-                    </button>
-                  ) : image ? (
-                    <button
-                      type="button"
-                      disabled={!canSetCover || busy}
-                      title={canSetCover ? "Click to set as folder cover" : undefined}
-                      onClick={() => {
-                        if (canSetCover) void setCover(file);
-                      }}
-                      className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg sm:h-14 sm:w-14 ${
-                        canSetCover ? "ring-offset-2 hover:ring-2 hover:ring-sky-400" : ""
-                      } ${isCover ? "ring-2 ring-emerald-500" : ""}`}
-                    >
-                      <MediaPreview src={file.url} className="h-full w-full object-cover" />
-                      {isCover ? (
-                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1 text-[8px] font-semibold uppercase text-white">
-                          Cover
+                      {folder.cover_url ? (
+                        <MediaPreview src={folder.cover_url} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+                      ) : (
+                        <span className="grid aspect-square w-full place-items-center">
+                          <Folder size={28} className="text-amber-500" />
                         </span>
-                      ) : null}
+                      )}
                     </button>
-                  ) : (
-                    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-slate-100 sm:h-14 sm:w-14">
-                      <FileIcon file={file} />
-                    </span>
-                  )}
+                    <div className="space-y-2 p-2">
+                      <p className="truncate text-[12px] font-semibold text-slate-900" title={folder.name}>
+                        {folder.name}
+                      </p>
+                      {productFolder ? (
+                        <div className="flex gap-1">
+                          <Link
+                            href={
+                              folder.product_published
+                                ? `/products/${encodeURIComponent(folder.product_slug || "")}`
+                                : `/admin/products?product=${encodeURIComponent(folder.product_id || "")}`
+                            }
+                            className="flex-1 rounded-md border border-slate-200 px-2 py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-slate-700"
+                          >
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => navigateToFolder(folder)}
+                            className="flex-1 rounded-md bg-slate-900 px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-white"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      ) : canEdit ? (
+                        <div className="flex flex-wrap gap-1" onClick={(event) => event.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => copyItem("folder", folder.id, folder.name)}
+                            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                            title="Copy"
+                            aria-label="Copy folder"
+                          >
+                            <Copy size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cutItem("folder", folder.id, folder.name)}
+                            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                            title="Cut"
+                            aria-label="Cut folder"
+                          >
+                            <Scissors size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void renameFolder(folder)}
+                            className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                            title="Rename"
+                            aria-label="Rename folder"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void removeFolder(folder)}
+                            className="rounded border border-red-200 p-1.5 text-red-600 hover:bg-red-50"
+                            title="Delete"
+                            aria-label="Delete folder"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-500">Tap to open</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
-                  <div className="min-w-0 flex-1">
+          {data.files.length ? (
+            <div className={MEDIA_GRID_CLASS}>
+              {data.files.map((file) => {
+                const image = isImageFile(file);
+                const video = isVideoFile(file);
+                const isCover = currentCoverId === file.id;
+                return (
+                  <div
+                    key={file.id}
+                    className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                    onPointerEnter={video ? () => prefetchVideo(file) : undefined}
+                  >
                     {video ? (
                       <button
                         type="button"
                         onClick={() => void playVideo(file)}
-                        className="block w-full truncate text-left text-base font-semibold text-slate-900 hover:text-violet-700 sm:text-sm"
+                        className="relative block w-full overflow-hidden bg-slate-900"
+                        aria-label={`Play ${file.name}`}
                       >
-                        {file.name}
+                        <MediaPreview src={file.url} className="aspect-square w-full object-cover opacity-80" />
+                        <span className="absolute inset-0 grid place-items-center">
+                          <span className="grid h-10 w-10 place-items-center rounded-full bg-black/55 text-white">
+                            <Play size={16} className="ml-0.5 fill-current" />
+                          </span>
+                        </span>
+                      </button>
+                    ) : image ? (
+                      <button
+                        type="button"
+                        onClick={() => openImage(file)}
+                        className={`relative block w-full overflow-hidden bg-slate-100 ${isCover ? "ring-2 ring-inset ring-emerald-500" : ""}`}
+                        aria-label={`View ${file.name}`}
+                      >
+                        <MediaPreview src={file.url} className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+                        {isCover ? (
+                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-emerald-600 px-1.5 text-[8px] font-semibold uppercase text-white">
+                            Cover
+                          </span>
+                        ) : null}
                       </button>
                     ) : (
-                      <p className="truncate text-base font-semibold text-slate-900 sm:text-sm">{file.name}</p>
+                      <div className="grid aspect-square w-full place-items-center bg-slate-100">
+                        <FileIcon file={file} />
+                      </div>
                     )}
-                    <p className="mt-0.5 text-xs capitalize text-slate-500">
-                      {file.resource_type || "file"} · {formatBytes(file.bytes)}
-                      {video ? " · Tap to play" : ""}
-                    </p>
 
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {video ? (
-                        <>
+                    <div className="space-y-2 p-2">
+                      <p className="truncate text-[12px] font-semibold text-slate-900" title={file.name}>
+                        {file.name}
+                      </p>
+                      <p className="text-[10px] capitalize text-slate-500">
+                        {file.resource_type || "file"} · {formatBytes(file.bytes)}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {video ? (
                           <button
                             type="button"
                             onClick={() => void playVideo(file)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[11px] font-medium uppercase text-violet-700 hover:bg-violet-100"
+                            className="rounded border border-violet-200 bg-violet-50 p-1.5 text-violet-700"
+                            title="Play"
+                            aria-label="Play video"
                           >
                             <Play size={12} />
-                            Play
                           </button>
+                        ) : null}
+                        {image ? (
                           <button
                             type="button"
-                            onClick={() => void downloadOriginal(file)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
+                            onClick={() => openImage(file)}
+                            className="rounded border border-sky-200 bg-sky-50 p-1.5 text-sky-700"
+                            title="View"
+                            aria-label="View image"
                           >
-                            <Download size={12} />
-                            Download
+                            <FileImage size={12} />
                           </button>
-                        </>
-                      ) : (
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => void downloadOriginal(file)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
+                          className="rounded border border-slate-200 p-1.5 text-slate-700 hover:bg-slate-50"
+                          title="Download"
+                          aria-label="Download"
                         >
                           <Download size={12} />
-                          {file.provider === "drive" ? "Download" : "Open"}
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={file.provider === "drive"}
-                        title={file.provider === "drive" ? "Private Drive files require a website login" : undefined}
-                        onClick={() => void copyUrl(file.url)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                      >
-                        <Copy size={12} />
-                        Copy link
-                      </button>
-                      {canEdit ? (
-                        <>
-                          {canSetCover && image ? (
+                        {canEdit ? (
+                          <>
+                            {canSetCover && image ? (
+                              <button
+                                type="button"
+                                disabled={busy || isCover}
+                                onClick={() => void setCover(file)}
+                                className="rounded border border-emerald-200 p-1.5 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                title={isCover ? "Cover" : "Set cover"}
+                                aria-label="Set cover"
+                              >
+                                <ImagePlus size={12} />
+                              </button>
+                            ) : null}
                             <button
                               type="button"
-                              disabled={busy || isCover}
-                              onClick={() => void setCover(file)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                              onClick={() => copyItem("file", file.id, file.name)}
+                              className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                              title="Copy"
+                              aria-label="Copy file"
                             >
-                              <ImagePlus size={12} />
-                              {isCover ? "Cover" : "Set cover"}
+                              <Copy size={12} />
                             </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => copyItem("file", file.id, file.name)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
-                          >
-                            <Copy size={12} />
-                            Copy
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => cutItem("file", file.id, file.name)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
-                          >
-                            <Scissors size={12} />
-                            Cut
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void renameFile(file)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-slate-700 hover:bg-slate-50"
-                          >
-                            <Pencil size={12} />
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void removeFile(file)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-[11px] font-medium uppercase text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 size={12} />
-                            Delete
-                          </button>
-                        </>
-                      ) : null}
+                            <button
+                              type="button"
+                              onClick={() => cutItem("file", file.id, file.name)}
+                              className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                              title="Cut"
+                              aria-label="Cut file"
+                            >
+                              <Scissors size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void renameFile(file)}
+                              className="rounded border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+                              title="Rename"
+                              aria-label="Rename file"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void removeFile(file)}
+                              className="rounded border border-red-200 p-1.5 text-red-600 hover:bg-red-50"
+                              title="Delete"
+                              aria-label="Delete file"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1240,6 +1432,16 @@ function MediaExplorerInner({
           onClose={closePlayer}
           onDownload={() => void downloadOriginal(playing.file)}
           onRetry={() => void startPlayback(playing.file)}
+        />
+      ) : null}
+
+      {viewing ? (
+        <MediaImageViewer
+          file={viewing}
+          files={imageFiles}
+          onClose={() => setViewing(null)}
+          onDownload={() => void downloadOriginal(viewing)}
+          onSelect={setViewing}
         />
       ) : null}
     </div>
