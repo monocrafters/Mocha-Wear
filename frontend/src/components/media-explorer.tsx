@@ -112,20 +112,46 @@ function isVideoFile(file: MediaFile) {
 
 function MediaPreview({ src, className }: { src: string; className?: string }) {
   const [blobUrl, setBlobUrl] = useState("");
+  const [failed, setFailed] = useState(false);
   const privatePreview = src.startsWith("/api/");
   useEffect(() => {
     if (!privatePreview) return;
     const controller = new AbortController();
     let objectUrl = "";
-    void apiFetch(API_URL + src, { signal: controller.signal }, 0).then(async response => {
-      if (!response.ok) return;
-      objectUrl = URL.createObjectURL(await response.blob());
-      if (controller.signal.aborted) URL.revokeObjectURL(objectUrl);
-      else setBlobUrl(objectUrl);
-    }).catch(() => {});
-    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    setBlobUrl("");
+    setFailed(false);
+    void apiFetch(API_URL + src, { signal: controller.signal }, 0)
+      .then(async (response) => {
+        if (!response.ok) {
+          setFailed(true);
+          return;
+        }
+        objectUrl = URL.createObjectURL(await response.blob());
+        if (controller.signal.aborted) URL.revokeObjectURL(objectUrl);
+        else setBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [src, privatePreview]);
-  if (privatePreview && !blobUrl) return <span className={className} aria-label="Preview unavailable"><FileImage size={18} /></span>;
+
+  if (privatePreview && !blobUrl) {
+    if (failed) {
+      return <span className={`block bg-slate-100 ${className || ""}`} aria-label="Preview unavailable" />;
+    }
+    return (
+      <span
+        className={`skeleton skeleton-admin block ${className || ""}`}
+        aria-hidden
+        aria-label="Loading preview"
+      />
+    );
+  }
+
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={privatePreview ? blobUrl : src} alt="" className={className} loading="lazy" />;
 }
