@@ -87,7 +87,7 @@ app.use(
     },
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "X-Reseller-Code"],
-    exposedHeaders: ["Set-Cookie"],
+    exposedHeaders: ["Set-Cookie", "X-Media-File-Count", "X-Media-Bytes-Estimate"],
   }),
 );
 app.use(express.json());

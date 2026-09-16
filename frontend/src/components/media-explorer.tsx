@@ -836,8 +836,9 @@ function MediaExplorerInner({
       }
       if (!res.body) throw new Error("Could not download zip");
 
+      const fileCount = Number(res.headers.get("X-Media-File-Count")) || files.length;
       const headerEstimate = Number(res.headers.get("X-Media-Bytes-Estimate")) || estimate;
-      const total = Math.max(1, headerEstimate);
+      let total = Math.max(1, headerEstimate);
 
       type SavePickerWindow = Window & {
         showSaveFilePicker?: (options: {
@@ -870,12 +871,14 @@ function MediaExplorerInner({
         const { done, value } = await reader.read();
         if (done) break;
         received += value.byteLength;
+        // Zip overhead can exceed the raw-file estimate — keep the bar honest.
+        if (received > total) total = received;
         if (writable) await writable.write(value);
         else chunks.push(value);
         setBulkProgress({
           kind,
           percent: Math.min(99, Math.round((received / total) * 100)),
-          label: writable ? "Saving zip to your computer…" : "Downloading zip…",
+          label: `Downloading ${fileCount} ${kind}${fileCount === 1 ? "" : "s"}… ${formatBytes(received)}`,
           received,
           total,
         });
@@ -898,11 +901,11 @@ function MediaExplorerInner({
       setBulkProgress({
         kind,
         percent: 100,
-        label: "Download complete",
+        label: `Downloaded ${fileCount} ${kind}${fileCount === 1 ? "" : "s"}`,
         received,
         total: Math.max(total, received),
       });
-      setMessage(`Downloaded all ${files.length} ${kind}${files.length === 1 ? "" : "s"} as a zip.`);
+      setMessage(`Downloaded all ${fileCount} ${kind}${fileCount === 1 ? "" : "s"} as a zip.`);
       window.setTimeout(() => setBulkProgress(null), 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not download zip");

@@ -1,5 +1,5 @@
 const crypto = require("node:crypto");
-const { Readable } = require("node:stream");
+const { Readable, PassThrough } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 const archiver = require("archiver");
 const drive = require("./googleDrive");
@@ -51,6 +51,7 @@ async function zipFolder(req, res, kind) {
     "Cache-Control": "private, no-store, no-transform",
     "X-Content-Type-Options": "nosniff",
     "X-Accel-Buffering": "no",
+    "Access-Control-Expose-Headers": "X-Media-File-Count, X-Media-Bytes-Estimate",
     "X-Media-File-Count": String(files.length),
     "X-Media-Bytes-Estimate": String(estimate),
   });
@@ -58,28 +59,41 @@ async function zipFolder(req, res, kind) {
 
   const archive = archiver("zip", { zlib: { level: 0 }, store: true });
   const used = new Set();
+  const controller = new AbortController();
+  const onClose = () => controller.abort();
+  res.on("close", onClose);
   archive.on("error", (error) => {
     if (!res.headersSent) library.sendError(res, error);
     else res.destroy(error);
   });
   archive.pipe(res);
 
+  // Fetch + pipe one file at a time. Opening every Drive stream upfront stalls/aborts
+  // while archiver's queue drains, so "Download all" used to miss most files.
   for (const file of files) {
     const entryName = uniqueZipName(file.name, used);
-    if (file.provider === "drive") {
-      const controller = new AbortController();
-      res.on("close", () => controller.abort());
-      const upstream = await drive.content(file.drive_id, undefined, controller.signal);
-      if (!upstream.ok && upstream.status !== 206) {
-        throw Object.assign(new Error(`Could not read ${file.name}`), { status: 502 });
+    const entry = new PassThrough();
+    archive.append(entry, { name: entryName, store: true });
+    try {
+      let upstream;
+      if (file.provider === "drive") {
+        upstream = await drive.content(file.drive_id, undefined, controller.signal);
+        if (!upstream.ok && upstream.status !== 206) {
+          throw Object.assign(new Error(`Could not read ${file.name}`), { status: 502 });
+        }
+      } else {
+        upstream = await fetch(file.url, { signal: controller.signal });
+        if (!upstream.ok || !upstream.body) {
+          throw Object.assign(new Error(`Could not read ${file.name}`), { status: 502 });
+        }
       }
-      archive.append(Readable.fromWeb(upstream.body), { name: entryName, store: true });
-    } else {
-      const upstream = await fetch(file.url, { signal: AbortSignal.timeout(120000) });
-      if (!upstream.ok || !upstream.body) throw Object.assign(new Error(`Could not read ${file.name}`), { status: 502 });
-      archive.append(Readable.fromWeb(upstream.body), { name: entryName, store: true });
+      await pipeline(Readable.fromWeb(upstream.body), entry);
+    } catch (error) {
+      entry.destroy(error);
+      throw error;
     }
   }
+  res.off("close", onClose);
   await archive.finalize();
 }
 function register(app, adminAuth, resellerAuth) {
