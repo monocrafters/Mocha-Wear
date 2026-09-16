@@ -28,6 +28,14 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
+import {
+  getMediaBrowse,
+  invalidateMediaBrowse,
+  isMediaBrowseStale,
+  prefetchMediaBrowse,
+  setMediaBrowse,
+} from "@/lib/media-browse-cache";
+import { acquireMediaPreview, releaseMediaPreview } from "@/lib/media-preview-cache";
 
 export type MediaFolder = {
   product_id?: string;
@@ -127,26 +135,19 @@ function MediaPreview({ src, className }: { src: string; className?: string }) {
   useEffect(() => {
     if (!privatePreview) return;
     const controller = new AbortController();
-    let objectUrl = "";
     setBlobUrl("");
     setFailed(false);
-    const href = src.startsWith("http://") || src.startsWith("https://") ? src : API_URL + src;
-    void apiFetch(href, { signal: controller.signal }, 0)
-      .then(async (response) => {
-        if (!response.ok) {
-          setFailed(true);
-          return;
-        }
-        objectUrl = URL.createObjectURL(await response.blob());
-        if (controller.signal.aborted) URL.revokeObjectURL(objectUrl);
-        else setBlobUrl(objectUrl);
+    void acquireMediaPreview(src, controller.signal)
+      .then((url) => {
+        if (!controller.signal.aborted) setBlobUrl(url);
+        else releaseMediaPreview(src);
       })
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
       });
     return () => {
       controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      releaseMediaPreview(src);
     };
   }, [src, privatePreview]);
 
@@ -183,7 +184,7 @@ function VideoCover({
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrl = "";
+    let acquiredSrc = "";
     const controller = new AbortController();
     setThumbUrl("");
     setStreamUrl("");
@@ -196,22 +197,14 @@ function VideoCover({
       }
 
       try {
-        const href = file.url.startsWith("http://") || file.url.startsWith("https://") ? file.url : API_URL + file.url;
-        const response = await apiFetch(href, { signal: controller.signal }, 0);
-        if (response.ok) {
-          const blob = await response.blob();
-          const looksLikeImage =
-            blob.type.startsWith("image/") ||
-            ((!blob.type || blob.type === "application/octet-stream") && blob.size > 0 && blob.size < 2_500_000);
-          if (looksLikeImage && !blob.type.startsWith("video/")) {
-            objectUrl = URL.createObjectURL(blob);
-            if (cancelled) URL.revokeObjectURL(objectUrl);
-            else {
-              setThumbUrl(objectUrl);
-              return;
-            }
-          }
+        const url = await acquireMediaPreview(file.url, controller.signal);
+        if (cancelled) {
+          releaseMediaPreview(file.url);
+          return;
         }
+        acquiredSrc = file.url;
+        setThumbUrl(url);
+        return;
       } catch {
         if (controller.signal.aborted) return;
       }
@@ -228,7 +221,7 @@ function VideoCover({
     return () => {
       cancelled = true;
       controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (acquiredSrc) releaseMediaPreview(acquiredSrc);
     };
   }, [file.id, file.url, file.provider, resolveStream]);
 
@@ -805,8 +798,10 @@ function MediaExplorerInner({
   const [driveStatus, setDriveStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [folderId, setFolderId] = useState(folderParam);
-  const [data, setData] = useState<BrowsePayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<BrowsePayload | null>(
+    () => getMediaBrowse<BrowsePayload>(apiBase, folderParam) ?? null,
+  );
+  const [loading, setLoading] = useState(() => !getMediaBrowse(apiBase, folderParam));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -827,6 +822,7 @@ function MediaExplorerInner({
   const imageOriginalCache = useRef(new Map<string, string>());
   const videoHistoryPushedRef = useRef(false);
   const playbackRequestRef = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
 
   function buildMediaHref(opts: {
     folderId?: string;
@@ -1184,50 +1180,100 @@ function MediaExplorerInner({
     setClipboard(item);
   }
 
-  async function load(nextFolderId = folderId, options: { syncUrl?: boolean } = {}) {
+  function syncBrowseUrl(payload: BrowsePayload) {
+    const nextId = String(payload.folder?.id || "");
+    const nextTitle = String(payload.folder?.name || "");
+    if (nextId && (folderParam !== nextId || (nextTitle && folderTitleParam !== nextTitle))) {
+      router.replace(
+        buildMediaHref({
+          folderId: nextId,
+          folderTitle: nextTitle || undefined,
+          videoId: videoParam || undefined,
+          videoTitle: videoTitleParam || undefined,
+        }),
+      );
+    } else if (!nextId && folderParam) {
+      router.replace(
+        buildMediaHref({
+          videoId: videoParam || undefined,
+          videoTitle: videoTitleParam || undefined,
+        }),
+      );
+    }
+  }
+
+  async function fetchBrowsePayload(nextFolderId: string, signal?: AbortSignal) {
+    const query = nextFolderId ? `?folder_id=${encodeURIComponent(nextFolderId)}` : "";
+    const res = await apiFetch(`${API_URL}${apiBase}${query}`, { credentials: "include", signal }, 0);
+    const json = (await res.json()) as BrowsePayload & { message?: string };
+    if (!res.ok) throw new Error(json.message || "Could not load media");
+    return json as BrowsePayload;
+  }
+
+  function prefetchFolder(folder: { id: string }) {
+    void prefetchMediaBrowse(apiBase, folder.id, (signal) => fetchBrowsePayload(folder.id, signal)).catch(() => {});
+  }
+
+  async function load(
+    nextFolderId = folderId,
+    options: { syncUrl?: boolean; force?: boolean } = {},
+  ) {
     const syncUrl = options.syncUrl === true;
-    setLoading(true);
+    const force = options.force === true;
+    const targetId = String(nextFolderId || "");
+
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
+
+    const cached = getMediaBrowse<BrowsePayload>(apiBase, targetId);
+    if (cached) {
+      setData(cached);
+      setFolderId(String(cached.folder?.id || ""));
+      setLoading(false);
+      if (syncUrl) syncBrowseUrl(cached);
+    } else {
+      // Avoid flashing a different folder's grid while this one loads.
+      setData((current) => (String(current?.folder?.id || "") === targetId ? current : null));
+      setLoading(true);
+    }
     setError("");
+
+    const needsNetwork = force || !cached || isMediaBrowseStale(apiBase, targetId);
+    if (!needsNetwork) return;
+
     try {
-      const query = nextFolderId ? `?folder_id=${encodeURIComponent(nextFolderId)}` : "";
-      const res = await apiFetch(`${API_URL}${apiBase}${query}`, { credentials: "include" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Could not load media");
+      const json = await fetchBrowsePayload(targetId, controller.signal);
+      if (controller.signal.aborted) return;
+      setMediaBrowse(apiBase, targetId, json);
+      setMediaBrowse(apiBase, String(json.folder?.id || ""), json);
       setData(json);
       const nextId = String(json.folder?.id || "");
       setFolderId(nextId);
-      if (!syncUrl) return;
-      const nextTitle = String(json.folder?.name || "");
-      // Keep the readable folder name in the URL in sync with the live folder.
-      if (nextId && (folderParam !== nextId || (nextTitle && folderTitleParam !== nextTitle))) {
-        router.replace(
-          buildMediaHref({
-            folderId: nextId,
-            folderTitle: nextTitle || undefined,
-            videoId: videoParam || undefined,
-            videoTitle: videoTitleParam || undefined,
-          }),
-        );
-      } else if (!nextId && folderParam) {
-        router.replace(
-          buildMediaHref({
-            videoId: videoParam || undefined,
-            videoTitle: videoTitleParam || undefined,
-          }),
-        );
-      }
+      if (syncUrl) syncBrowseUrl(json);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load media");
-      if (syncUrl && folderParam) router.replace(pathname);
+      if (controller.signal.aborted) return;
+      if (!cached) {
+        setError(err instanceof Error ? err.message : "Could not load media");
+        if (syncUrl && folderParam) router.replace(pathname);
+      }
     } finally {
-      setLoading(false);
+      if (loadAbortRef.current === controller) setLoading(false);
     }
+  }
+
+  async function reloadAfterMutation() {
+    invalidateMediaBrowse(apiBase);
+    await load(folderId, { force: true });
   }
 
   useEffect(() => {
     // URL folder id is the source of truth for browser back/forward.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(folderParam, { syncUrl: true });
+    return () => {
+      loadAbortRef.current?.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase, folderParam]);
 
@@ -1287,7 +1333,7 @@ function MediaExplorerInner({
       setNewFolderName("");
       setCreatingFolder(false);
       setMessage("Folder created");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create folder");
     } finally {
@@ -1311,7 +1357,7 @@ function MediaExplorerInner({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not rename folder");
       setMessage("Folder renamed");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not rename folder");
     } finally {
@@ -1331,7 +1377,7 @@ function MediaExplorerInner({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not delete folder");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete folder");
     } finally {
@@ -1358,7 +1404,7 @@ function MediaExplorerInner({
         completed += 1;
       }
       setMessage(completed + " file(s) uploaded");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -1383,7 +1429,7 @@ function MediaExplorerInner({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not rename file");
       setMessage("File renamed");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not rename file");
     } finally {
@@ -1403,7 +1449,7 @@ function MediaExplorerInner({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not delete file");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete file");
     } finally {
@@ -1426,7 +1472,7 @@ function MediaExplorerInner({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not set folder cover");
       setMessage(`Cover set from "${file.name}"`);
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not set folder cover");
     } finally {
@@ -1448,7 +1494,7 @@ function MediaExplorerInner({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Could not clear cover");
       setMessage("Folder cover cleared");
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not clear cover");
     } finally {
@@ -1493,7 +1539,7 @@ function MediaExplorerInner({
           ? `Moved "${clipboard.name}" here`
           : `Pasted copy of "${clipboard.name}"`,
       );
-      await load(folderId);
+      await reloadAfterMutation();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Paste failed");
     } finally {
@@ -1549,7 +1595,7 @@ function MediaExplorerInner({
         </p>
       </div>
 
-      {(counts.images > 0 || counts.videos > 0) && !loading ? (
+      {(counts.images > 0 || counts.videos > 0) && !(loading && !data) ? (
         <div className="flex flex-wrap gap-2">
           {counts.images > 0 ? (
             <button
@@ -1684,7 +1730,7 @@ function MediaExplorerInner({
         <p className="text-xs text-slate-500">Tap an image to view · tap a video to play.</p>
       )}
 
-      {loading ? (
+      {loading && !data ? (
         <div className="grid place-items-center border border-dashed border-slate-200 bg-white py-16 text-sm text-slate-500">
           <Loader2 size={18} className="animate-spin" />
         </div>
@@ -1702,6 +1748,7 @@ function MediaExplorerInner({
                   <div
                     key={folder.id}
                     className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                    onPointerEnter={() => prefetchFolder(folder)}
                   >
                     <button
                       type="button"
