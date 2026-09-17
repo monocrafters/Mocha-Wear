@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Banknote,
+  ClipboardList,
   GalleryHorizontal,
   Handshake,
   Headset,
@@ -42,6 +43,7 @@ const nav = [
     title: "Commerce",
     items: [
       { href: "/admin/orders", id: "orders", label: "Orders", icon: ShoppingBag },
+      { href: "/admin/manual-orders", id: "manual-orders", label: "Manual orders", icon: ClipboardList },
       { href: "/admin/sale", id: "sale", label: "Sale", icon: Percent },
       { href: "/admin/review", id: "reviews", label: "Reviews", icon: Star },
       { href: "/admin/help", id: "help", label: "Help", icon: Headset },

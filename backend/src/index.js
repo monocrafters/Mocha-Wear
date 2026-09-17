@@ -691,6 +691,22 @@ app.get("/api/admin/orders", adminAuth.requireAdmin, async (_req, res) => {
   }
 });
 
+app.post("/api/admin/orders", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await orders.createOne({
+      ...(req.body || {}),
+      source: "manual",
+      reseller_id: "",
+      reseller_code: "",
+      commission_total: 0,
+    });
+    await notifications.notifyNewOrder(item);
+    res.status(201).json({ item });
+  } catch (error) {
+    orders.sendError(res, error);
+  }
+});
+
 app.patch("/api/admin/orders/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
     const before = await orders.getById(req.params.id);

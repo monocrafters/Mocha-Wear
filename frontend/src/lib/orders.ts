@@ -38,6 +38,8 @@ export type Order = {
   courier?: string;
   dispatch_id?: string;
   shipped_at?: string;
+  source?: "manual" | "store" | string;
+  channel?: string;
   customer?: {
     name: string;
     phone: string;
@@ -248,6 +250,28 @@ export function cancelReasonText(order: Order) {
   if (!reason && !detail) return "";
   if (reason.toLowerCase() === "other") return detail || "Other";
   return detail ? `${reason} — ${detail}` : reason;
+}
+
+export function orderTrackPath(id: string) {
+  return `/orders/track?id=${encodeURIComponent(String(id || "").trim())}`;
+}
+
+export function orderTrackUrl(id: string) {
+  const path = orderTrackPath(id);
+  if (typeof window === "undefined") return path;
+  return `${window.location.origin}${path}`;
+}
+
+export async function lookupOrderById(id: string) {
+  const res = await apiFetch(`${API_URL}/api/orders/lookup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: [String(id || "").trim()].filter(Boolean) }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Could not find order");
+  const items = Array.isArray(data.items) ? (data.items as Order[]) : [];
+  return items[0] || null;
 }
 
 export async function cancelOrderRequest(id: string, reason: string, detail = "") {

@@ -2,9 +2,10 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Package, Search, Truck } from "lucide-react";
+import { FileDown, Package, Search, Truck } from "lucide-react";
 import { formatPkr } from "@/lib/money";
 import { OrderListSkeleton, Skeleton } from "@/components/skeletons";
+import { printOrdersPdf } from "@/lib/order-pdf";
 import {
   CUSTOMER_CANCEL_REASONS,
   ORDERS_EVENT,
@@ -146,7 +147,7 @@ export function OrdersList() {
 
   return (
     <section className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col lg:mx-auto lg:max-w-[1440px] lg:w-full lg:px-8 lg:py-12">
-      <div className="flex items-end justify-between px-4 py-2 lg:px-0 lg:py-0 lg:pb-6">
+      <div className="flex items-end justify-between gap-3 px-4 py-2 lg:px-0 lg:py-0 lg:pb-6">
         <div>
           <p className="text-[9px] font-semibold tracking-[0.2em] text-sale uppercase lg:text-[10px] lg:tracking-[0.22em]">
             Your wardrobe
@@ -155,9 +156,21 @@ export function OrdersList() {
             Orders
           </h1>
         </div>
-        <p className="text-[10px] tracking-[0.14em] text-mocha/45 uppercase lg:text-[11px] lg:tracking-[0.16em]">
-          {loading ? <Skeleton className="inline-block h-3 w-16 align-middle" /> : `${orders.length} order${orders.length === 1 ? "" : "s"}`}
-        </p>
+        <div className="flex flex-col items-end gap-1.5">
+          <p className="text-[10px] tracking-[0.14em] text-mocha/45 uppercase lg:text-[11px] lg:tracking-[0.16em]">
+            {loading ? <Skeleton className="inline-block h-3 w-16 align-middle" /> : `${orders.length} order${orders.length === 1 ? "" : "s"}`}
+          </p>
+          {!loading && orders.length ? (
+            <button
+              type="button"
+              onClick={() => printOrdersPdf(orders, "My Mocha Wear Orders")}
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.12em] text-mocha-deep uppercase lg:text-[11px]"
+            >
+              <FileDown size={14} />
+              PDF
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="mx-4 mt-2 grid grid-cols-4 divide-x divide-sand border border-sand bg-white lg:hidden">
