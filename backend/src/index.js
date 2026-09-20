@@ -48,6 +48,8 @@ const allowedOrigins = new Set(
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://mochawear.vercel.app",
+    "https://mochawear.shop",
+    "https://www.mochawear.shop",
   ]
     .flatMap((value) => String(value || "").split(","))
     .map(normalizeOrigin)
@@ -62,7 +64,7 @@ app.use(compression({
   },
 }));
 app.use(
-      cors({
+  cors({
     origin(origin, callback) {
       if (!origin) {
         callback(null, true);
@@ -75,7 +77,13 @@ app.use(
       }
       try {
         const host = new URL(normalized).hostname;
-        if (host === "mochawear.vercel.app" || host.endsWith(".mochawear.vercel.app")) {
+        if (
+          host === "mochawear.shop" ||
+          host === "www.mochawear.shop" ||
+          host === "mochawear.vercel.app" ||
+          host.endsWith(".mochawear.vercel.app") ||
+          host.endsWith(".vercel.app")
+        ) {
           callback(null, true);
           return;
         }
