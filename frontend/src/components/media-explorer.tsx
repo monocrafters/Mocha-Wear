@@ -21,7 +21,6 @@ import {
   Play,
   RotateCcw,
   Scissors,
-  Share2,
   Trash2,
   Upload,
   X,
@@ -396,15 +395,11 @@ function MediaVideoPlayer({
   playing,
   onClose,
   onDownload,
-  onShare,
-  sharing,
   onRetry,
 }: {
   playing: PlayingState;
   onClose: () => void;
   onDownload: () => void;
-  onShare: () => void;
-  sharing?: boolean;
   onRetry: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -451,15 +446,6 @@ function MediaVideoPlayer({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onShare}
-            disabled={sharing}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-60"
-          >
-            {sharing ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />}
-            <span className="hidden sm:inline">Share</span>
-          </button>
           <button
             type="button"
             onClick={onDownload}
@@ -556,8 +542,6 @@ function MediaImageViewer({
   files,
   onClose,
   onDownload,
-  onShare,
-  sharing,
   onSelect,
   loadOriginal,
 }: {
@@ -565,8 +549,6 @@ function MediaImageViewer({
   files: MediaFile[];
   onClose: () => void;
   onDownload: () => void;
-  onShare: () => void;
-  sharing?: boolean;
   onSelect: (file: MediaFile) => void;
   loadOriginal: (file: MediaFile) => Promise<string>;
 }) {
@@ -750,18 +732,6 @@ function MediaImageViewer({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              onShare();
-            }}
-            disabled={sharing}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-60"
-          >
-            {sharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
-            Share
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
               onDownload();
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
@@ -881,21 +851,9 @@ function MediaImageViewer({
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                onShare();
-              }}
-              disabled={sharing}
-              className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-60"
-            >
-              {sharing ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />}
-              Share
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
                 onDownload();
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900"
+              className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900"
             >
               <Download size={13} />
               Download
@@ -961,16 +919,6 @@ function MediaExplorerInner({
   const [playing, setPlaying] = useState<PlayingState | null>(null);
   const [viewing, setViewing] = useState<MediaFile | null>(null);
   const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
-  const [sharingId, setSharingId] = useState("");
-  const [shareProgress, setShareProgress] = useState<{
-    label: string;
-    percent: number;
-    received: number;
-    total: number;
-    phase: "downloading" | "ready";
-  } | null>(null);
-  const [shareReady, setShareReady] = useState<{ file: File; name: string } | null>(null);
-  const shareAbortRef = useRef<AbortController | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     kind: "image" | "video";
     percent: number;
@@ -1077,232 +1025,6 @@ function MediaExplorerInner({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not download file");
     }
-  }
-
-  function guessMime(file: MediaFile, blobType?: string) {
-    if (blobType && blobType !== "application/octet-stream") return blobType;
-    if (file.mime) return file.mime;
-    if (isImageFile(file)) return "image/jpeg";
-    if (isVideoFile(file)) return "video/mp4";
-    return "application/octet-stream";
-  }
-
-  function ensureShareFileName(name: string, mime: string, file: MediaFile) {
-    const base = String(name || "media").trim() || "media";
-    if (/\.[a-z0-9]{2,5}$/i.test(base)) return base;
-    const type = String(mime || "").toLowerCase();
-    if (type.includes("webm")) return `${base}.webm`;
-    if (type.includes("mp4") || type.includes("quicktime") || isVideoFile(file)) return `${base}.mp4`;
-    if (type.includes("png")) return `${base}.png`;
-    if (type.includes("webp")) return `${base}.webp`;
-    if (type.includes("gif")) return `${base}.gif`;
-    if (type.includes("jpeg") || type.includes("jpg") || isImageFile(file)) return `${base}.jpg`;
-    return base;
-  }
-
-  function isShareBlockedError(err: unknown) {
-    if (!(err instanceof Error)) return false;
-    const name = "name" in err ? String((err as DOMException).name || "") : "";
-    const message = String(err.message || "").toLowerCase();
-    return (
-      name === "NotAllowedError" ||
-      name === "NotSupportedError" ||
-      message.includes("permission") ||
-      message.includes("user gesture") ||
-      message.includes("allowed")
-    );
-  }
-
-  async function fetchFileBlob(
-    file: MediaFile,
-    onProgress?: (state: { received: number; total: number; percent: number }) => void,
-    signal?: AbortSignal,
-  ) {
-    const url = await resolveDownloadUrl(file);
-    const res = await fetch(url, {
-      credentials: file.provider === "drive" ? "include" : "omit",
-      referrerPolicy: "no-referrer",
-      signal,
-    });
-    if (!res.ok) throw new Error("Could not download file for sharing");
-
-    const listed = Number(file.bytes) || 0;
-    const contentLength = Number(res.headers.get("content-length")) || 0;
-    const total = Math.max(1, contentLength || listed || 1);
-
-    if (!res.body) {
-      const raw = await res.blob();
-      onProgress?.({ received: raw.size, total: raw.size || total, percent: 100 });
-      const type = guessMime(file, raw.type);
-      const blob = raw.type === type ? raw : new Blob([raw], { type });
-      return { blob, name: file.name || "media" };
-    }
-
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    const reader = res.body.getReader();
-    onProgress?.({ received: 0, total, percent: 1 });
-
-    while (true) {
-      if (signal?.aborted) {
-        await reader.cancel().catch(() => undefined);
-        throw new DOMException("Download cancelled", "AbortError");
-      }
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.byteLength;
-      const pct = Math.min(99, Math.round((received / total) * 100));
-      onProgress?.({ received, total: Math.max(total, received), percent: Math.max(1, pct) });
-    }
-
-    const merged = new Uint8Array(received);
-    let offset = 0;
-    for (const chunk of chunks) {
-      merged.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    const type = guessMime(file, res.headers.get("content-type") || undefined);
-    const blob = new Blob([merged], { type });
-    onProgress?.({ received: blob.size, total: blob.size, percent: 100 });
-    return { blob, name: file.name || "media" };
-  }
-
-  function closeShareDialog() {
-    shareAbortRef.current?.abort();
-    shareAbortRef.current = null;
-    setSharingId("");
-    setShareProgress(null);
-    setShareReady(null);
-  }
-
-  function cancelShareDownload() {
-    shareAbortRef.current?.abort();
-    shareAbortRef.current = null;
-    setSharingId("");
-    setShareProgress(null);
-    setShareReady(null);
-    setMessage("Download cancelled");
-  }
-
-  async function shareOriginal(file: MediaFile) {
-    if (sharingId) return;
-    setSharingId(file.id);
-    setError("");
-    setMessage("");
-    setShareReady(null);
-    setShareProgress({
-      label: `Downloading ${file.name}…`,
-      percent: 1,
-      received: 0,
-      total: Math.max(1, Number(file.bytes) || 1),
-      phase: "downloading",
-    });
-
-    const controller = new AbortController();
-    shareAbortRef.current = controller;
-
-    try {
-      const { blob, name } = await fetchFileBlob(
-        file,
-        ({ received, total, percent }) => {
-          setShareProgress({
-            label: `Downloading ${file.name}…`,
-            percent,
-            received,
-            total,
-            phase: "downloading",
-          });
-        },
-        controller.signal,
-      );
-
-      if (controller.signal.aborted) return;
-
-      // Keep file in memory for Share now (user gesture). Don't force a separate
-      // browser download here — that often triggers confusing permission prompts.
-      const mime = blob.type || guessMime(file);
-      const shareName = ensureShareFileName(name, mime, file);
-      const shareFile = new File([blob], shareName, { type: mime || "application/octet-stream" });
-      setShareReady({ file: shareFile, name: shareName });
-      setShareProgress({
-        label: "Ready to share",
-        percent: 100,
-        received: blob.size,
-        total: blob.size,
-        phase: "ready",
-      });
-      setSharingId("");
-      shareAbortRef.current = null;
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setSharingId("");
-        setShareProgress(null);
-        setShareReady(null);
-        return;
-      }
-      setError(err instanceof Error ? err.message : "Could not prepare file for sharing");
-      setSharingId("");
-      setShareProgress(null);
-      setShareReady(null);
-      shareAbortRef.current = null;
-    }
-  }
-
-  function saveReadyFileToDevice() {
-    if (!shareReady) return;
-    saveBlobDownload(shareReady.file, shareReady.name);
-  }
-
-  function confirmShareNow() {
-    if (!shareReady) return;
-    setError("");
-
-    const ready = shareReady;
-    const canUseShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-    let canShareFiles = canUseShare;
-    if (canUseShare && typeof navigator.canShare === "function") {
-      try {
-        canShareFiles = navigator.canShare({ files: [ready.file] });
-      } catch {
-        canShareFiles = false;
-      }
-    }
-
-    if (!canUseShare || !canShareFiles) {
-      saveBlobDownload(ready.file, ready.name);
-      closeShareDialog();
-      setMessage("File saved to your device. Open WhatsApp, Instagram, or TikTok and share it from Gallery / Files.");
-      return;
-    }
-
-    // Start share in the same click turn — awaiting before share causes Permission denied.
-    const sharePromise = navigator.share({
-      files: [ready.file],
-      title: ready.name,
-    });
-
-    void sharePromise
-      .then(() => {
-        closeShareDialog();
-        setMessage("Opened share apps — pick WhatsApp, Instagram, TikTok, or any app.");
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        // Browsers often throw Permission denied with NO Allow popup for Web Share.
-        saveBlobDownload(ready.file, ready.name);
-        setShareProgress({
-          label: isShareBlockedError(err) ? "Share blocked by browser" : "Could not open share apps",
-          percent: 100,
-          received: ready.file.size,
-          total: ready.file.size,
-          phase: "ready",
-        });
-        setError("");
-        setMessage(
-          "No Allow permission popup for this. File is saved — open Gallery/Files and share to WhatsApp, Instagram, or TikTok.",
-        );
-      });
   }
 
   async function resolveDownloadUrl(file: MediaFile) {
@@ -1973,68 +1695,6 @@ function MediaExplorerInner({
 
   return (
     <div className="mt-6 space-y-4">
-      {shareProgress
-        ? createPortal(
-            <div className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
-              <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-2xl">
-                <div className="flex items-center justify-between gap-3 text-sm text-slate-800">
-                  <p className="min-w-0 truncate font-medium">{shareProgress.label}</p>
-                  <p className="shrink-0 tabular-nums text-slate-500">{shareProgress.percent}%</p>
-                </div>
-                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-emerald-600 transition-[width] duration-150 ease-out"
-                    style={{ width: `${Math.max(2, shareProgress.percent)}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-[11px] tabular-nums text-slate-500">
-                  {formatBytes(shareProgress.received)} / {formatBytes(shareProgress.total)}
-                </p>
-                <p className="mt-3 text-[11px] text-slate-500">
-                  {shareProgress.phase === "ready"
-                    ? "Tap Share now for app options. If your phone blocks it, use Save to device."
-                    : "Please wait while the file downloads."}
-                </p>
-                <div className="mt-4 flex gap-2">
-                  {shareProgress.phase === "downloading" ? (
-                    <button
-                      type="button"
-                      onClick={cancelShareDownload}
-                      className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={closeShareDialog}
-                        className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Close
-                      </button>
-                      <button
-                        type="button"
-                        onClick={saveReadyFileToDevice}
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Save to device
-                      </button>
-                      <button
-                        type="button"
-                        onClick={confirmShareNow}
-                        className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
-                      >
-                        Share now
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       {bulkProgress ? (
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -2424,20 +2084,6 @@ function MediaExplorerInner({
                         >
                           <Download size={12} />
                         </button>
-                        <button
-                          type="button"
-                          disabled={sharingId === file.id}
-                          onClick={() => void shareOriginal(file)}
-                          className="rounded border border-slate-200 p-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                          title="Share"
-                          aria-label="Share"
-                        >
-                          {sharingId === file.id ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <Share2 size={12} />
-                          )}
-                        </button>
                         {canEdit ? (
                           <>
                             {canSetCover && (image || video) ? (
@@ -2505,8 +2151,6 @@ function MediaExplorerInner({
           playing={playing}
           onClose={closePlayer}
           onDownload={() => void downloadOriginal(playing.file)}
-          onShare={() => void shareOriginal(playing.file)}
-          sharing={sharingId === playing.file.id}
           onRetry={() => void startPlayback(playing.file)}
         />
       ) : null}
@@ -2517,8 +2161,6 @@ function MediaExplorerInner({
           files={imageFiles}
           onClose={() => setViewing(null)}
           onDownload={() => void downloadOriginal(viewing)}
-          onShare={() => void shareOriginal(viewing)}
-          sharing={sharingId === viewing.id}
           onSelect={setViewing}
           loadOriginal={resolveImageOriginal}
         />
