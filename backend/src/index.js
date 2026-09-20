@@ -181,6 +181,19 @@ async function attachCloudinary(req, body) {
 }
 
 app.get("/api/health", async (req, res) => {
+  const required = ["SUPABASE_URL", "SUPABASE_SECRET_KEY", "SUPABASE_PUBLISHABLE_KEY"];
+  const missing = required.filter((key) => !String(process.env[key] || "").trim());
+  if (missing.length) {
+    console.error("Supabase env missing:", missing.join(", "));
+    res.status(503).json({
+      status: "error",
+      message: "Sale API is running, but Supabase env vars are missing on this host",
+      database: "disconnected",
+      missing,
+    });
+    return;
+  }
+
   try {
     const dbTime = await ping();
     res.json({
@@ -196,6 +209,7 @@ app.get("/api/health", async (req, res) => {
       status: "error",
       message: "Sale API is running, but Supabase is not connected",
       database: "disconnected",
+      detail: error.message || "ping failed",
     });
   }
 });
