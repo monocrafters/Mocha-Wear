@@ -1,0 +1,30 @@
+---
+description: Resume point for Mocha Wear work — continue from this saved context
+alwaysApply: true
+---
+
+# Session continue checkpoint
+
+Saved at user request so work can resume in a later chat.
+
+## Project
+- **Mocha Wear** — sale storefront + admin
+- `frontend` — Next.js shop
+- `backend` — Express API
+- Also: `docs/`, existing rule `do-not-touch-catalog.mdc`
+
+## Hard constraints (do not violate)
+- Catalog and live Railway admin data are **off-limits** (products, collections, sales, hero, reviews, help, settings, orders, customers).
+- Do **not** edit `backend/data/*.json` unless the user explicitly asks.
+- Do **not** restore/seed/sync catalog from git, Cloudinary, or screenshots unless explicitly asked.
+- Code, UI, and deploy work is fine.
+
+## Recent work (manual orders)
+- Manual orders: edit + delete supported.
+- Create/edit uses catalogue product picker (multi-select popup), not free-text product entry.
+- Backend: `PATCH /api/admin/orders/:id` accepts full customer/items/delivery/channel; `DELETE` only for `source=manual`.
+
+## How to continue
+- Prefer picking up in this same chat thread when possible.
+- If starting a new chat, re-read this rule + `do-not-touch-catalog.mdc` before making changes.
+- Ask the user what to do next if no new task is stated yet.

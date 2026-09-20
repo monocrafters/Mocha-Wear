@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Check, Copy, FileDown, Link2, Plus, Trash2, X } from "lucide-react";
+import { Check, Copy, FileDown, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
 import { PK_CITIES } from "@/lib/pk-cities";
@@ -16,9 +16,22 @@ import {
   type Order,
   type OrderStatus,
 } from "@/lib/orders";
+import type { Collection } from "@/components/admin-collections";
+import type { Product } from "@/components/admin-products";
+import { AdminConfirm } from "@/components/admin-confirm";
 import { AdminListSkeleton } from "@/components/skeletons";
+import { SaleProductPicker } from "@/components/sale-product-picker";
 
-type DraftItem = { name: string; size: string; qty: string; price: string };
+type DraftItem = {
+  product_id: string;
+  name: string;
+  size: string;
+  qty: string;
+  price: string;
+  image: string;
+  slug: string;
+  spec: string;
+};
 
 type DraftForm = {
   channel: string;
@@ -36,8 +49,6 @@ type DraftForm = {
 
 const CHANNELS = ["WhatsApp", "Instagram", "Phone", "Other"] as const;
 
-const emptyItem = (): DraftItem => ({ name: "", size: "", qty: "1", price: "" });
-
 const emptyForm = (): DraftForm => ({
   channel: "WhatsApp",
   name: "",
@@ -49,8 +60,51 @@ const emptyForm = (): DraftForm => ({
   landmark: "",
   note: "",
   delivery: "0",
-  items: [emptyItem()],
+  items: [],
 });
+
+function productToDraft(product: Product, existing?: DraftItem): DraftItem {
+  const sizes = product.sizes || [];
+  const size =
+    existing?.size && sizes.some((row) => row.toLowerCase() === existing.size.toLowerCase())
+      ? existing.size
+      : sizes[0] || existing?.size || "";
+  return {
+    product_id: product.id,
+    name: product.name,
+    size,
+    qty: existing?.qty || "1",
+    price: existing?.price || String(product.price || 0),
+    image: product.images?.[0]?.url || "",
+    slug: product.slug || "",
+    spec: [product.fabric, product.color].filter(Boolean).join(" · "),
+  };
+}
+
+function orderToForm(order: Order): DraftForm {
+  return {
+    channel: order.channel || "WhatsApp",
+    name: order.customer?.name || "",
+    phone: order.customer?.phone || "",
+    whatsapp: order.customer?.whatsapp || "",
+    city: order.customer?.city || order.city || "Karachi",
+    area: order.customer?.area || "",
+    address: order.customer?.address || "",
+    landmark: order.customer?.landmark || "",
+    note: order.note || "",
+    delivery: String(order.delivery ?? 0),
+    items: order.items.map((item) => ({
+      product_id: item.product_id || "",
+      name: item.name,
+      size: item.size || "",
+      qty: String(item.qty || 1),
+      price: String(item.price || 0),
+      image: item.image || "",
+      slug: item.slug || "",
+      spec: item.spec || "",
+    })),
+  };
+}
 
 function tone(status: OrderStatus) {
   if (status === "processing") return "bg-amber-50 text-amber-800";
@@ -62,28 +116,49 @@ function tone(status: OrderStatus) {
 
 export function AdminManualOrders() {
   const [items, setItems] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | OrderStatus>("all");
   const [selected, setSelected] = useState<Order | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<DraftForm>(emptyForm);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerIds, setPickerIds] = useState<string[]>([]);
+  const [pickerCollectionIds, setPickerCollectionIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Order | null>(null);
   const [shipOpen, setShipOpen] = useState(false);
   const [courier, setCourier] = useState("");
   const [dispatchId, setDispatchId] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+
   async function load() {
     setError("");
     try {
-      const res = await apiFetch(`${API_URL}/api/admin/orders`, { credentials: "include" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not load orders");
-      const manual = ((data.items || []) as Order[]).filter((order) => order.source === "manual");
+      const [ordersRes, productsRes, collectionsRes] = await Promise.all([
+        apiFetch(`${API_URL}/api/admin/orders`, { credentials: "include" }),
+        apiFetch(`${API_URL}/api/admin/products`, { credentials: "include" }),
+        apiFetch(`${API_URL}/api/admin/collections`, { credentials: "include" }),
+      ]);
+      const ordersData = await ordersRes.json();
+      const productsData = await productsRes.json();
+      const collectionsData = await collectionsRes.json();
+      if (!ordersRes.ok) throw new Error(ordersData.message || "Could not load orders");
+      if (!productsRes.ok) throw new Error(productsData.message || "Could not load products");
+      if (!collectionsRes.ok) throw new Error(collectionsData.message || "Could not load collections");
+
+      const manual = ((ordersData.items || []) as Order[]).filter((order) => order.source === "manual");
       setItems(manual);
+      setProducts((productsData.items || []) as Product[]);
+      setCollections((collectionsData.items || []) as Collection[]);
       setSelected((current) => (current ? manual.find((row) => row.id === current.id) || null : null));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load orders");
@@ -122,56 +197,106 @@ export function AdminManualOrders() {
     });
   }, [items, query, filter]);
 
-  async function createOrder(event: FormEvent) {
+  function openCreate() {
+    setEditingId(null);
+    setForm(emptyForm());
+    setFormOpen(true);
+    setPickerOpen(false);
+  }
+
+  function openEdit(order: Order) {
+    setEditingId(order.id);
+    setForm(orderToForm(order));
+    setFormOpen(true);
+    setPickerOpen(false);
+    setSelected(order);
+  }
+
+  function openPicker() {
+    const ids = form.items.map((item) => item.product_id).filter(Boolean);
+    setPickerIds(ids);
+    setPickerCollectionIds([]);
+    setPickerOpen(true);
+  }
+
+  function applyPickerSelection() {
+    const existing = new Map(form.items.filter((item) => item.product_id).map((item) => [item.product_id, item]));
+    const nextItems = pickerIds
+      .map((id) => {
+        const product = productsById.get(id);
+        if (!product) return null;
+        return productToDraft(product, existing.get(id));
+      })
+      .filter((item): item is DraftItem => Boolean(item));
+    setForm((current) => ({ ...current, items: nextItems }));
+    setPickerOpen(false);
+  }
+
+  function buildLineItems() {
+    return form.items
+      .map((item) => ({
+        product_id: item.product_id,
+        name: item.name.trim(),
+        size: item.size.trim(),
+        qty: Math.max(1, Math.min(10, Number(item.qty) || 1)),
+        price: Math.max(0, Number(item.price) || 0),
+        image: item.image,
+        slug: item.slug,
+        spec: item.spec,
+      }))
+      .filter((item) => item.name);
+  }
+
+  function buildPayload(lineItems: ReturnType<typeof buildLineItems>) {
+    return {
+      channel: form.channel,
+      note: form.note.trim(),
+      delivery: Math.max(0, Number(form.delivery) || 0),
+      payment: "Cash on delivery",
+      customer: {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        whatsapp: (form.whatsapp || form.phone).trim(),
+        city: form.city.trim(),
+        area: form.area.trim(),
+        address: form.address.trim(),
+        landmark: form.landmark.trim(),
+      },
+      items: lineItems,
+    };
+  }
+
+  async function submitOrder(event: FormEvent) {
     event.preventDefault();
     if (saving) return;
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      const lineItems = form.items
-        .map((item) => ({
-          name: item.name.trim(),
-          size: item.size.trim(),
-          qty: Math.max(1, Math.min(10, Number(item.qty) || 1)),
-          price: Math.max(0, Number(item.price) || 0),
-          image: "",
-          spec: "",
-        }))
-        .filter((item) => item.name);
-      if (!lineItems.length) throw new Error("Add at least one item");
+      const lineItems = buildLineItems();
+      if (!lineItems.length) throw new Error("Select at least one product");
 
-      const res = await apiFetch(`${API_URL}/api/admin/orders`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channel: form.channel,
-          note: form.note.trim(),
-          delivery: Math.max(0, Number(form.delivery) || 0),
-          payment: "Cash on delivery",
-          customer: {
-            name: form.name.trim(),
-            phone: form.phone.trim(),
-            whatsapp: (form.whatsapp || form.phone).trim(),
-            city: form.city.trim(),
-            area: form.area.trim(),
-            address: form.address.trim(),
-            landmark: form.landmark.trim(),
-          },
-          items: lineItems,
-        }),
-      });
+      const payload = buildPayload(lineItems);
+      const res = await apiFetch(
+        editingId ? `${API_URL}/api/admin/orders/${encodeURIComponent(editingId)}` : `${API_URL}/api/admin/orders`,
+        {
+          method: editingId ? "PATCH" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not create order");
+      if (!res.ok) throw new Error(data.message || (editingId ? "Could not update order" : "Could not create order"));
       const order = data.item as Order;
       setForm(emptyForm());
-      setCreateOpen(false);
-      setMessage(`Order ${order.id} created`);
+      setFormOpen(false);
+      setEditingId(null);
+      setMessage(editingId ? `Order ${order.id} updated` : `Order ${order.id} created`);
       setSelected(order);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create order");
+      setError(err instanceof Error ? err.message : "Could not save order");
     } finally {
       setSaving(false);
     }
@@ -197,6 +322,32 @@ export function AdminManualOrders() {
       setError(err instanceof Error ? err.message : "Could not update order");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/orders/${encodeURIComponent(pendingDelete.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not delete order");
+      setMessage(`Deleted ${pendingDelete.id}`);
+      setItems((list) => list.filter((row) => row.id !== pendingDelete.id));
+      if (selected?.id === pendingDelete.id) setSelected(null);
+      if (editingId === pendingDelete.id) {
+        setFormOpen(false);
+        setEditingId(null);
+      }
+      setPendingDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete order");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -243,7 +394,7 @@ export function AdminManualOrders() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-slate-600">
-            WhatsApp / Instagram orders — fill details, share the track link, then dispatch with ID.
+            WhatsApp / Instagram orders — pick products from catalogue, share the track link, then dispatch.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -258,10 +409,7 @@ export function AdminManualOrders() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setCreateOpen(true);
-              setForm(emptyForm());
-            }}
+            onClick={openCreate}
             className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
           >
             <Plus size={14} />
@@ -337,6 +485,25 @@ export function AdminManualOrders() {
                 </div>
                 <button type="button" onClick={() => setSelected(null)} className="rounded p-1 text-slate-400 hover:bg-slate-50">
                   <X size={16} />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(selected)}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700"
+                >
+                  <Pencil size={12} />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(selected)}
+                  className="inline-flex items-center gap-1 rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs font-medium text-red-700"
+                >
+                  <Trash2 size={12} />
+                  Delete
                 </button>
               </div>
 
@@ -470,15 +637,22 @@ export function AdminManualOrders() {
         </div>
       </div>
 
-      {createOpen ? (
+      {formOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 p-0 sm:place-items-center sm:p-4">
           <form
-            onSubmit={(event) => void createOrder(event)}
+            onSubmit={(event) => void submitOrder(event)}
             className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-2xl sm:rounded-2xl sm:p-6"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900">New manual order</h2>
-              <button type="button" onClick={() => setCreateOpen(false)} className="rounded p-1 text-slate-400 hover:bg-slate-50">
+              <h2 className="text-lg font-semibold text-slate-900">{editingId ? "Edit manual order" : "New manual order"}</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormOpen(false);
+                  setEditingId(null);
+                }}
+                className="rounded p-1 text-slate-400 hover:bg-slate-50"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -589,82 +763,138 @@ export function AdminManualOrders() {
             </div>
 
             <div className="mt-5">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-900">Items</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">Products</p>
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, items: [...form.items, emptyItem()] })}
-                  className="text-xs font-medium text-blue-700"
+                  onClick={openPicker}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
                 >
-                  + Add item
+                  {form.items.length ? "Change products" : "Select products"}
                 </button>
               </div>
-              <div className="mt-2 space-y-2">
-                {form.items.map((item, index) => (
-                  <div key={index} className="grid grid-cols-[1fr_72px_72px_72px_36px] gap-2">
-                    <input
-                      required
-                      value={item.name}
-                      onChange={(e) => updateItem(index, { name: e.target.value })}
-                      placeholder="Product / suit name"
-                      className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
-                    />
-                    <input
-                      value={item.size}
-                      onChange={(e) => updateItem(index, { size: e.target.value })}
-                      placeholder="Size"
-                      className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
-                    />
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={item.qty}
-                      onChange={(e) => updateItem(index, { qty: e.target.value })}
-                      className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
-                    />
-                    <input
-                      required
-                      type="number"
-                      min={0}
-                      value={item.price}
-                      onChange={(e) => updateItem(index, { price: e.target.value })}
-                      placeholder="Price"
-                      className="rounded-lg border border-slate-200 px-2 py-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      disabled={form.items.length === 1}
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          items: form.items.filter((_, i) => i !== index),
-                        })
-                      }
-                      className="grid place-items-center rounded-lg border border-red-100 text-red-600 disabled:opacity-40"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
+
+              {form.items.length ? (
+                <div className="mt-2 space-y-2">
+                  {form.items.map((item, index) => {
+                    const product = item.product_id ? productsById.get(item.product_id) : undefined;
+                    const sizes = product?.sizes?.length ? product.sizes : item.size ? [item.size] : [];
+                    return (
+                      <div
+                        key={`${item.product_id || item.name}-${index}`}
+                        className="grid grid-cols-[1fr_88px_72px_36px] items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 p-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
+                          <p className="text-xs text-slate-500">{formatPkr(Number(item.price) || 0)}</p>
+                        </div>
+                        {sizes.length ? (
+                          <select
+                            value={item.size}
+                            onChange={(e) => updateItem(index, { size: e.target.value })}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                          >
+                            {sizes.map((size) => (
+                              <option key={size} value={size}>
+                                {size}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            value={item.size}
+                            onChange={(e) => updateItem(index, { size: e.target.value })}
+                            placeholder="Size"
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                          />
+                        )}
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={item.qty}
+                          onChange={(e) => updateItem(index, { qty: e.target.value })}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              items: form.items.filter((_, i) => i !== index),
+                            })
+                          }
+                          className="grid place-items-center rounded-lg border border-red-100 bg-white text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">
+                  Open the product picker and select one or more suits from the catalogue.
+                </p>
+              )}
             </div>
 
             <div className="mt-6 flex gap-2">
-              <button type="button" onClick={() => setCreateOpen(false)} className="flex-1 rounded-lg border py-2.5 text-sm font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormOpen(false);
+                  setEditingId(null);
+                }}
+                className="flex-1 rounded-lg border py-2.5 text-sm font-medium"
+              >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !form.items.length}
                 className="flex-1 rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Creating…" : "Create order"}
+                {saving ? "Saving…" : editingId ? "Save changes" : "Create order"}
               </button>
             </div>
           </form>
         </div>
       ) : null}
+
+      {pickerOpen ? (
+        <SaleProductPicker
+          products={products}
+          collections={collections}
+          selectedProductIds={pickerIds}
+          selectedCollectionIds={pickerCollectionIds}
+          kicker="Manual order"
+          title="Select products"
+          description="Pick one or more products from the catalogue. You can adjust size and quantity after."
+          confirmLabel={form.items.length ? "Update selection" : "Add products"}
+          onChange={(nextProducts, nextCollections) => {
+            setPickerIds(nextProducts);
+            setPickerCollectionIds(nextCollections);
+          }}
+          onCancel={() => setPickerOpen(false)}
+          onConfirm={applyPickerSelection}
+        />
+      ) : null}
+
+      <AdminConfirm
+        open={Boolean(pendingDelete)}
+        title="Delete this manual order?"
+        message={
+          pendingDelete
+            ? `${pendingDelete.id} for ${pendingDelete.customer?.name || "customer"} will be permanently removed.`
+            : ""
+        }
+        busy={deleting}
+        onCancel={() => {
+          if (!deleting) setPendingDelete(null);
+        }}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   );
 }

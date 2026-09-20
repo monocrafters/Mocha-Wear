@@ -718,6 +718,15 @@ app.patch("/api/admin/orders/:id", adminAuth.requireAdmin, async (req, res) => {
   }
 });
 
+app.delete("/api/admin/orders/:id", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const item = await orders.deleteOne(req.params.id);
+    res.json({ item });
+  } catch (error) {
+    orders.sendError(res, error);
+  }
+});
+
 app.post("/api/admin/orders/:id/cancel", adminAuth.requireAdmin, async (req, res) => {
   try {
     const item = await orders.cancelOne(req.params.id, req.body || {}, "admin");

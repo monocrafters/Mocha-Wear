@@ -333,6 +333,44 @@ async function updateOne(id, fields = {}) {
         ? new Date().toISOString()
         : current.delivered_at,
   };
+
+  if (fields.channel !== undefined) next.channel = String(fields.channel || "").trim();
+  if (fields.payment !== undefined) {
+    next.payment = String(fields.payment || "Cash on delivery").trim() || "Cash on delivery";
+  }
+  if (fields.delivery !== undefined) next.delivery = Math.max(0, Number(fields.delivery) || 0);
+
+  if (fields.customer !== undefined) {
+    const customer = normalizeCustomer(fields.customer, fields.city || current.city);
+    if (!customer.name || !customer.phone || !customer.city || !customer.area || !customer.address) {
+      const err = new Error("Full name, mobile, city, area, and complete address are required.");
+      err.status = 400;
+      throw err;
+    }
+    if (customer.phone.length !== 11 || !customer.phone.startsWith("03")) {
+      const err = new Error("Enter an 11-digit mobile number starting with 03.");
+      err.status = 400;
+      throw err;
+    }
+    if (customer.whatsapp && (customer.whatsapp.length !== 11 || !customer.whatsapp.startsWith("03"))) {
+      const err = new Error("Enter an 11-digit WhatsApp number starting with 03.");
+      err.status = 400;
+      throw err;
+    }
+    next.customer = customer;
+    next.city = customer.city;
+  }
+
+  if (fields.items !== undefined) {
+    const items = Array.isArray(fields.items) ? fields.items.map(normalizeItem).filter((item) => item.name) : [];
+    if (!items.length) {
+      const err = new Error("Add at least one item");
+      err.status = 400;
+      throw err;
+    }
+    next.items = items;
+  }
+
   data.orders[index] = normalizeOrder(next, index);
   await writeStore(data);
   if (nextStatus === "delivered" && current.status !== "delivered" && current.reseller_id) {
@@ -344,6 +382,25 @@ async function updateOne(id, fields = {}) {
     }
   }
   return data.orders[index];
+}
+
+async function deleteOne(id) {
+  const data = await readStore();
+  const index = data.orders.findIndex((order) => order.id === id);
+  if (index < 0) {
+    const err = new Error("Order not found");
+    err.status = 404;
+    throw err;
+  }
+  const current = data.orders[index];
+  if (current.source !== "manual") {
+    const err = new Error("Only manual orders can be deleted");
+    err.status = 400;
+    throw err;
+  }
+  data.orders.splice(index, 1);
+  await writeStore(data);
+  return current;
 }
 
 function stats(orders = []) {
@@ -381,6 +438,7 @@ module.exports = {
   createOne,
   cancelOne,
   updateOne,
+  deleteOne,
   stats,
   sendError,
 };
