@@ -21,6 +21,7 @@ import {
   Play,
   RotateCcw,
   Scissors,
+  Share2,
   Trash2,
   Upload,
   X,
@@ -395,11 +396,15 @@ function MediaVideoPlayer({
   playing,
   onClose,
   onDownload,
+  onShare,
+  sharing,
   onRetry,
 }: {
   playing: PlayingState;
   onClose: () => void;
   onDownload: () => void;
+  onShare: () => void;
+  sharing?: boolean;
   onRetry: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -446,6 +451,15 @@ function MediaVideoPlayer({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onShare}
+            disabled={sharing}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-60"
+          >
+            {sharing ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />}
+            <span className="hidden sm:inline">Share</span>
+          </button>
           <button
             type="button"
             onClick={onDownload}
@@ -542,6 +556,8 @@ function MediaImageViewer({
   files,
   onClose,
   onDownload,
+  onShare,
+  sharing,
   onSelect,
   loadOriginal,
 }: {
@@ -549,6 +565,8 @@ function MediaImageViewer({
   files: MediaFile[];
   onClose: () => void;
   onDownload: () => void;
+  onShare: () => void;
+  sharing?: boolean;
   onSelect: (file: MediaFile) => void;
   loadOriginal: (file: MediaFile) => Promise<string>;
 }) {
@@ -732,6 +750,18 @@ function MediaImageViewer({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              onShare();
+            }}
+            disabled={sharing}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-60"
+          >
+            {sharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+            Share
+          </button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
               onDownload();
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-100"
@@ -851,9 +881,21 @@ function MediaImageViewer({
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
+                onShare();
+              }}
+              disabled={sharing}
+              className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-60"
+            >
+              {sharing ? <Loader2 size={13} className="animate-spin" /> : <Share2 size={13} />}
+              Share
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
                 onDownload();
               }}
-              className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900"
             >
               <Download size={13} />
               Download
@@ -919,6 +961,7 @@ function MediaExplorerInner({
   const [playing, setPlaying] = useState<PlayingState | null>(null);
   const [viewing, setViewing] = useState<MediaFile | null>(null);
   const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
+  const [sharingId, setSharingId] = useState("");
   const [bulkProgress, setBulkProgress] = useState<{
     kind: "image" | "video";
     percent: number;
@@ -1024,6 +1067,57 @@ function MediaExplorerInner({
       await startChromeDownload(file);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not download file");
+    }
+  }
+
+  function guessMime(file: MediaFile, blobType?: string) {
+    if (blobType && blobType !== "application/octet-stream") return blobType;
+    if (file.mime) return file.mime;
+    if (isImageFile(file)) return "image/jpeg";
+    if (isVideoFile(file)) return "video/mp4";
+    return "application/octet-stream";
+  }
+
+  async function fetchFileBlob(file: MediaFile) {
+    const url = await resolveDownloadUrl(file);
+    const res = await fetch(url, {
+      credentials: file.provider === "drive" ? "include" : "omit",
+      referrerPolicy: "no-referrer",
+    });
+    if (!res.ok) throw new Error("Could not download file for sharing");
+    const raw = await res.blob();
+    const type = guessMime(file, raw.type);
+    const blob = raw.type === type ? raw : new Blob([raw], { type });
+    return { blob, name: file.name || "media" };
+  }
+
+  async function shareOriginal(file: MediaFile) {
+    if (sharingId) return;
+    setSharingId(file.id);
+    setError("");
+    setMessage("");
+    try {
+      const { blob, name } = await fetchFileBlob(file);
+      // Save locally first, then open the phone’s native share sheet.
+      saveBlobDownload(blob, name);
+
+      const shareFile = new File([blob], name, { type: blob.type || "application/octet-stream" });
+      const payload: ShareData = { files: [shareFile], title: name, text: name };
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        const canShareFiles =
+          typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] });
+        if (canShareFiles) {
+          await navigator.share(payload);
+          setMessage("Choose WhatsApp, Instagram, TikTok, or any app to share.");
+          return;
+        }
+      }
+      setMessage("Downloaded. Open WhatsApp, Instagram, or TikTok and share from your gallery.");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setError(err instanceof Error ? err.message : "Could not share file");
+    } finally {
+      setSharingId("");
     }
   }
 
@@ -2084,6 +2178,20 @@ function MediaExplorerInner({
                         >
                           <Download size={12} />
                         </button>
+                        <button
+                          type="button"
+                          disabled={sharingId === file.id}
+                          onClick={() => void shareOriginal(file)}
+                          className="rounded border border-slate-200 p-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          title="Share"
+                          aria-label="Share"
+                        >
+                          {sharingId === file.id ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Share2 size={12} />
+                          )}
+                        </button>
                         {canEdit ? (
                           <>
                             {canSetCover && (image || video) ? (
@@ -2151,6 +2259,8 @@ function MediaExplorerInner({
           playing={playing}
           onClose={closePlayer}
           onDownload={() => void downloadOriginal(playing.file)}
+          onShare={() => void shareOriginal(playing.file)}
+          sharing={sharingId === playing.file.id}
           onRetry={() => void startPlayback(playing.file)}
         />
       ) : null}
@@ -2161,6 +2271,8 @@ function MediaExplorerInner({
           files={imageFiles}
           onClose={() => setViewing(null)}
           onDownload={() => void downloadOriginal(viewing)}
+          onShare={() => void shareOriginal(viewing)}
+          sharing={sharingId === viewing.id}
           onSelect={setViewing}
           loadOriginal={resolveImageOriginal}
         />

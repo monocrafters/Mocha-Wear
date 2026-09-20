@@ -296,7 +296,7 @@ const en: Record<string, string> = {
 
   "media.kicker": "Content",
   "media.title": "Media",
-  "media.copy": "Browse folders and files shared by admin for your posts.",
+  "media.copy": "Browse folders and files shared by admin for your posts. Download or share to WhatsApp, Instagram, TikTok, and more.",
 };
 
 const ur: Record<string, string> = {
@@ -593,7 +593,7 @@ const ur: Record<string, string> = {
 
   "media.kicker": "Content",
   "media.title": "Media",
-  "media.copy": "Admin ke shared folders aur files yahan dekhein — posts ke liye use karein.",
+  "media.copy": "Admin ke shared folders aur files yahan dekhein. Download karein ya WhatsApp, Instagram, TikTok par share karein.",
 };
 
 const catalogs: Record<ResellerLocale, Record<string, string>> = { en, ur };
