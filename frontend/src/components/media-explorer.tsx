@@ -962,6 +962,12 @@ function MediaExplorerInner({
   const [viewing, setViewing] = useState<MediaFile | null>(null);
   const [bulkBusy, setBulkBusy] = useState<"image" | "video" | null>(null);
   const [sharingId, setSharingId] = useState("");
+  const [shareProgress, setShareProgress] = useState<{
+    label: string;
+    percent: number;
+    received: number;
+    total: number;
+  } | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     kind: "image" | "video";
     percent: number;
@@ -1078,16 +1084,52 @@ function MediaExplorerInner({
     return "application/octet-stream";
   }
 
-  async function fetchFileBlob(file: MediaFile) {
+  async function fetchFileBlob(
+    file: MediaFile,
+    onProgress?: (state: { received: number; total: number; percent: number }) => void,
+  ) {
     const url = await resolveDownloadUrl(file);
     const res = await fetch(url, {
       credentials: file.provider === "drive" ? "include" : "omit",
       referrerPolicy: "no-referrer",
     });
     if (!res.ok) throw new Error("Could not download file for sharing");
-    const raw = await res.blob();
-    const type = guessMime(file, raw.type);
-    const blob = raw.type === type ? raw : new Blob([raw], { type });
+
+    const listed = Number(file.bytes) || 0;
+    const contentLength = Number(res.headers.get("content-length")) || 0;
+    const total = Math.max(1, contentLength || listed || 1);
+
+    if (!res.body) {
+      const raw = await res.blob();
+      onProgress?.({ received: raw.size, total: raw.size || total, percent: 100 });
+      const type = guessMime(file, raw.type);
+      const blob = raw.type === type ? raw : new Blob([raw], { type });
+      return { blob, name: file.name || "media" };
+    }
+
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    const reader = res.body.getReader();
+    onProgress?.({ received: 0, total, percent: 1 });
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+      const pct = Math.min(99, Math.round((received / total) * 100));
+      onProgress?.({ received, total: Math.max(total, received), percent: Math.max(1, pct) });
+    }
+
+    const merged = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const type = guessMime(file, res.headers.get("content-type") || undefined);
+    const blob = new Blob([merged], { type });
+    onProgress?.({ received: blob.size, total: blob.size, percent: 100 });
     return { blob, name: file.name || "media" };
   }
 
@@ -1096,10 +1138,29 @@ function MediaExplorerInner({
     setSharingId(file.id);
     setError("");
     setMessage("");
+    setShareProgress({
+      label: `Downloading ${file.name}…`,
+      percent: 1,
+      received: 0,
+      total: Math.max(1, Number(file.bytes) || 1),
+    });
     try {
-      const { blob, name } = await fetchFileBlob(file);
-      // Save locally first, then open the phone’s native share sheet.
+      const { blob, name } = await fetchFileBlob(file, ({ received, total, percent }) => {
+        setShareProgress({
+          label: `Downloading ${file.name}…`,
+          percent,
+          received,
+          total,
+        });
+      });
+
       saveBlobDownload(blob, name);
+      setShareProgress({
+        label: "Opening share options…",
+        percent: 100,
+        received: blob.size,
+        total: blob.size,
+      });
 
       const shareFile = new File([blob], name, { type: blob.type || "application/octet-stream" });
       const payload: ShareData = { files: [shareFile], title: name, text: name };
@@ -1107,17 +1168,22 @@ function MediaExplorerInner({
         const canShareFiles =
           typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] });
         if (canShareFiles) {
+          // Brief beat so the 100% bar is visible, then native share sheet.
+          await new Promise((resolve) => window.setTimeout(resolve, 280));
+          setShareProgress(null);
           await navigator.share(payload);
-          setMessage("Choose WhatsApp, Instagram, TikTok, or any app to share.");
+          setMessage("Shared — pick WhatsApp, Instagram, TikTok, or any app.");
           return;
         }
       }
+      setShareProgress(null);
       setMessage("Downloaded. Open WhatsApp, Instagram, or TikTok and share from your gallery.");
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Could not share file");
     } finally {
       setSharingId("");
+      setShareProgress(null);
     }
   }
 
@@ -1789,6 +1855,33 @@ function MediaExplorerInner({
 
   return (
     <div className="mt-6 space-y-4">
+      {shareProgress
+        ? createPortal(
+            <div className="fixed inset-0 z-[260] flex items-end justify-center bg-slate-950/45 p-4 sm:items-center">
+              <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-2xl">
+                <div className="flex items-center justify-between gap-3 text-sm text-slate-800">
+                  <p className="min-w-0 truncate font-medium">{shareProgress.label}</p>
+                  <p className="shrink-0 tabular-nums text-slate-500">{shareProgress.percent}%</p>
+                </div>
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-emerald-600 transition-[width] duration-150 ease-out"
+                    style={{ width: `${Math.max(2, shareProgress.percent)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] tabular-nums text-slate-500">
+                  {formatBytes(shareProgress.received)} / {formatBytes(shareProgress.total)}
+                </p>
+                <p className="mt-3 text-[11px] text-slate-500">
+                  {shareProgress.percent >= 100
+                    ? "Share options will open next…"
+                    : "Please wait while the file downloads."}
+                </p>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
       {bulkProgress ? (
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
