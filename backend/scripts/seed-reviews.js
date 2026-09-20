@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { writeDocument } = require("../src/cloudStore");
 
-const API = "https://mocha-wear-production.up.railway.app";
+const API = "https://mocha-wear-production-4dd5.up.railway.app";
 const FILE = path.join(__dirname, "..", "data", "reviews.json");
 
 const reviews = [

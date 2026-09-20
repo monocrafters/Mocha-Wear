@@ -11,7 +11,7 @@ Validation: nine mocked backend integration tests passed (`node --test test/medi
 
 Pending review: PKCE for OAuth; partial persistence/upload cleanup; reference-safe folder deletion; resumable lost-response tests; upload resource/concurrency limits. Single API replica required by in-memory locks/OAuth state/tickets.
 
-Required server-only environment: GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REDIRECT_URI, GOOGLE_DRIVE_TOKEN_KEY (32 random bytes hex, stored separately from encrypted tokens). Never expose in NEXT_PUBLIC variables or commit credentials. Production callback: `https://mocha-wear-production.up.railway.app/api/admin/media/drive/callback`; local callback: `http://localhost:5000/api/admin/media/drive/callback`.
+Required server-only environment: GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REDIRECT_URI, GOOGLE_DRIVE_TOKEN_KEY (32 random bytes hex, stored separately from encrypted tokens). Never expose in NEXT_PUBLIC variables or commit credentials. Production callback: `https://mocha-wear-production-4dd5.up.railway.app/api/admin/media/drive/callback`; local callback: `http://localhost:5000/api/admin/media/drive/callback`.
 
 Google OAuth: Web application; limited `https://www.googleapis.com/auth/drive.file` scope and offline access. External Testing refresh tokens expire after seven days; configure appropriate production publishing before relying on unattended access. Connect via authenticated Admin Media; same-owner reconnect enforced. Run real original-byte upload/download validation after connection.
 
