@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Copy, Loader2, Search, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronRight, Copy, FolderOpen, Loader2, Search, SlidersHorizontal } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
 import { ui } from "@/lib/admin-ui";
@@ -637,24 +637,35 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
                             />
                           </div>
                           {live && resellerCode ? (
-                            <button
-                              type="button"
-                              onClick={() => copyLiveLink(product)}
-                              className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${
-                                copiedLinkId === product.id
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              {copiedLinkId === product.id ? (
-                                <Check size={13} strokeWidth={3} />
-                              ) : (
-                                <Copy size={13} />
-                              )}
-                              {copiedLinkId === product.id
-                                ? t("products.linkCopied")
-                                : t("products.copyLiveLink")}
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => copyLiveLink(product)}
+                                className={`inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${
+                                  copiedLinkId === product.id
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                                }`}
+                              >
+                                {copiedLinkId === product.id ? (
+                                  <Check size={13} strokeWidth={3} />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                                {copiedLinkId === product.id
+                                  ? t("products.linkCopied")
+                                  : t("products.copyLiveLink")}
+                              </button>
+                              {product.media_enabled ? (
+                                <Link
+                                  href={`/reseller/media?f=${encodeURIComponent(`product:${product.id}`)}&folder=${encodeURIComponent(product.name)}`}
+                                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-100"
+                                >
+                                  <FolderOpen size={13} />
+                                  {t("products.openMedia")}
+                                </Link>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
                       ) : null}

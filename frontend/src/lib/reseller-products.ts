@@ -21,6 +21,7 @@ export type ResellerProduct = {
   markup_min_percent?: number;
   markup_max_percent?: number;
   margin?: number;
+  media_enabled?: boolean;
 };
 
 export type ResellerProductLimits = {

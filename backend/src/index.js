@@ -1194,6 +1194,7 @@ app.get("/api/reseller/products", resellerAuth.requireReseller, async (req, res)
           margin: savedPrice != null ? Math.max(0, savedPrice - wholesale) : 0,
           markup_min_percent: limits.minPercent,
           markup_max_percent: limits.maxPercent,
+          media_enabled: Boolean(item.media_enabled),
         };
       });
     res.json({ items, limits });
@@ -1242,6 +1243,7 @@ app.get("/api/reseller/products/:productId", resellerAuth.requireReseller, async
         margin: savedPrice != null ? Math.max(0, savedPrice - wholesale) : 0,
         markup_min_percent: limits.minPercent,
         markup_max_percent: limits.maxPercent,
+        media_enabled: Boolean(item.media_enabled),
       },
       limits,
     });
