@@ -701,17 +701,19 @@ export function AdminManualOrders() {
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">City</span>
-                <select
+                <input
+                  required
+                  list="manual-order-cities"
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="Pick or type any city"
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                >
+                />
+                <datalist id="manual-order-cities">
                   {PK_CITIES.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
+                    <option key={city} value={city} />
                   ))}
-                </select>
+                </datalist>
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">Area</span>
