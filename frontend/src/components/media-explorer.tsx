@@ -967,7 +967,10 @@ function MediaExplorerInner({
     percent: number;
     received: number;
     total: number;
+    phase: "downloading" | "ready";
   } | null>(null);
+  const [shareReady, setShareReady] = useState<{ file: File; name: string } | null>(null);
+  const shareAbortRef = useRef<AbortController | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{
     kind: "image" | "video";
     percent: number;
@@ -1087,11 +1090,13 @@ function MediaExplorerInner({
   async function fetchFileBlob(
     file: MediaFile,
     onProgress?: (state: { received: number; total: number; percent: number }) => void,
+    signal?: AbortSignal,
   ) {
     const url = await resolveDownloadUrl(file);
     const res = await fetch(url, {
       credentials: file.provider === "drive" ? "include" : "omit",
       referrerPolicy: "no-referrer",
+      signal,
     });
     if (!res.ok) throw new Error("Could not download file for sharing");
 
@@ -1113,6 +1118,10 @@ function MediaExplorerInner({
     onProgress?.({ received: 0, total, percent: 1 });
 
     while (true) {
+      if (signal?.aborted) {
+        await reader.cancel().catch(() => undefined);
+        throw new DOMException("Download cancelled", "AbortError");
+      }
       const { done, value } = await reader.read();
       if (done) break;
       chunks.push(value);
@@ -1133,57 +1142,108 @@ function MediaExplorerInner({
     return { blob, name: file.name || "media" };
   }
 
+  function closeShareDialog() {
+    shareAbortRef.current?.abort();
+    shareAbortRef.current = null;
+    setSharingId("");
+    setShareProgress(null);
+    setShareReady(null);
+  }
+
+  function cancelShareDownload() {
+    shareAbortRef.current?.abort();
+    shareAbortRef.current = null;
+    setSharingId("");
+    setShareProgress(null);
+    setShareReady(null);
+    setMessage("Download cancelled");
+  }
+
   async function shareOriginal(file: MediaFile) {
     if (sharingId) return;
     setSharingId(file.id);
     setError("");
     setMessage("");
+    setShareReady(null);
     setShareProgress({
       label: `Downloading ${file.name}…`,
       percent: 1,
       received: 0,
       total: Math.max(1, Number(file.bytes) || 1),
+      phase: "downloading",
     });
+
+    const controller = new AbortController();
+    shareAbortRef.current = controller;
+
     try {
-      const { blob, name } = await fetchFileBlob(file, ({ received, total, percent }) => {
-        setShareProgress({
-          label: `Downloading ${file.name}…`,
-          percent,
-          received,
-          total,
-        });
-      });
+      const { blob, name } = await fetchFileBlob(
+        file,
+        ({ received, total, percent }) => {
+          setShareProgress({
+            label: `Downloading ${file.name}…`,
+            percent,
+            received,
+            total,
+            phase: "downloading",
+          });
+        },
+        controller.signal,
+      );
+
+      if (controller.signal.aborted) return;
 
       saveBlobDownload(blob, name);
+      const shareFile = new File([blob], name, { type: blob.type || "application/octet-stream" });
+      setShareReady({ file: shareFile, name });
       setShareProgress({
-        label: "Opening share options…",
+        label: "Download complete",
         percent: 100,
         received: blob.size,
         total: blob.size,
+        phase: "ready",
       });
+      setSharingId("");
+      shareAbortRef.current = null;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setSharingId("");
+        setShareProgress(null);
+        setShareReady(null);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Could not prepare file for sharing");
+      setSharingId("");
+      setShareProgress(null);
+      setShareReady(null);
+      shareAbortRef.current = null;
+    }
+  }
 
-      const shareFile = new File([blob], name, { type: blob.type || "application/octet-stream" });
-      const payload: ShareData = { files: [shareFile], title: name, text: name };
+  async function confirmShareNow() {
+    if (!shareReady) return;
+    setError("");
+    try {
+      const payload: ShareData = {
+        files: [shareReady.file],
+        title: shareReady.name,
+        text: shareReady.name,
+      };
       if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
         const canShareFiles =
-          typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareFile] });
+          typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareReady.file] });
         if (canShareFiles) {
-          // Brief beat so the 100% bar is visible, then native share sheet.
-          await new Promise((resolve) => window.setTimeout(resolve, 280));
-          setShareProgress(null);
           await navigator.share(payload);
+          closeShareDialog();
           setMessage("Shared — pick WhatsApp, Instagram, TikTok, or any app.");
           return;
         }
       }
-      setShareProgress(null);
-      setMessage("Downloaded. Open WhatsApp, Instagram, or TikTok and share from your gallery.");
+      closeShareDialog();
+      setMessage("File saved. Open WhatsApp, Instagram, or TikTok and share from your gallery.");
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "Could not share file");
-    } finally {
-      setSharingId("");
-      setShareProgress(null);
+      setError(err instanceof Error ? err.message : "Could not open share options");
     }
   }
 
@@ -1873,10 +1933,38 @@ function MediaExplorerInner({
                   {formatBytes(shareProgress.received)} / {formatBytes(shareProgress.total)}
                 </p>
                 <p className="mt-3 text-[11px] text-slate-500">
-                  {shareProgress.percent >= 100
-                    ? "Share options will open next…"
+                  {shareProgress.phase === "ready"
+                    ? "Tap Share now to open WhatsApp, Instagram, TikTok, and other apps."
                     : "Please wait while the file downloads."}
                 </p>
+                <div className="mt-4 flex gap-2">
+                  {shareProgress.phase === "downloading" ? (
+                    <button
+                      type="button"
+                      onClick={cancelShareDownload}
+                      className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={closeShareDialog}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void confirmShareNow()}
+                        className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                      >
+                        Share now
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>,
             document.body,
