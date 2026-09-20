@@ -703,17 +703,27 @@ export function AdminManualOrders() {
                 <span className="font-medium text-slate-700">City</span>
                 <input
                   required
-                  list="manual-order-cities"
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  placeholder="Pick or type any city"
+                  placeholder="e.g. Karachi, Hyderabad, Sialkot…"
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                 />
-                <datalist id="manual-order-cities">
+                <div className="mt-1.5 flex flex-wrap gap-1">
                   {PK_CITIES.map((city) => (
-                    <option key={city} value={city} />
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => setForm({ ...form, city })}
+                      className={`rounded-md px-2 py-0.5 text-[11px] ${
+                        form.city === city
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {city}
+                    </button>
                   ))}
-                </datalist>
+                </div>
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">Area</span>
