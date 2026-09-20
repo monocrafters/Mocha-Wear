@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Activity,
   Banknote,
   ClipboardList,
   GalleryHorizontal,
@@ -29,6 +30,7 @@ const nav = [
     items: [
       { href: "/admin", id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/admin/hero", id: "hero", label: "Hero", icon: GalleryHorizontal },
+      { href: "/admin/events", id: "events", label: "Events", icon: Activity },
     ],
   },
   {

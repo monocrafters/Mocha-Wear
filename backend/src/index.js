@@ -30,6 +30,7 @@ const resellerDomains = require("./resellerDomains");
 const resellerPrRequests = require("./resellerPrRequests");
 const mediaLibrary = require("./mediaLibrary");
 const mediaDriveRoutes = require("./mediaDriveRoutes");
+const events = require("./events");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -106,6 +107,7 @@ app.use("/api/health", httpCache.noStore);
 app.use("/api/reseller", httpCache.noStore);
 app.use("/api/r", httpCache.noStore);
 app.use("/api/pricing", httpCache.noStore);
+app.use("/api/events", httpCache.noStore);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -219,6 +221,24 @@ app.get("/api/health", async (req, res) => {
       database: "disconnected",
       detail: error.message || "ping failed",
     });
+  }
+});
+
+app.post("/api/events", async (req, res) => {
+  try {
+    const item = await events.track(req.body || {}, req);
+    res.status(item ? 201 : 202).json({ ok: true, item: item || null });
+  } catch (error) {
+    events.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/events", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const data = await events.summary({ days: req.query.days });
+    res.json(data);
+  } catch (error) {
+    events.sendError(res, error);
   }
 });
 
