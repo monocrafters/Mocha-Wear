@@ -1087,6 +1087,32 @@ function MediaExplorerInner({
     return "application/octet-stream";
   }
 
+  function ensureShareFileName(name: string, mime: string, file: MediaFile) {
+    const base = String(name || "media").trim() || "media";
+    if (/\.[a-z0-9]{2,5}$/i.test(base)) return base;
+    const type = String(mime || "").toLowerCase();
+    if (type.includes("webm")) return `${base}.webm`;
+    if (type.includes("mp4") || type.includes("quicktime") || isVideoFile(file)) return `${base}.mp4`;
+    if (type.includes("png")) return `${base}.png`;
+    if (type.includes("webp")) return `${base}.webp`;
+    if (type.includes("gif")) return `${base}.gif`;
+    if (type.includes("jpeg") || type.includes("jpg") || isImageFile(file)) return `${base}.jpg`;
+    return base;
+  }
+
+  function isShareBlockedError(err: unknown) {
+    if (!(err instanceof Error)) return false;
+    const name = "name" in err ? String((err as DOMException).name || "") : "";
+    const message = String(err.message || "").toLowerCase();
+    return (
+      name === "NotAllowedError" ||
+      name === "NotSupportedError" ||
+      message.includes("permission") ||
+      message.includes("user gesture") ||
+      message.includes("allowed")
+    );
+  }
+
   async function fetchFileBlob(
     file: MediaFile,
     onProgress?: (state: { received: number; total: number; percent: number }) => void,
@@ -1193,11 +1219,14 @@ function MediaExplorerInner({
 
       if (controller.signal.aborted) return;
 
-      saveBlobDownload(blob, name);
-      const shareFile = new File([blob], name, { type: blob.type || "application/octet-stream" });
-      setShareReady({ file: shareFile, name });
+      // Keep file in memory for Share now (user gesture). Don't force a separate
+      // browser download here — that often triggers confusing permission prompts.
+      const mime = blob.type || guessMime(file);
+      const shareName = ensureShareFileName(name, mime, file);
+      const shareFile = new File([blob], shareName, { type: mime || "application/octet-stream" });
+      setShareReady({ file: shareFile, name: shareName });
       setShareProgress({
-        label: "Download complete",
+        label: "Ready to share",
         percent: 100,
         received: blob.size,
         total: blob.size,
@@ -1220,31 +1249,60 @@ function MediaExplorerInner({
     }
   }
 
-  async function confirmShareNow() {
+  function saveReadyFileToDevice() {
+    if (!shareReady) return;
+    saveBlobDownload(shareReady.file, shareReady.name);
+  }
+
+  function confirmShareNow() {
     if (!shareReady) return;
     setError("");
-    try {
-      const payload: ShareData = {
-        files: [shareReady.file],
-        title: shareReady.name,
-        text: shareReady.name,
-      };
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        const canShareFiles =
-          typeof navigator.canShare !== "function" || navigator.canShare({ files: [shareReady.file] });
-        if (canShareFiles) {
-          await navigator.share(payload);
-          closeShareDialog();
-          setMessage("Shared — pick WhatsApp, Instagram, TikTok, or any app.");
-          return;
-        }
+
+    const ready = shareReady;
+    const canUseShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+    let canShareFiles = canUseShare;
+    if (canUseShare && typeof navigator.canShare === "function") {
+      try {
+        canShareFiles = navigator.canShare({ files: [ready.file] });
+      } catch {
+        canShareFiles = false;
       }
-      closeShareDialog();
-      setMessage("File saved. Open WhatsApp, Instagram, or TikTok and share from your gallery.");
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "Could not open share options");
     }
+
+    if (!canUseShare || !canShareFiles) {
+      saveBlobDownload(ready.file, ready.name);
+      closeShareDialog();
+      setMessage("File saved to your device. Open WhatsApp, Instagram, or TikTok and share it from Gallery / Files.");
+      return;
+    }
+
+    // Start share in the same click turn — awaiting before share causes Permission denied.
+    const sharePromise = navigator.share({
+      files: [ready.file],
+      title: ready.name,
+    });
+
+    void sharePromise
+      .then(() => {
+        closeShareDialog();
+        setMessage("Opened share apps — pick WhatsApp, Instagram, TikTok, or any app.");
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Browsers often throw Permission denied with NO Allow popup for Web Share.
+        saveBlobDownload(ready.file, ready.name);
+        setShareProgress({
+          label: isShareBlockedError(err) ? "Share blocked by browser" : "Could not open share apps",
+          percent: 100,
+          received: ready.file.size,
+          total: ready.file.size,
+          phase: "ready",
+        });
+        setError("");
+        setMessage(
+          "No Allow permission popup for this. File is saved — open Gallery/Files and share to WhatsApp, Instagram, or TikTok.",
+        );
+      });
   }
 
   async function resolveDownloadUrl(file: MediaFile) {
@@ -1934,7 +1992,7 @@ function MediaExplorerInner({
                 </p>
                 <p className="mt-3 text-[11px] text-slate-500">
                   {shareProgress.phase === "ready"
-                    ? "Tap Share now to open WhatsApp, Instagram, TikTok, and other apps."
+                    ? "Tap Share now for app options. If your phone blocks it, use Save to device."
                     : "Please wait while the file downloads."}
                 </p>
                 <div className="mt-4 flex gap-2">
@@ -1951,13 +2009,20 @@ function MediaExplorerInner({
                       <button
                         type="button"
                         onClick={closeShareDialog}
-                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                       >
                         Close
                       </button>
                       <button
                         type="button"
-                        onClick={() => void confirmShareNow()}
+                        onClick={saveReadyFileToDevice}
+                        className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Save to device
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmShareNow}
                         className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
                       >
                         Share now
