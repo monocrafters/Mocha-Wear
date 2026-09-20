@@ -1,4 +1,21 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+function resolveApiUrl() {
+  const raw = String(process.env.NEXT_PUBLIC_API_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+
+  // Never ship localhost into a production client bundle.
+  if (!raw || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(raw)) {
+    if (process.env.NODE_ENV === "production") {
+      return "https://mocha-wear-production-4dd5.up.railway.app";
+    }
+    return raw || "http://localhost:5000";
+  }
+
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+export const API_URL = resolveApiUrl();
 
 const ADMIN_TOKEN_KEY = "mocha_admin_token";
 const RESELLER_TOKEN_KEY = "mocha_reseller_token";
