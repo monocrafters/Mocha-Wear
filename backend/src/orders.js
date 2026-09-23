@@ -46,7 +46,7 @@ function nextId(orders) {
 }
 
 function normalizeItem(item = {}) {
-  const qty = Math.max(1, Math.min(10, Number(item.qty) || 1));
+  const qty = Math.max(1, Math.min(99, Number(item.qty) || 1));
   const price = Math.max(0, Number(item.price) || 0);
   const sold = Math.max(0, Number(item.sold_price_snapshot ?? price) || 0);
   return {

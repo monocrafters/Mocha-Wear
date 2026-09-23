@@ -275,16 +275,43 @@ export function AdminManualOrders() {
         if (i !== index) return item;
         const wholesale = Math.max(0, Number(item.wholesale) || 0);
         const margin = Math.max(0, Number(marginRaw) || 0);
-        const row = item.product_id ? resellerPrices.get(item.product_id) : undefined;
-        let sell = Math.round(wholesale + margin);
-        if (row) {
-          if (row.min_price > 0 && sell < row.min_price) sell = row.min_price;
-          if (row.max_price > 0 && sell > row.max_price) sell = row.max_price;
-        }
+        const sell = Math.round(wholesale + margin);
         return {
           ...item,
-          margin: String(Math.max(0, sell - wholesale)),
+          margin: String(margin),
           price: String(sell),
+        };
+      }),
+    }));
+  }
+
+  function setItemSellPrice(index: number, priceRaw: string) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, i) => {
+        if (i !== index) return item;
+        const wholesale = Math.max(0, Number(item.wholesale) || 0);
+        const sell = Math.max(0, Number(priceRaw) || 0);
+        return {
+          ...item,
+          price: String(sell),
+          margin: String(Math.max(0, sell - wholesale)),
+        };
+      }),
+    }));
+  }
+
+  function setCustomWholesale(index: number, wholesaleRaw: string) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, i) => {
+        if (i !== index) return item;
+        const wholesale = Math.max(0, Number(wholesaleRaw) || 0);
+        const margin = Math.max(0, Number(item.margin) || 0);
+        return {
+          ...item,
+          wholesale: String(wholesale),
+          price: String(wholesale + margin),
         };
       }),
     }));
@@ -382,28 +409,12 @@ export function AdminManualOrders() {
     }));
   }
 
-  function setCustomWholesale(index: number, wholesaleRaw: string) {
-    setForm((current) => ({
-      ...current,
-      items: current.items.map((item, i) => {
-        if (i !== index) return item;
-        const wholesale = Math.max(0, Number(wholesaleRaw) || 0);
-        const margin = Math.max(0, Number(item.margin) || 0);
-        return {
-          ...item,
-          wholesale: String(wholesale),
-          price: String(wholesale + margin),
-        };
-      }),
-    }));
-  }
-
   function buildLineItems() {
     return form.items
       .map((item) => {
         const wholesale = Math.max(0, Number(item.wholesale) || 0);
         const price = Math.max(0, Number(item.price) || 0);
-        const qty = Math.max(1, Math.min(10, Number(item.qty) || 1));
+        const qty = Math.max(1, Math.min(99, Number(item.qty) || 1));
         const commission = forReseller && resellerId ? Math.max(0, Math.round((price - wholesale) * qty)) : 0;
         return {
           product_id: item.product_id,
@@ -1046,152 +1057,164 @@ export function AdminManualOrders() {
               </div>
 
               {form.items.length ? (
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 space-y-3">
                   {form.items.map((item, index) => {
                     const product = item.product_id ? productsById.get(item.product_id) : undefined;
                     const isCustom = !item.product_id;
-                    const sizes = product?.sizes?.length ? product.sizes : item.size ? [item.size] : [];
+                    const sizes = product?.sizes?.length ? product.sizes : [];
                     return (
                       <div
                         key={`${item.product_id || "custom"}-${index}`}
-                        className="rounded-lg border border-slate-100 bg-slate-50/60 p-2"
+                        className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
                       >
-                        {isCustom ? (
-                          <div className="mb-2 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {isCustom ? (
                               <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
                                 Custom product (not on website)
                               </p>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setForm({
-                                    ...form,
-                                    items: form.items.filter((_, i) => i !== index),
-                                  })
-                                }
-                                className="grid place-items-center rounded-lg border border-red-100 bg-white p-1.5 text-red-600"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            ) : (
+                              <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                items: form.items.filter((_, i) => i !== index),
+                              })
+                            }
+                            className="grid shrink-0 place-items-center rounded-lg border border-red-100 bg-white p-1.5 text-red-600"
+                            title="Remove"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        {isCustom ? (
+                          <label className="mb-2 block text-xs font-medium text-slate-600">
+                            Product name
                             <input
                               required
                               value={item.name}
                               onChange={(e) => updateItem(index, { name: e.target.value })}
-                              placeholder="Product name"
-                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                              placeholder="e.g. Embroidered lawn suit"
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
                             />
-                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          </label>
+                        ) : null}
+
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          <label className="block text-xs font-medium text-slate-600">
+                            Size
+                            {sizes.length ? (
+                              <select
+                                value={item.size}
+                                onChange={(e) => updateItem(index, { size: e.target.value })}
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                              >
+                                {sizes.map((size) => (
+                                  <option key={size} value={size}>
+                                    {size}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
                               <input
                                 value={item.size}
                                 onChange={(e) => updateItem(index, { size: e.target.value })}
-                                placeholder="Size"
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                placeholder="S / M / L…"
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
                               />
-                              <input
-                                type="number"
-                                min={1}
-                                max={10}
-                                value={item.qty}
-                                onChange={(e) => updateItem(index, { qty: e.target.value })}
-                                placeholder="Qty"
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                              />
+                            )}
+                          </label>
+
+                          <label className="block text-xs font-medium text-slate-600">
+                            Quantity
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={item.qty}
+                              onChange={(e) => updateItem(index, { qty: e.target.value })}
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                            />
+                          </label>
+
+                          {forReseller ? (
+                            <label className="block text-xs font-medium text-slate-600">
+                              Wholesale (PKR)
                               <input
                                 type="number"
                                 min={0}
+                                step={1}
                                 value={item.wholesale}
-                                onChange={(e) => setCustomWholesale(index, e.target.value)}
-                                placeholder="Wholesale"
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                onChange={(e) =>
+                                  isCustom
+                                    ? setCustomWholesale(index, e.target.value)
+                                    : updateItem(index, {
+                                        wholesale: e.target.value,
+                                        price: String(
+                                          Math.max(0, Number(e.target.value) || 0) +
+                                            Math.max(0, Number(item.margin) || 0),
+                                        ),
+                                      })
+                                }
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
                               />
+                            </label>
+                          ) : null}
+
+                          {forReseller ? (
+                            <label className="block text-xs font-medium text-slate-600">
+                              Margin / profit (PKR)
                               <input
                                 type="number"
                                 min={0}
+                                step={1}
                                 value={item.margin}
                                 onChange={(e) => setItemMargin(index, e.target.value)}
-                                placeholder="Margin"
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
                               />
-                            </div>
-                            <p className="text-xs text-slate-500">
-                              Sell price {formatPkr(Number(item.price) || 0)} · WS {formatPkr(Number(item.wholesale) || 0)} +
-                              margin {formatPkr(Number(item.margin) || 0)}
-                            </p>
+                            </label>
+                          ) : null}
+
+                          <label className={`block text-xs font-medium text-slate-600 ${forReseller ? "" : "sm:col-span-2"}`}>
+                            Sell price (PKR)
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={item.price}
+                              onChange={(e) =>
+                                forReseller
+                                  ? setItemSellPrice(index, e.target.value)
+                                  : updateItem(index, { price: e.target.value })
+                              }
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-medium"
+                            />
+                          </label>
+                        </div>
+
+                        {forReseller ? (
+                          <p className="mt-2 text-[11px] text-slate-500">
+                            Sell {formatPkr(Number(item.price) || 0)} = wholesale {formatPkr(Number(item.wholesale) || 0)} +
+                            margin {formatPkr(Number(item.margin) || 0)}
+                          </p>
+                        ) : null}
+
+                        {isCustom ? (
+                          <label className="mt-2 block text-xs font-medium text-slate-600">
+                            Spec / note (optional)
                             <input
                               value={item.spec}
                               onChange={(e) => updateItem(index, { spec: e.target.value })}
-                              placeholder="Spec / note (optional)"
-                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                              placeholder="Fabric, colour…"
+                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                             />
-                          </div>
-                        ) : (
-                          <>
-                            <div className="grid grid-cols-[1fr_88px_64px_36px] items-center gap-2">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
-                                <p className="text-xs text-slate-500">
-                                  Sell {formatPkr(Number(item.price) || 0)}
-                                  {forReseller ? ` · WS ${formatPkr(Number(item.wholesale) || 0)}` : ""}
-                                </p>
-                              </div>
-                              {sizes.length ? (
-                                <select
-                                  value={item.size}
-                                  onChange={(e) => updateItem(index, { size: e.target.value })}
-                                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                                >
-                                  {sizes.map((size) => (
-                                    <option key={size} value={size}>
-                                      {size}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  value={item.size}
-                                  onChange={(e) => updateItem(index, { size: e.target.value })}
-                                  placeholder="Size"
-                                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                                />
-                              )}
-                              <input
-                                type="number"
-                                min={1}
-                                max={10}
-                                value={item.qty}
-                                onChange={(e) => updateItem(index, { qty: e.target.value })}
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setForm({
-                                    ...form,
-                                    items: form.items.filter((_, i) => i !== index),
-                                  })
-                                }
-                                className="grid place-items-center rounded-lg border border-red-100 bg-white text-red-600"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                            {forReseller ? (
-                              <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                                <span className="shrink-0 font-medium">Margin</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={item.margin}
-                                  onChange={(e) => setItemMargin(index, e.target.value)}
-                                  className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                                />
-                                <span className="text-slate-400">→ price updates</span>
-                              </label>
-                            ) : null}
-                          </>
-                        )}
+                          </label>
+                        ) : null}
                       </div>
                     );
                   })}

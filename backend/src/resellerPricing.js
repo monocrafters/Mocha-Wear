@@ -165,7 +165,7 @@ async function resolveOrderItems(rawItems, req) {
   for (const raw of Array.isArray(rawItems) ? rawItems : []) {
     const productId = String(raw.product_id || raw.productId || "").trim();
     const product = productId ? await products.getById(productId) : null;
-    const qty = Math.max(1, Math.min(10, Number(raw.qty) || 1));
+    const qty = Math.max(1, Math.min(99, Number(raw.qty) || 1));
     let sold = product ? product.price : Math.max(0, Number(raw.price) || 0);
     let wholesale = 0;
     let commission = 0;
@@ -244,7 +244,6 @@ async function resolveManualOrderItems(resellerId, rawItems) {
     throw err;
   }
 
-  const limits = await resolveMarkupLimits(reseller);
   const priceMap = new Map();
   const prices = await resellerPrices.listByReseller(reseller.id);
   prices.forEach((row) => {
@@ -259,7 +258,7 @@ async function resolveManualOrderItems(resellerId, rawItems) {
   for (const raw of Array.isArray(rawItems) ? rawItems : []) {
     const productId = String(raw.product_id || raw.productId || "").trim();
     const product = productId ? await products.getById(productId) : null;
-    const qty = Math.max(1, Math.min(10, Number(raw.qty) || 1));
+    const qty = Math.max(1, Math.min(99, Number(raw.qty) || 1));
     const clientWholesale = Math.max(0, Number(raw.wholesale_price_snapshot ?? raw.wholesale) || 0);
     const catalogWholesale = product ? Math.max(0, Number(product.wholesale_price) || 0) : 0;
     const wholesale = catalogWholesale > 0 ? catalogWholesale : clientWholesale;
@@ -271,16 +270,14 @@ async function resolveManualOrderItems(resellerId, rawItems) {
     let wholesaleSnap = 0;
 
     if (product?.reseller_enabled && wholesale > 0) {
-      const bounds = priceBounds(wholesale, limits.minPercent, limits.maxPercent);
-      if (bounds.ready) {
-        if (sold < bounds.minPrice) sold = bounds.minPrice;
-        if (sold > bounds.maxPrice) sold = bounds.maxPrice;
-      }
+      // Admin manual orders: keep admin-entered sell price (no max clamp)
       wholesaleSnap = wholesale;
+      if (sold < wholesale) sold = wholesale;
       commission = Math.max(0, Math.round((sold - wholesale) * qty));
-    } else if (!product && sold > 0) {
+    } else if (!product && (sold > 0 || wholesale > 0)) {
       // Custom / off-catalogue line for manual reseller orders
       wholesaleSnap = wholesale;
+      if (sold < wholesale) sold = wholesale;
       commission = Math.max(0, Math.round((sold - wholesale) * qty));
     } else if (product) {
       sold = clientSold > 0 ? clientSold : Number(product.price) || 0;
