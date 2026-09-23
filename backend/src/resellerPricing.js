@@ -244,6 +244,7 @@ async function resolveManualOrderItems(resellerId, rawItems) {
     throw err;
   }
 
+  const limits = await resolveMarkupLimits(reseller);
   const priceMap = new Map();
   const prices = await resellerPrices.listByReseller(reseller.id);
   prices.forEach((row) => {
@@ -270,14 +271,16 @@ async function resolveManualOrderItems(resellerId, rawItems) {
     let wholesaleSnap = 0;
 
     if (product?.reseller_enabled && wholesale > 0) {
-      // Admin manual orders: keep admin-entered sell price (no max clamp)
+      const bounds = priceBounds(wholesale, limits.minPercent, limits.maxPercent);
       wholesaleSnap = wholesale;
-      if (sold < wholesale) sold = wholesale;
+      // Reseller sell price must be at least wholesale + min commission
+      if (bounds.ready && sold < bounds.minPrice) sold = bounds.minPrice;
       commission = Math.max(0, Math.round((sold - wholesale) * qty));
     } else if (!product && (sold > 0 || wholesale > 0)) {
-      // Custom / off-catalogue line for manual reseller orders
+      const bounds = priceBounds(wholesale, limits.minPercent, limits.maxPercent);
       wholesaleSnap = wholesale;
-      if (sold < wholesale) sold = wholesale;
+      if (bounds.ready && sold < bounds.minPrice) sold = bounds.minPrice;
+      else if (sold < wholesale) sold = wholesale;
       commission = Math.max(0, Math.round((sold - wholesale) * qty));
     } else if (product) {
       sold = clientSold > 0 ? clientSold : Number(product.price) || 0;
@@ -352,7 +355,17 @@ async function listResellerProductPrices(resellerId) {
     });
   }
 
-  return { reseller: { id: reseller.id, code: reseller.code, name: reseller.name, status: reseller.status }, prices: rows };
+  return {
+    reseller: {
+      id: reseller.id,
+      code: reseller.code,
+      name: reseller.name,
+      status: reseller.status,
+      min_percent: limits.minPercent,
+      max_percent: limits.maxPercent,
+    },
+    prices: rows,
+  };
 }
 
 async function activateReferral(code, res, pathName = "/") {

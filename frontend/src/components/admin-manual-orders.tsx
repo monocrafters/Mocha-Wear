@@ -27,8 +27,11 @@ type DraftItem = {
   name: string;
   size: string;
   qty: string;
-  price: string;
+  /** Mocha / admin sale (retail) price */
+  sale_price: string;
   wholesale: string;
+  /** Reseller selling price (customer pays) */
+  price: string;
   margin: string;
   image: string;
   slug: string;
@@ -55,6 +58,8 @@ type ResellerOption = {
   username?: string;
   code: string;
   status: string;
+  commission_min_percent?: number | null;
+  commission_max_percent?: number | null;
 };
 
 type ResellerPriceRow = {
@@ -64,9 +69,21 @@ type ResellerPriceRow = {
   margin: number;
   min_price: number;
   max_price: number;
+  min_percent?: number;
+  max_percent?: number;
 };
 
+type MarkupLimits = { minPercent: number; maxPercent: number };
+
 const CHANNELS = ["WhatsApp", "Instagram", "Phone", "Other"] as const;
+const DEFAULT_MARKUP: MarkupLimits = { minPercent: 10, maxPercent: 40 };
+
+function minResellerPrice(wholesale: number, minPercent: number) {
+  const base = Math.max(0, Number(wholesale) || 0);
+  const pct = Math.max(0, Number(minPercent) || 0);
+  if (base <= 0) return 0;
+  return Math.round(base * (1 + pct / 100));
+}
 
 const emptyForm = (): DraftForm => ({
   channel: "WhatsApp",
@@ -86,6 +103,7 @@ function productToDraft(
   product: Product,
   existing?: DraftItem,
   resellerPrice?: ResellerPriceRow | null,
+  limits: MarkupLimits = DEFAULT_MARKUP,
 ): DraftItem {
   const sizes = product.sizes || [];
   const size =
@@ -93,19 +111,26 @@ function productToDraft(
       ? existing.size
       : sizes[0] || existing?.size || "";
   const wholesale = Math.max(0, Number(resellerPrice?.wholesale_price ?? product.wholesale_price) || 0);
-  const sell =
+  const sale = Math.max(0, Number(existing?.sale_price ?? product.price) || 0);
+  const minPrice =
+    resellerPrice && Number(resellerPrice.min_price) > 0
+      ? Number(resellerPrice.min_price)
+      : minResellerPrice(wholesale, limits.minPercent);
+  let resellerSell =
     resellerPrice && Number(resellerPrice.custom_price) > 0
       ? Number(resellerPrice.custom_price)
       : existing?.price
         ? Number(existing.price) || 0
-        : Number(product.price) || 0;
-  const margin = Math.max(0, sell - wholesale);
+        : minPrice || sale;
+  if (minPrice > 0 && resellerSell < minPrice) resellerSell = minPrice;
+  const margin = Math.max(0, resellerSell - wholesale);
   return {
     product_id: product.id,
     name: product.name,
     size,
     qty: existing?.qty || "1",
-    price: String(sell),
+    sale_price: String(sale),
+    price: String(resellerSell),
     wholesale: String(wholesale),
     margin: String(margin),
     image: product.images?.[0]?.url || "",
@@ -134,6 +159,7 @@ function orderToForm(order: Order): DraftForm {
         name: item.name,
         size: item.size || "",
         qty: String(item.qty || 1),
+        sale_price: String(price),
         price: String(price),
         wholesale: String(wholesale),
         margin: String(Math.max(0, price - wholesale)),
@@ -180,6 +206,7 @@ export function AdminManualOrders() {
   const [resellerId, setResellerId] = useState("");
   const [resellers, setResellers] = useState<ResellerOption[]>([]);
   const [resellerPrices, setResellerPrices] = useState<Map<string, ResellerPriceRow>>(new Map());
+  const [markupLimits, setMarkupLimits] = useState<MarkupLimits>(DEFAULT_MARKUP);
   const [pricesLoading, setPricesLoading] = useState(false);
 
   const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
@@ -187,11 +214,35 @@ export function AdminManualOrders() {
     () => resellers.filter((row) => row.status === "approved"),
     [resellers],
   );
+  const selectedReseller = useMemo(
+    () => approvedResellers.find((row) => row.id === resellerId) || null,
+    [approvedResellers, resellerId],
+  );
+  const activeMarkup = useMemo((): MarkupLimits => {
+    if (!selectedReseller) return markupLimits;
+    const min =
+      selectedReseller.commission_min_percent != null
+        ? Number(selectedReseller.commission_min_percent)
+        : markupLimits.minPercent;
+    const max =
+      selectedReseller.commission_max_percent != null
+        ? Number(selectedReseller.commission_max_percent)
+        : markupLimits.maxPercent;
+    return {
+      minPercent: Number.isFinite(min) ? min : markupLimits.minPercent,
+      maxPercent: Number.isFinite(max) ? max : markupLimits.maxPercent,
+    };
+  }, [selectedReseller, markupLimits]);
   const pickerProducts = useMemo(() => {
     if (!forReseller || !resellerId) return products;
     const enabled = products.filter((product) => product.reseller_enabled);
     return enabled.length ? enabled : products;
   }, [forReseller, resellerId, products]);
+
+  function itemMinResellerPrice(item: DraftItem, priceRow?: ResellerPriceRow | null) {
+    if (priceRow && Number(priceRow.min_price) > 0) return Number(priceRow.min_price);
+    return minResellerPrice(Number(item.wholesale) || 0, activeMarkup.minPercent);
+  }
 
   async function load() {
     setError("");
@@ -227,6 +278,7 @@ export function AdminManualOrders() {
   async function loadResellerPrices(id: string) {
     if (!id) {
       setResellerPrices(new Map());
+      setMarkupLimits(DEFAULT_MARKUP);
       return;
     }
     setPricesLoading(true);
@@ -241,8 +293,14 @@ export function AdminManualOrders() {
         map.set(row.product_id, row);
       }
       setResellerPrices(map);
+      const resellerMeta = data.reseller as { min_percent?: number; max_percent?: number } | undefined;
+      setMarkupLimits({
+        minPercent: Number(resellerMeta?.min_percent) || DEFAULT_MARKUP.minPercent,
+        maxPercent: Number(resellerMeta?.max_percent) || DEFAULT_MARKUP.maxPercent,
+      });
     } catch (err) {
       setResellerPrices(new Map());
+      setMarkupLimits(DEFAULT_MARKUP);
       setError(err instanceof Error ? err.message : "Could not load reseller prices");
     } finally {
       setPricesLoading(false);
@@ -256,6 +314,7 @@ export function AdminManualOrders() {
   useEffect(() => {
     if (!forReseller || !resellerId) {
       setResellerPrices(new Map());
+      setMarkupLimits(DEFAULT_MARKUP);
       return;
     }
     void loadResellerPrices(resellerId);
@@ -268,24 +327,14 @@ export function AdminManualOrders() {
     setCopied(false);
   }, [selected]);
 
-  function setItemMargin(index: number, marginRaw: string) {
+  function setItemSalePrice(index: number, saleRaw: string) {
     setForm((current) => ({
       ...current,
-      items: current.items.map((item, i) => {
-        if (i !== index) return item;
-        const wholesale = Math.max(0, Number(item.wholesale) || 0);
-        const margin = Math.max(0, Number(marginRaw) || 0);
-        const sell = Math.round(wholesale + margin);
-        return {
-          ...item,
-          margin: String(margin),
-          price: String(sell),
-        };
-      }),
+      items: current.items.map((item, i) => (i === index ? { ...item, sale_price: saleRaw } : item)),
     }));
   }
 
-  function setItemSellPrice(index: number, priceRaw: string) {
+  function setItemResellerPrice(index: number, priceRaw: string) {
     setForm((current) => ({
       ...current,
       items: current.items.map((item, i) => {
@@ -294,24 +343,24 @@ export function AdminManualOrders() {
         const sell = Math.max(0, Number(priceRaw) || 0);
         return {
           ...item,
-          price: String(sell),
+          price: priceRaw,
           margin: String(Math.max(0, sell - wholesale)),
         };
       }),
     }));
   }
 
-  function setCustomWholesale(index: number, wholesaleRaw: string) {
+  function setItemWholesale(index: number, wholesaleRaw: string) {
     setForm((current) => ({
       ...current,
       items: current.items.map((item, i) => {
         if (i !== index) return item;
         const wholesale = Math.max(0, Number(wholesaleRaw) || 0);
-        const margin = Math.max(0, Number(item.margin) || 0);
+        const sell = Math.max(0, Number(item.price) || 0);
         return {
           ...item,
-          wholesale: String(wholesale),
-          price: String(wholesale + margin),
+          wholesale: wholesaleRaw,
+          margin: String(Math.max(0, sell - wholesale)),
         };
       }),
     }));
@@ -377,7 +426,7 @@ export function AdminManualOrders() {
         const product = productsById.get(id);
         if (!product) return null;
         const priceRow = forReseller ? resellerPrices.get(id) || null : null;
-        return productToDraft(product, existing.get(id), priceRow);
+        return productToDraft(product, existing.get(id), priceRow, activeMarkup);
       })
       .filter((item): item is DraftItem => Boolean(item));
     setForm((current) => ({ ...current, items: [...nextItems, ...customItems] }));
@@ -398,6 +447,7 @@ export function AdminManualOrders() {
           name: "",
           size: "",
           qty: "1",
+          sale_price: "0",
           price: "0",
           wholesale: "0",
           margin: "0",
@@ -461,6 +511,23 @@ export function AdminManualOrders() {
     setMessage("");
     try {
       if (forReseller && !resellerId) throw new Error("Select a reseller for this order");
+      if (forReseller) {
+        for (const item of form.items) {
+          if (!item.name.trim()) continue;
+          const wholesale = Math.max(0, Number(item.wholesale) || 0);
+          const price = Math.max(0, Number(item.price) || 0);
+          const priceRow = item.product_id ? resellerPrices.get(item.product_id) || null : null;
+          const minPrice = itemMinResellerPrice(item, priceRow);
+          if (minPrice > 0 && price < minPrice) {
+            throw new Error(
+              `${item.name || "Item"}: reseller price must be at least ${formatPkr(minPrice)} (wholesale + ${activeMarkup.minPercent}% min commission)`,
+            );
+          }
+          if (wholesale > 0 && price < wholesale) {
+            throw new Error(`${item.name || "Item"}: reseller price must be greater than wholesale`);
+          }
+        }
+      }
       const lineItems = buildLineItems();
       if (!lineItems.length) throw new Error("Select at least one product");
 
@@ -579,6 +646,7 @@ export function AdminManualOrders() {
     if (!checked) {
       setResellerId("");
       setResellerPrices(new Map());
+      setMarkupLimits(DEFAULT_MARKUP);
       setForm((current) => ({
         ...current,
         items: current.items.map((item) => {
@@ -1062,6 +1130,8 @@ export function AdminManualOrders() {
                     const product = item.product_id ? productsById.get(item.product_id) : undefined;
                     const isCustom = !item.product_id;
                     const sizes = product?.sizes?.length ? product.sizes : [];
+                    const priceRow = item.product_id ? resellerPrices.get(item.product_id) || null : null;
+                    const minSell = forReseller ? itemMinResellerPrice(item, priceRow) : 0;
                     return (
                       <div
                         key={`${item.product_id || "custom"}-${index}`}
@@ -1143,64 +1213,72 @@ export function AdminManualOrders() {
                           </label>
 
                           {forReseller ? (
-                            <label className="block text-xs font-medium text-slate-600">
-                              Wholesale (PKR)
+                            <>
+                              <label className="block text-xs font-medium text-slate-600">
+                                Sale price (PKR)
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={item.sale_price}
+                                  onChange={(e) => setItemSalePrice(index, e.target.value)}
+                                  placeholder="Our sale price"
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                />
+                              </label>
+
+                              <label className="block text-xs font-medium text-slate-600">
+                                Wholesale (PKR)
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={item.wholesale}
+                                  onChange={(e) => setItemWholesale(index, e.target.value)}
+                                  placeholder="Wholesale"
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                />
+                              </label>
+
+                              <label className="block text-xs font-medium text-slate-600">
+                                Reseller price (PKR)
+                                <input
+                                  type="number"
+                                  min={minSell || 0}
+                                  step={1}
+                                  value={item.price}
+                                  onChange={(e) => setItemResellerPrice(index, e.target.value)}
+                                  placeholder={
+                                    minSell > 0
+                                      ? `Min ${formatPkr(minSell)}`
+                                      : `Min = wholesale + ${activeMarkup.minPercent}%`
+                                  }
+                                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-medium"
+                                />
+                              </label>
+                            </>
+                          ) : (
+                            <label className="block text-xs font-medium text-slate-600 sm:col-span-2">
+                              Sale price (PKR)
                               <input
                                 type="number"
                                 min={0}
                                 step={1}
-                                value={item.wholesale}
+                                value={item.price}
                                 onChange={(e) =>
-                                  isCustom
-                                    ? setCustomWholesale(index, e.target.value)
-                                    : updateItem(index, {
-                                        wholesale: e.target.value,
-                                        price: String(
-                                          Math.max(0, Number(e.target.value) || 0) +
-                                            Math.max(0, Number(item.margin) || 0),
-                                        ),
-                                      })
+                                  updateItem(index, { price: e.target.value, sale_price: e.target.value })
                                 }
-                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-medium"
                               />
                             </label>
-                          ) : null}
-
-                          {forReseller ? (
-                            <label className="block text-xs font-medium text-slate-600">
-                              Margin / profit (PKR)
-                              <input
-                                type="number"
-                                min={0}
-                                step={1}
-                                value={item.margin}
-                                onChange={(e) => setItemMargin(index, e.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                              />
-                            </label>
-                          ) : null}
-
-                          <label className={`block text-xs font-medium text-slate-600 ${forReseller ? "" : "sm:col-span-2"}`}>
-                            Sell price (PKR)
-                            <input
-                              type="number"
-                              min={0}
-                              step={1}
-                              value={item.price}
-                              onChange={(e) =>
-                                forReseller
-                                  ? setItemSellPrice(index, e.target.value)
-                                  : updateItem(index, { price: e.target.value })
-                              }
-                              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-medium"
-                            />
-                          </label>
+                          )}
                         </div>
 
                         {forReseller ? (
                           <p className="mt-2 text-[11px] text-slate-500">
-                            Sell {formatPkr(Number(item.price) || 0)} = wholesale {formatPkr(Number(item.wholesale) || 0)} +
-                            margin {formatPkr(Number(item.margin) || 0)}
+                            Reseller price must be ≥ wholesale + {activeMarkup.minPercent}% commission
+                            {minSell > 0 ? ` (min ${formatPkr(minSell)})` : ""}. Margin{" "}
+                            {formatPkr(Number(item.margin) || 0)}.
                           </p>
                         ) : null}
 
@@ -1263,7 +1341,7 @@ export function AdminManualOrders() {
           title="Select products"
           description={
             forReseller
-              ? "Prices shown are this reseller’s sell prices (wholesale + margin). You can edit margin after selecting."
+              ? "Prices shown are this reseller’s sell prices. After selecting, set sale, wholesale, and reseller price (min = wholesale + commission)."
               : "Pick one or more products from the catalogue. You can adjust size and quantity after."
           }
           confirmLabel={form.items.length ? "Update selection" : "Add products"}
