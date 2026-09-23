@@ -273,7 +273,7 @@ async function listByReseller(resellerId) {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
-async function requestPayout(resellerId, { amount } = {}, minThreshold = 1000, { manual = false } = {}) {
+async function requestPayout(resellerId, { amount, payment: paymentOverride } = {}, minThreshold = 1000, { manual = false } = {}) {
   await reconcileResellerWallet(resellerId);
   const value = Math.round(Number(amount) || 0);
   const min = Math.max(0, Math.round(Number(minThreshold) || 0));
@@ -306,7 +306,35 @@ async function requestPayout(resellerId, { amount } = {}, minThreshold = 1000, {
     err.status = 400;
     throw err;
   }
-  const payment = resellers.payoutSnapshot(row);
+  const base = resellers.payoutSnapshot(row);
+  const payment = shapePaymentSnapshot({
+    ...base,
+    ...(paymentOverride && typeof paymentOverride === "object" ? paymentOverride : {}),
+  });
+  if (manual) {
+    const method = payment.method;
+    if (!["bank", "jazzcash", "easypaisa", "nayapay", "sadapay"].includes(method)) {
+      throw Object.assign(new Error("Select a payment method (bank / JazzCash / Easypaisa / NayaPay / SadaPay)"), {
+        status: 400,
+      });
+    }
+    if (!payment.account_number) {
+      throw Object.assign(new Error("Account number is required"), { status: 400 });
+    }
+    if (method === "bank" && !payment.bank_name) {
+      throw Object.assign(new Error("Bank name is required for bank transfer"), { status: 400 });
+    }
+    if (["jazzcash", "easypaisa", "nayapay", "sadapay"].includes(method)) {
+      const num = String(payment.account_number || "").replace(/\D/g, "");
+      if (num.length !== 11 || !num.startsWith("03")) {
+        throw Object.assign(new Error("Enter an 11-digit mobile number starting with 03"), { status: 400 });
+      }
+      payment.account_number = num;
+    }
+    if (!payment.account_title) {
+      payment.account_title = String(row.name || "").trim();
+    }
+  }
   const payouts = await readPayouts();
   const payout = shapePayout({
     id: crypto.randomUUID(),
@@ -417,18 +445,33 @@ async function updatePayout(id, fields = {}) {
   return updated;
 }
 
-async function recordPayment(resellerId, { amount } = {}) {
+async function recordPayment(resellerId, { amount, payment, method, account_number, account_title, bank_name, iban } = {}) {
   if (!Number.isSafeInteger(Number(amount)) || Number(amount) <= 0) {
     throw Object.assign(new Error("Enter a positive whole PKR amount"), { status: 400 });
   }
   if (!(await resellers.getById(resellerId))) {
     throw Object.assign(new Error("Reseller not found"), { status: 404 });
   }
-  const open = (await listPayouts(resellerId)).find(row => ["requested", "processing"].includes(row.status));
+  const open = (await listPayouts(resellerId)).find((row) => ["requested", "processing"].includes(row.status));
   if (open && Number(amount) !== open.amount) {
-    throw Object.assign(new Error(`An open payout exists for Rs ${open.amount}. Mark that amount as paid from Payouts.`), { status: 409 });
+    throw Object.assign(
+      new Error(`An open payout exists for Rs ${open.amount}. Mark that amount as paid from Payouts.`),
+      { status: 409 },
+    );
   }
-  const payout = open || await requestPayout(resellerId, { amount }, 1, { manual: true });
+  const paymentFields =
+    payment && typeof payment === "object"
+      ? payment
+      : {
+          method,
+          account_number,
+          account_title,
+          bank_name,
+          iban,
+        };
+  const payout =
+    open ||
+    (await requestPayout(resellerId, { amount, payment: paymentFields }, 1, { manual: true }));
   return updatePayout(payout.id, { status: "completed" });
 }
 

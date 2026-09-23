@@ -275,7 +275,7 @@ export function AdminManualOrders() {
         if (i !== index) return item;
         const wholesale = Math.max(0, Number(item.wholesale) || 0);
         const margin = Math.max(0, Number(marginRaw) || 0);
-        const row = resellerPrices.get(item.product_id);
+        const row = item.product_id ? resellerPrices.get(item.product_id) : undefined;
         let sell = Math.round(wholesale + margin);
         if (row) {
           if (row.min_price > 0 && sell < row.min_price) sell = row.min_price;
@@ -344,6 +344,7 @@ export function AdminManualOrders() {
 
   function applyPickerSelection() {
     const existing = new Map(form.items.filter((item) => item.product_id).map((item) => [item.product_id, item]));
+    const customItems = form.items.filter((item) => !item.product_id);
     const nextItems = pickerIds
       .map((id) => {
         const product = productsById.get(id);
@@ -352,8 +353,49 @@ export function AdminManualOrders() {
         return productToDraft(product, existing.get(id), priceRow);
       })
       .filter((item): item is DraftItem => Boolean(item));
-    setForm((current) => ({ ...current, items: nextItems }));
+    setForm((current) => ({ ...current, items: [...nextItems, ...customItems] }));
     setPickerOpen(false);
+  }
+
+  function addCustomProduct() {
+    if (forReseller && !resellerId) {
+      setError("Select a reseller before adding a custom product");
+      return;
+    }
+    setForm((current) => ({
+      ...current,
+      items: [
+        ...current.items,
+        {
+          product_id: "",
+          name: "",
+          size: "",
+          qty: "1",
+          price: "0",
+          wholesale: "0",
+          margin: "0",
+          image: "",
+          slug: "",
+          spec: "",
+        },
+      ],
+    }));
+  }
+
+  function setCustomWholesale(index: number, wholesaleRaw: string) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, i) => {
+        if (i !== index) return item;
+        const wholesale = Math.max(0, Number(wholesaleRaw) || 0);
+        const margin = Math.max(0, Number(item.margin) || 0);
+        return {
+          ...item,
+          wholesale: String(wholesale),
+          price: String(wholesale + margin),
+        };
+      }),
+    }));
   }
 
   function buildLineItems() {
@@ -981,89 +1023,175 @@ export function AdminManualOrders() {
             </div>
 
             <div className="mt-5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-slate-900">Products</p>
-                <button
-                  type="button"
-                  onClick={openPicker}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
-                >
-                  {form.items.length ? "Change products" : "Select products"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {forReseller ? (
+                    <button
+                      type="button"
+                      onClick={addCustomProduct}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+                    >
+                      + Custom product
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={openPicker}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
+                  >
+                    {form.items.some((row) => row.product_id) ? "Change catalogue" : "Select from catalogue"}
+                  </button>
+                </div>
               </div>
 
               {form.items.length ? (
                 <div className="mt-2 space-y-2">
                   {form.items.map((item, index) => {
                     const product = item.product_id ? productsById.get(item.product_id) : undefined;
+                    const isCustom = !item.product_id;
                     const sizes = product?.sizes?.length ? product.sizes : item.size ? [item.size] : [];
                     return (
                       <div
-                        key={`${item.product_id || item.name}-${index}`}
+                        key={`${item.product_id || "custom"}-${index}`}
                         className="rounded-lg border border-slate-100 bg-slate-50/60 p-2"
                       >
-                        <div className="grid grid-cols-[1fr_88px_64px_36px] items-center gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
+                        {isCustom ? (
+                          <div className="mb-2 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                Custom product (not on website)
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    items: form.items.filter((_, i) => i !== index),
+                                  })
+                                }
+                                className="grid place-items-center rounded-lg border border-red-100 bg-white p-1.5 text-red-600"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <input
+                              required
+                              value={item.name}
+                              onChange={(e) => updateItem(index, { name: e.target.value })}
+                              placeholder="Product name"
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                            />
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              <input
+                                value={item.size}
+                                onChange={(e) => updateItem(index, { size: e.target.value })}
+                                placeholder="Size"
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                max={10}
+                                value={item.qty}
+                                onChange={(e) => updateItem(index, { qty: e.target.value })}
+                                placeholder="Qty"
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                value={item.wholesale}
+                                onChange={(e) => setCustomWholesale(index, e.target.value)}
+                                placeholder="Wholesale"
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                value={item.margin}
+                                onChange={(e) => setItemMargin(index, e.target.value)}
+                                placeholder="Margin"
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                              />
+                            </div>
                             <p className="text-xs text-slate-500">
-                              Sell {formatPkr(Number(item.price) || 0)}
-                              {forReseller ? ` · WS ${formatPkr(Number(item.wholesale) || 0)}` : ""}
+                              Sell price {formatPkr(Number(item.price) || 0)} · WS {formatPkr(Number(item.wholesale) || 0)} +
+                              margin {formatPkr(Number(item.margin) || 0)}
                             </p>
+                            <input
+                              value={item.spec}
+                              onChange={(e) => updateItem(index, { spec: e.target.value })}
+                              placeholder="Spec / note (optional)"
+                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                            />
                           </div>
-                          {sizes.length ? (
-                            <select
-                              value={item.size}
-                              onChange={(e) => updateItem(index, { size: e.target.value })}
-                              className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                            >
-                              {sizes.map((size) => (
-                                <option key={size} value={size}>
-                                  {size}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <input
-                              value={item.size}
-                              onChange={(e) => updateItem(index, { size: e.target.value })}
-                              placeholder="Size"
-                              className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                            />
-                          )}
-                          <input
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={item.qty}
-                            onChange={(e) => updateItem(index, { qty: e.target.value })}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setForm({
-                                ...form,
-                                items: form.items.filter((_, i) => i !== index),
-                              })
-                            }
-                            className="grid place-items-center rounded-lg border border-red-100 bg-white text-red-600"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        {forReseller ? (
-                          <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
-                            <span className="shrink-0 font-medium">Margin</span>
-                            <input
-                              type="number"
-                              min={0}
-                              value={item.margin}
-                              onChange={(e) => setItemMargin(index, e.target.value)}
-                              className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                            />
-                            <span className="text-slate-400">→ price updates</span>
-                          </label>
-                        ) : null}
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-[1fr_88px_64px_36px] items-center gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
+                                <p className="text-xs text-slate-500">
+                                  Sell {formatPkr(Number(item.price) || 0)}
+                                  {forReseller ? ` · WS ${formatPkr(Number(item.wholesale) || 0)}` : ""}
+                                </p>
+                              </div>
+                              {sizes.length ? (
+                                <select
+                                  value={item.size}
+                                  onChange={(e) => updateItem(index, { size: e.target.value })}
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                >
+                                  {sizes.map((size) => (
+                                    <option key={size} value={size}>
+                                      {size}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  value={item.size}
+                                  onChange={(e) => updateItem(index, { size: e.target.value })}
+                                  placeholder="Size"
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                                />
+                              )}
+                              <input
+                                type="number"
+                                min={1}
+                                max={10}
+                                value={item.qty}
+                                onChange={(e) => updateItem(index, { qty: e.target.value })}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    items: form.items.filter((_, i) => i !== index),
+                                  })
+                                }
+                                className="grid place-items-center rounded-lg border border-red-100 bg-white text-red-600"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            {forReseller ? (
+                              <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                                <span className="shrink-0 font-medium">Margin</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={item.margin}
+                                  onChange={(e) => setItemMargin(index, e.target.value)}
+                                  className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                                />
+                                <span className="text-slate-400">→ price updates</span>
+                              </label>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -1071,8 +1199,10 @@ export function AdminManualOrders() {
               ) : (
                 <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">
                   {forReseller && !resellerId
-                    ? "Select a reseller first, then pick products."
-                    : "Open the product picker and select one or more suits from the catalogue."}
+                    ? "Select a reseller first, then pick catalogue products or add a custom product."
+                    : forReseller
+                      ? "Select from catalogue, or add a custom product if it is not on the website."
+                      : "Open the product picker and select one or more suits from the catalogue."}
                 </p>
               )}
             </div>

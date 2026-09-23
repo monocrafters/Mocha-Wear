@@ -5,8 +5,26 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
-import { payoutMethodLabel } from "@/lib/reseller-payout";
+import { payoutMethodLabel, PAYOUT_METHOD_OPTIONS, isWalletMethod } from "@/lib/reseller-payout";
 import { AdminFormSkeleton, AdminListSkeleton } from "@/components/skeletons";
+
+const PK_BANKS = [
+  "HBL",
+  "Meezan Bank",
+  "UBL",
+  "MCB",
+  "Allied Bank",
+  "Bank Alfalah",
+  "Askari Bank",
+  "Faysal Bank",
+  "Habib Metro",
+  "Standard Chartered",
+  "JS Bank",
+  "Bank of Punjab",
+  "Samba Bank",
+  "Dubai Islamic Bank",
+  "Other",
+] as const;
 
 type ResellerDetail = {
   id: string;
@@ -222,6 +240,11 @@ export function AdminResellerDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentAccountTitle, setPaymentAccountTitle] = useState("");
+  const [paymentAccountNumber, setPaymentAccountNumber] = useState("");
+  const [paymentBankName, setPaymentBankName] = useState("");
+  const [paymentBankOther, setPaymentBankOther] = useState(false);
   const [paying, setPaying] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -244,6 +267,16 @@ export function AdminResellerDetail() {
         setTransactions(data.transactions || []);
         setLinkRequests(data.link_requests || []);
         setClicks(data.clicks_recent || []);
+        const reseller = data.item as ResellerDetail | null;
+        if (reseller) {
+          setPaymentMethod(String(reseller.payout_method || ""));
+          setPaymentAccountTitle(String(reseller.payout_account_title || reseller.name || ""));
+          setPaymentAccountNumber(String(reseller.payout_account_number || ""));
+          const bank = String(reseller.payout_bank_name || "");
+          const known = PK_BANKS.filter((row) => row !== "Other").includes(bank as Exclude<(typeof PK_BANKS)[number], "Other">);
+          setPaymentBankOther(Boolean(bank) && !known);
+          setPaymentBankName(bank);
+        }
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : "Reseller not found");
@@ -251,27 +284,67 @@ export function AdminResellerDetail() {
       .finally(() => setLoading(false));
   }, [params.id, refresh]);
 
-  async function recordManualPayment() {
+  async function recordManualPayment(amountOverride?: number) {
     if (!item || paying) return;
-    const amount = Number(paymentAmount);
+    const amount = amountOverride != null ? Math.round(Number(amountOverride) || 0) : Number(paymentAmount);
     if (!Number.isSafeInteger(amount) || amount <= 0) {
       setError("Enter a positive whole PKR amount.");
       return;
     }
-    if (!window.confirm(`Confirm you have paid ${formatPkr(amount)} to ${item.name}?`)) return;
+    const cleared = Math.round(Number(item.wallet_cleared) || Number(stats?.wallet_cleared) || 0);
+    if (amount > cleared) {
+      setError(`Amount exceeds cleared balance (${formatPkr(cleared)}).`);
+      return;
+    }
+    if (!paymentMethod) {
+      setError("Select a payment method / bank type.");
+      return;
+    }
+    if (!paymentAccountNumber.trim()) {
+      setError("Enter the account number.");
+      return;
+    }
+    if (paymentMethod === "bank" && !paymentBankName.trim()) {
+      setError("Enter the bank name.");
+      return;
+    }
+    if (isWalletMethod(paymentMethod)) {
+      const num = paymentAccountNumber.replace(/\D/g, "");
+      if (num.length !== 11 || !num.startsWith("03")) {
+        setError("Wallet account number must be 11 digits starting with 03.");
+        return;
+      }
+    }
+    const confirmLabel =
+      amountOverride != null
+        ? `Mark full cleared balance ${formatPkr(amount)} as paid to ${item.name}? Cleared wallet will become Rs 0.`
+        : `Confirm you have paid ${formatPkr(amount)} to ${item.name}?`;
+    if (!window.confirm(confirmLabel)) return;
     setPaying(true);
     setError("");
     setPaymentMessage("");
     try {
       const res = await apiFetch(`${API_URL}/api/admin/resellers/${encodeURIComponent(item.id)}/payment`, {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          method: paymentMethod,
+          account_title: paymentAccountTitle.trim() || item.name,
+          account_number: paymentAccountNumber.trim(),
+          bank_name: paymentMethod === "bank" ? paymentBankName.trim() : "",
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Could not record payment");
-      setPaymentMessage(`${formatPkr(amount)} payment marked done.`);
+      setPaymentMessage(
+        amountOverride != null
+          ? `Full cleared ${formatPkr(amount)} marked paid — wallet cleared is now Rs 0.`
+          : `${formatPkr(amount)} payment marked done via ${payoutMethodLabel(paymentMethod)}.`,
+      );
       setPaymentAmount("");
-      setRefresh(value => value + 1);
+      setRefresh((value) => value + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not record payment");
     } finally {
@@ -306,16 +379,149 @@ export function AdminResellerDetail() {
       {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
       <section className="rounded-xl border border-emerald-200 bg-white p-5">
-        <h3 className="font-semibold text-slate-900">Manual withdrawal payment</h3>
-        <p className="mt-1 text-sm text-slate-500">Record an amount you have paid to this reseller. Admin payments can be below PKR 1,000, up to the available balance.</p>
-        <form onSubmit={(event) => { event.preventDefault(); void recordManualPayment(); }} className="mt-3 flex flex-wrap items-end gap-3">
-          <label className="text-sm text-slate-700">Amount (PKR)
-            <input type="number" min="1" step="1" required value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} disabled={paying}
-              className="mt-1 block rounded-lg border border-slate-200 px-3 py-2" placeholder="e.g. 250" />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-slate-900">Manual withdrawal payment</h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Select bank/wallet + account, then mark the full cleared balance paid in one click (wallet → Rs 0), or enter a custom amount.
+            </p>
+          </div>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Cleared balance</p>
+            <p className="text-lg font-semibold text-emerald-900">
+              {formatPkr(Number(item.wallet_cleared) || Number(stats.wallet_cleared) || 0)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-sm text-slate-700">
+            Bank / payment type
+            <select
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              disabled={paying}
+              className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              <option value="">Select…</option>
+              {PAYOUT_METHOD_OPTIONS.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {payoutMethodLabel(row.id)}
+                </option>
+              ))}
+            </select>
           </label>
-          <button type="submit" disabled={paying} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{paying ? "Saving…" : "Mark payment done"}</button>
+          <label className="text-sm text-slate-700">
+            Account title
+            <input
+              value={paymentAccountTitle}
+              onChange={(event) => setPaymentAccountTitle(event.target.value)}
+              disabled={paying}
+              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2"
+              placeholder="Account holder name"
+            />
+          </label>
+          {paymentMethod === "bank" ? (
+            <div className="space-y-2">
+              <label className="block text-sm text-slate-700">
+                Bank name
+                <select
+                  value={paymentBankOther ? "Other" : paymentBankName}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "Other") {
+                      setPaymentBankOther(true);
+                      setPaymentBankName("");
+                    } else {
+                      setPaymentBankOther(false);
+                      setPaymentBankName(value);
+                    }
+                  }}
+                  disabled={paying}
+                  className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2"
+                >
+                  <option value="">Select bank…</option>
+                  {PK_BANKS.map((bank) => (
+                    <option key={bank} value={bank}>
+                      {bank}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {paymentBankOther ? (
+                <input
+                  value={paymentBankName}
+                  onChange={(event) => setPaymentBankName(event.target.value)}
+                  disabled={paying}
+                  className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Type bank name"
+                />
+              ) : null}
+            </div>
+          ) : null}
+          <label className={`text-sm text-slate-700 ${paymentMethod === "bank" ? "" : "sm:col-span-2"}`}>
+            {isWalletMethod(paymentMethod) ? "Mobile / account number" : "Account number"}
+            <input
+              value={paymentAccountNumber}
+              onChange={(event) => setPaymentAccountNumber(event.target.value)}
+              disabled={paying}
+              inputMode={isWalletMethod(paymentMethod) ? "numeric" : "text"}
+              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 font-mono"
+              placeholder={isWalletMethod(paymentMethod) ? "03XXXXXXXXX" : "Account number"}
+            />
+          </label>
+        </div>
+
+        {(Number(item.wallet_cleared) || Number(stats.wallet_cleared) || 0) > 0 ? (
+          <button
+            type="button"
+            disabled={paying}
+            onClick={() =>
+              void recordManualPayment(Math.round(Number(item.wallet_cleared) || Number(stats.wallet_cleared) || 0))
+            }
+            className="mt-4 w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {paying
+              ? "Saving…"
+              : `Mark all cleared as paid (${formatPkr(Number(item.wallet_cleared) || Number(stats.wallet_cleared) || 0)}) → Rs 0`}
+          </button>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">Cleared balance is already Rs 0.</p>
+        )}
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void recordManualPayment();
+          }}
+          className="mt-4 flex flex-wrap items-end gap-3 border-t border-emerald-100 pt-4"
+        >
+          <label className="min-w-[160px] flex-1 text-sm text-slate-700">
+            Custom amount (PKR)
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={paymentAmount}
+              onChange={(event) => setPaymentAmount(event.target.value)}
+              disabled={paying}
+              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2"
+              placeholder="e.g. 250"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={paying || !paymentAmount}
+            className="rounded-lg border border-emerald-700 px-4 py-2 text-sm font-medium text-emerald-800 disabled:opacity-50"
+          >
+            {paying ? "Saving…" : "Mark custom amount paid"}
+          </button>
         </form>
-        {paymentMessage ? <p className="mt-3 text-sm text-emerald-700" role="status">{paymentMessage}</p> : null}
+        {paymentMessage ? (
+          <p className="mt-3 text-sm text-emerald-700" role="status">
+            {paymentMessage}
+          </p>
+        ) : null}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">

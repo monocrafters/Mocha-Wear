@@ -260,7 +260,9 @@ async function resolveManualOrderItems(resellerId, rawItems) {
     const productId = String(raw.product_id || raw.productId || "").trim();
     const product = productId ? await products.getById(productId) : null;
     const qty = Math.max(1, Math.min(10, Number(raw.qty) || 1));
-    const wholesale = product ? Math.max(0, Number(product.wholesale_price) || 0) : 0;
+    const clientWholesale = Math.max(0, Number(raw.wholesale_price_snapshot ?? raw.wholesale) || 0);
+    const catalogWholesale = product ? Math.max(0, Number(product.wholesale_price) || 0) : 0;
+    const wholesale = catalogWholesale > 0 ? catalogWholesale : clientWholesale;
     const saved = productId && priceMap.has(productId) ? priceMap.get(productId) : 0;
     const clientSold = Math.max(0, Number(raw.price ?? raw.sold_price_snapshot) || 0);
 
@@ -276,14 +278,21 @@ async function resolveManualOrderItems(resellerId, rawItems) {
       }
       wholesaleSnap = wholesale;
       commission = Math.max(0, Math.round((sold - wholesale) * qty));
+    } else if (!product && sold > 0) {
+      // Custom / off-catalogue line for manual reseller orders
+      wholesaleSnap = wholesale;
+      commission = Math.max(0, Math.round((sold - wholesale) * qty));
     } else if (product) {
       sold = clientSold > 0 ? clientSold : Number(product.price) || 0;
     }
 
+    const name = String(raw.name || product?.name || "").trim();
+    if (!name) continue;
+
     commission_total += commission;
     items.push({
       product_id: productId,
-      name: String(raw.name || product?.name || "Suit").trim() || "Suit",
+      name,
       spec: String(raw.spec || "").trim(),
       size: String(raw.size || "").trim(),
       qty,
