@@ -371,12 +371,18 @@ async function updateOne(id, fields = {}) {
     next.items = items;
   }
 
+  if (fields.reseller_id !== undefined) next.reseller_id = String(fields.reseller_id || "").trim();
+  if (fields.reseller_code !== undefined) next.reseller_code = String(fields.reseller_code || "").trim();
+  if (fields.commission_total !== undefined) {
+    next.commission_total = Math.max(0, Number(fields.commission_total) || 0);
+  }
+
   data.orders[index] = normalizeOrder(next, index);
   await writeStore(data);
-  if (nextStatus === "delivered" && current.status !== "delivered" && current.reseller_id) {
+  if (nextStatus === "delivered" && current.status !== "delivered" && data.orders[index].reseller_id) {
     try {
       const wallet = require("./resellerWallet");
-      await wallet.onOrderDelivered(current.id);
+      await wallet.onOrderDelivered(data.orders[index].id);
     } catch (error) {
       console.error("Reseller delivered hook failed:", error.message);
     }

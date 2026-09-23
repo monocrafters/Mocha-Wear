@@ -12,6 +12,9 @@ export type OrderItem = {
   price: number;
   image: string;
   slug?: string;
+  wholesale_price_snapshot?: number;
+  sold_price_snapshot?: number;
+  commission_amount?: number;
 };
 
 export type Order = {

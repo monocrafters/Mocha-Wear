@@ -207,6 +207,148 @@ async function resolveOrderItems(rawItems, req) {
   };
 }
 
+/**
+ * Admin manual orders: attribute to an approved reseller and price from
+ * admin-sent sold price (margin-adjusted) with wholesale snapshots.
+ * Falls back to the reseller's saved custom_price when sold price is omitted.
+ */
+async function resolveManualOrderItems(resellerId, rawItems) {
+  const id = String(resellerId || "").trim();
+  if (!id) {
+    return {
+      items: (Array.isArray(rawItems) ? rawItems : []).map((raw) => ({
+        product_id: String(raw.product_id || raw.productId || "").trim(),
+        name: String(raw.name || "Suit").trim() || "Suit",
+        spec: String(raw.spec || "").trim(),
+        size: String(raw.size || "").trim(),
+        qty: Math.max(1, Math.min(10, Number(raw.qty) || 1)),
+        price: Math.max(0, Number(raw.price) || 0),
+        image: String(raw.image || "").trim(),
+        slug: String(raw.slug || "").trim(),
+        wholesale_price_snapshot: 0,
+        sold_price_snapshot: Math.max(0, Number(raw.price) || 0),
+        commission_amount: 0,
+      })),
+      reseller_id: "",
+      reseller_code: "",
+      commission_total: 0,
+      attributed: false,
+      reseller: null,
+    };
+  }
+
+  const reseller = await resellers.getById(id);
+  if (!reseller || reseller.status !== "approved") {
+    const err = new Error("Select an approved reseller");
+    err.status = 400;
+    throw err;
+  }
+
+  const limits = await resolveMarkupLimits(reseller);
+  const priceMap = new Map();
+  const prices = await resellerPrices.listByReseller(reseller.id);
+  prices.forEach((row) => {
+    if (row.is_active && Number(row.custom_price) > 0) {
+      priceMap.set(row.product_id, Number(row.custom_price));
+    }
+  });
+
+  let commission_total = 0;
+  const items = [];
+
+  for (const raw of Array.isArray(rawItems) ? rawItems : []) {
+    const productId = String(raw.product_id || raw.productId || "").trim();
+    const product = productId ? await products.getById(productId) : null;
+    const qty = Math.max(1, Math.min(10, Number(raw.qty) || 1));
+    const wholesale = product ? Math.max(0, Number(product.wholesale_price) || 0) : 0;
+    const saved = productId && priceMap.has(productId) ? priceMap.get(productId) : 0;
+    const clientSold = Math.max(0, Number(raw.price ?? raw.sold_price_snapshot) || 0);
+
+    let sold = clientSold > 0 ? clientSold : saved || (product ? Number(product.price) || 0 : 0);
+    let commission = 0;
+    let wholesaleSnap = 0;
+
+    if (product?.reseller_enabled && wholesale > 0) {
+      const bounds = priceBounds(wholesale, limits.minPercent, limits.maxPercent);
+      if (bounds.ready) {
+        if (sold < bounds.minPrice) sold = bounds.minPrice;
+        if (sold > bounds.maxPrice) sold = bounds.maxPrice;
+      }
+      wholesaleSnap = wholesale;
+      commission = Math.max(0, Math.round((sold - wholesale) * qty));
+    } else if (product) {
+      sold = clientSold > 0 ? clientSold : Number(product.price) || 0;
+    }
+
+    commission_total += commission;
+    items.push({
+      product_id: productId,
+      name: String(raw.name || product?.name || "Suit").trim() || "Suit",
+      spec: String(raw.spec || "").trim(),
+      size: String(raw.size || "").trim(),
+      qty,
+      price: sold,
+      image: String(raw.image || product?.images?.[0]?.url || "").trim(),
+      slug: String(raw.slug || product?.slug || "").trim(),
+      wholesale_price_snapshot: wholesaleSnap,
+      sold_price_snapshot: sold,
+      commission_amount: commission,
+    });
+  }
+
+  if (!items.length) {
+    const err = new Error("Add at least one item");
+    err.status = 400;
+    throw err;
+  }
+
+  return {
+    items,
+    reseller_id: reseller.id,
+    reseller_code: reseller.code,
+    commission_total,
+    attributed: true,
+    reseller,
+  };
+}
+
+async function listResellerProductPrices(resellerId) {
+  const reseller = await resellers.getById(String(resellerId || "").trim());
+  if (!reseller) {
+    const err = new Error("Reseller not found");
+    err.status = 404;
+    throw err;
+  }
+  const limits = await resolveMarkupLimits(reseller);
+  const allProducts = await products.listAll();
+  const byId = new Map(allProducts.map((row) => [row.id, row]));
+  const prices = await resellerPrices.listByReseller(reseller.id);
+  const rows = [];
+
+  for (const row of prices) {
+    if (!row.is_active || !(Number(row.custom_price) > 0)) continue;
+    const product = byId.get(row.product_id);
+    if (!product || !product.reseller_enabled) continue;
+    const wholesale = Math.max(0, Number(product.wholesale_price) || 0);
+    const custom = Math.round(Number(row.custom_price) || 0);
+    const bounds = priceBounds(wholesale, limits.minPercent, limits.maxPercent);
+    rows.push({
+      product_id: product.id,
+      name: product.name,
+      wholesale_price: wholesale,
+      custom_price: custom,
+      margin: Math.max(0, custom - wholesale),
+      min_price: bounds.minPrice,
+      max_price: bounds.maxPrice,
+      min_percent: limits.minPercent,
+      max_percent: limits.maxPercent,
+      is_active: true,
+    });
+  }
+
+  return { reseller: { id: reseller.id, code: reseller.code, name: reseller.name, status: reseller.status }, prices: rows };
+}
+
 async function activateReferral(code, res, pathName = "/") {
   const reseller = await resellers.getByCode(code);
   if (!reseller || reseller.status !== "approved") {
@@ -353,6 +495,8 @@ module.exports = {
   applyResellerPricing,
   applyResellerPricingToList,
   resolveOrderItems,
+  resolveManualOrderItems,
+  listResellerProductPrices,
   activateReferral,
   recordClick,
   clickStats,

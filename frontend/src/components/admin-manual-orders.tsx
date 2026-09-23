@@ -28,6 +28,8 @@ type DraftItem = {
   size: string;
   qty: string;
   price: string;
+  wholesale: string;
+  margin: string;
   image: string;
   slug: string;
   spec: string;
@@ -47,6 +49,23 @@ type DraftForm = {
   items: DraftItem[];
 };
 
+type ResellerOption = {
+  id: string;
+  name: string;
+  username?: string;
+  code: string;
+  status: string;
+};
+
+type ResellerPriceRow = {
+  product_id: string;
+  wholesale_price: number;
+  custom_price: number;
+  margin: number;
+  min_price: number;
+  max_price: number;
+};
+
 const CHANNELS = ["WhatsApp", "Instagram", "Phone", "Other"] as const;
 
 const emptyForm = (): DraftForm => ({
@@ -63,18 +82,32 @@ const emptyForm = (): DraftForm => ({
   items: [],
 });
 
-function productToDraft(product: Product, existing?: DraftItem): DraftItem {
+function productToDraft(
+  product: Product,
+  existing?: DraftItem,
+  resellerPrice?: ResellerPriceRow | null,
+): DraftItem {
   const sizes = product.sizes || [];
   const size =
     existing?.size && sizes.some((row) => row.toLowerCase() === existing.size.toLowerCase())
       ? existing.size
       : sizes[0] || existing?.size || "";
+  const wholesale = Math.max(0, Number(resellerPrice?.wholesale_price ?? product.wholesale_price) || 0);
+  const sell =
+    resellerPrice && Number(resellerPrice.custom_price) > 0
+      ? Number(resellerPrice.custom_price)
+      : existing?.price
+        ? Number(existing.price) || 0
+        : Number(product.price) || 0;
+  const margin = Math.max(0, sell - wholesale);
   return {
     product_id: product.id,
     name: product.name,
     size,
     qty: existing?.qty || "1",
-    price: existing?.price || String(product.price || 0),
+    price: String(sell),
+    wholesale: String(wholesale),
+    margin: String(margin),
     image: product.images?.[0]?.url || "",
     slug: product.slug || "",
     spec: [product.fabric, product.color].filter(Boolean).join(" · "),
@@ -93,16 +126,22 @@ function orderToForm(order: Order): DraftForm {
     landmark: order.customer?.landmark || "",
     note: order.note || "",
     delivery: String(order.delivery ?? 0),
-    items: order.items.map((item) => ({
-      product_id: item.product_id || "",
-      name: item.name,
-      size: item.size || "",
-      qty: String(item.qty || 1),
-      price: String(item.price || 0),
-      image: item.image || "",
-      slug: item.slug || "",
-      spec: item.spec || "",
-    })),
+    items: order.items.map((item) => {
+      const wholesale = Math.max(0, Number((item as { wholesale_price_snapshot?: number }).wholesale_price_snapshot) || 0);
+      const price = Math.max(0, Number(item.price) || 0);
+      return {
+        product_id: item.product_id || "",
+        name: item.name,
+        size: item.size || "",
+        qty: String(item.qty || 1),
+        price: String(price),
+        wholesale: String(wholesale),
+        margin: String(Math.max(0, price - wholesale)),
+        image: item.image || "",
+        slug: item.slug || "",
+        spec: item.spec || "",
+      };
+    }),
   };
 }
 
@@ -137,28 +176,46 @@ export function AdminManualOrders() {
   const [courier, setCourier] = useState("");
   const [dispatchId, setDispatchId] = useState("");
   const [copied, setCopied] = useState(false);
+  const [forReseller, setForReseller] = useState(false);
+  const [resellerId, setResellerId] = useState("");
+  const [resellers, setResellers] = useState<ResellerOption[]>([]);
+  const [resellerPrices, setResellerPrices] = useState<Map<string, ResellerPriceRow>>(new Map());
+  const [pricesLoading, setPricesLoading] = useState(false);
 
   const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+  const approvedResellers = useMemo(
+    () => resellers.filter((row) => row.status === "approved"),
+    [resellers],
+  );
+  const pickerProducts = useMemo(() => {
+    if (!forReseller || !resellerId) return products;
+    const enabled = products.filter((product) => product.reseller_enabled);
+    return enabled.length ? enabled : products;
+  }, [forReseller, resellerId, products]);
 
   async function load() {
     setError("");
     try {
-      const [ordersRes, productsRes, collectionsRes] = await Promise.all([
+      const [ordersRes, productsRes, collectionsRes, resellersRes] = await Promise.all([
         apiFetch(`${API_URL}/api/admin/orders`, { credentials: "include" }),
         apiFetch(`${API_URL}/api/admin/products`, { credentials: "include" }),
         apiFetch(`${API_URL}/api/admin/collections`, { credentials: "include" }),
+        apiFetch(`${API_URL}/api/admin/resellers`, { credentials: "include" }),
       ]);
       const ordersData = await ordersRes.json();
       const productsData = await productsRes.json();
       const collectionsData = await collectionsRes.json();
+      const resellersData = await resellersRes.json();
       if (!ordersRes.ok) throw new Error(ordersData.message || "Could not load orders");
       if (!productsRes.ok) throw new Error(productsData.message || "Could not load products");
       if (!collectionsRes.ok) throw new Error(collectionsData.message || "Could not load collections");
+      if (!resellersRes.ok) throw new Error(resellersData.message || "Could not load resellers");
 
       const manual = ((ordersData.items || []) as Order[]).filter((order) => order.source === "manual");
       setItems(manual);
       setProducts((productsData.items || []) as Product[]);
       setCollections((collectionsData.items || []) as Collection[]);
+      setResellers((resellersData.items || []) as ResellerOption[]);
       setSelected((current) => (current ? manual.find((row) => row.id === current.id) || null : null));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load orders");
@@ -167,9 +224,42 @@ export function AdminManualOrders() {
     }
   }
 
+  async function loadResellerPrices(id: string) {
+    if (!id) {
+      setResellerPrices(new Map());
+      return;
+    }
+    setPricesLoading(true);
+    try {
+      const res = await apiFetch(`${API_URL}/api/admin/resellers/${encodeURIComponent(id)}/product-prices`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not load reseller prices");
+      const map = new Map<string, ResellerPriceRow>();
+      for (const row of (data.prices || []) as ResellerPriceRow[]) {
+        map.set(row.product_id, row);
+      }
+      setResellerPrices(map);
+    } catch (err) {
+      setResellerPrices(new Map());
+      setError(err instanceof Error ? err.message : "Could not load reseller prices");
+    } finally {
+      setPricesLoading(false);
+    }
+  }
+
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (!forReseller || !resellerId) {
+      setResellerPrices(new Map());
+      return;
+    }
+    void loadResellerPrices(resellerId);
+  }, [forReseller, resellerId]);
 
   useEffect(() => {
     setShipOpen(false);
@@ -177,6 +267,28 @@ export function AdminManualOrders() {
     setDispatchId(selected?.dispatch_id || "");
     setCopied(false);
   }, [selected]);
+
+  function setItemMargin(index: number, marginRaw: string) {
+    setForm((current) => ({
+      ...current,
+      items: current.items.map((item, i) => {
+        if (i !== index) return item;
+        const wholesale = Math.max(0, Number(item.wholesale) || 0);
+        const margin = Math.max(0, Number(marginRaw) || 0);
+        const row = resellerPrices.get(item.product_id);
+        let sell = Math.round(wholesale + margin);
+        if (row) {
+          if (row.min_price > 0 && sell < row.min_price) sell = row.min_price;
+          if (row.max_price > 0 && sell > row.max_price) sell = row.max_price;
+        }
+        return {
+          ...item,
+          margin: String(Math.max(0, sell - wholesale)),
+          price: String(sell),
+        };
+      }),
+    }));
+  }
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -186,6 +298,7 @@ export function AdminManualOrders() {
       const blob = [
         order.id,
         order.channel,
+        order.reseller_code,
         order.customer?.name,
         order.customer?.phone,
         order.city,
@@ -200,6 +313,9 @@ export function AdminManualOrders() {
   function openCreate() {
     setEditingId(null);
     setForm(emptyForm());
+    setForReseller(false);
+    setResellerId("");
+    setResellerPrices(new Map());
     setFormOpen(true);
     setPickerOpen(false);
   }
@@ -207,12 +323,19 @@ export function AdminManualOrders() {
   function openEdit(order: Order) {
     setEditingId(order.id);
     setForm(orderToForm(order));
+    const hasReseller = Boolean(order.reseller_id);
+    setForReseller(hasReseller);
+    setResellerId(order.reseller_id || "");
     setFormOpen(true);
     setPickerOpen(false);
     setSelected(order);
   }
 
   function openPicker() {
+    if (forReseller && !resellerId) {
+      setError("Select a reseller before picking products");
+      return;
+    }
     const ids = form.items.map((item) => item.product_id).filter(Boolean);
     setPickerIds(ids);
     setPickerCollectionIds([]);
@@ -225,7 +348,8 @@ export function AdminManualOrders() {
       .map((id) => {
         const product = productsById.get(id);
         if (!product) return null;
-        return productToDraft(product, existing.get(id));
+        const priceRow = forReseller ? resellerPrices.get(id) || null : null;
+        return productToDraft(product, existing.get(id), priceRow);
       })
       .filter((item): item is DraftItem => Boolean(item));
     setForm((current) => ({ ...current, items: nextItems }));
@@ -234,16 +358,25 @@ export function AdminManualOrders() {
 
   function buildLineItems() {
     return form.items
-      .map((item) => ({
-        product_id: item.product_id,
-        name: item.name.trim(),
-        size: item.size.trim(),
-        qty: Math.max(1, Math.min(10, Number(item.qty) || 1)),
-        price: Math.max(0, Number(item.price) || 0),
-        image: item.image,
-        slug: item.slug,
-        spec: item.spec,
-      }))
+      .map((item) => {
+        const wholesale = Math.max(0, Number(item.wholesale) || 0);
+        const price = Math.max(0, Number(item.price) || 0);
+        const qty = Math.max(1, Math.min(10, Number(item.qty) || 1));
+        const commission = forReseller && resellerId ? Math.max(0, Math.round((price - wholesale) * qty)) : 0;
+        return {
+          product_id: item.product_id,
+          name: item.name.trim(),
+          size: item.size.trim(),
+          qty,
+          price,
+          image: item.image,
+          slug: item.slug,
+          spec: item.spec,
+          wholesale_price_snapshot: forReseller ? wholesale : 0,
+          sold_price_snapshot: price,
+          commission_amount: commission,
+        };
+      })
       .filter((item) => item.name);
   }
 
@@ -253,6 +386,7 @@ export function AdminManualOrders() {
       note: form.note.trim(),
       delivery: Math.max(0, Number(form.delivery) || 0),
       payment: "Cash on delivery",
+      reseller_id: forReseller ? resellerId : "",
       customer: {
         name: form.name.trim(),
         phone: form.phone.trim(),
@@ -273,6 +407,7 @@ export function AdminManualOrders() {
     setError("");
     setMessage("");
     try {
+      if (forReseller && !resellerId) throw new Error("Select a reseller for this order");
       const lineItems = buildLineItems();
       if (!lineItems.length) throw new Error("Select at least one product");
 
@@ -290,6 +425,8 @@ export function AdminManualOrders() {
       if (!res.ok) throw new Error(data.message || (editingId ? "Could not update order" : "Could not create order"));
       const order = data.item as Order;
       setForm(emptyForm());
+      setForReseller(false);
+      setResellerId("");
       setFormOpen(false);
       setEditingId(null);
       setMessage(editingId ? `Order ${order.id} updated` : `Order ${order.id} created`);
@@ -384,6 +521,27 @@ export function AdminManualOrders() {
     }));
   }
 
+  function onResellerToggle(checked: boolean) {
+    setForReseller(checked);
+    if (!checked) {
+      setResellerId("");
+      setResellerPrices(new Map());
+      setForm((current) => ({
+        ...current,
+        items: current.items.map((item) => {
+          const product = item.product_id ? productsById.get(item.product_id) : undefined;
+          if (!product) return { ...item, wholesale: "0", margin: "0" };
+          return productToDraft(product, undefined, null);
+        }),
+      }));
+    }
+  }
+
+  function onResellerChange(id: string) {
+    setResellerId(id);
+    setForm((current) => ({ ...current, items: [] }));
+  }
+
   if (loading) return <AdminListSkeleton rows={6} />;
 
   return (
@@ -456,7 +614,8 @@ export function AdminManualOrders() {
                     <p className="font-semibold text-slate-900">{order.id}</p>
                     <p className="truncate text-sm text-slate-600">{order.customer?.name}</p>
                     <p className="text-xs text-slate-500">
-                      {order.channel || "Manual"} · {orderDate(order)}
+                      {order.channel || "Manual"}
+                      {order.reseller_code ? ` · /r/${order.reseller_code}` : ""} · {orderDate(order)}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -481,6 +640,7 @@ export function AdminManualOrders() {
                   <p className="text-lg font-semibold text-slate-900">{selected.id}</p>
                   <p className="text-xs text-slate-500">
                     {selected.channel || "Manual"} · {orderDate(selected)}
+                    {selected.reseller_code ? ` · Reseller /r/${selected.reseller_code}` : ""}
                   </p>
                 </div>
                 <button type="button" onClick={() => setSelected(null)} className="rounded p-1 text-slate-400 hover:bg-slate-50">
@@ -623,6 +783,14 @@ export function AdminManualOrders() {
                   ))}
                 </ul>
                 <p className="mt-2 text-right text-sm font-semibold">{formatPkr(orderTotal(selected))}</p>
+                {selected.reseller_code ? (
+                  <p className="mt-1 text-right text-xs text-emerald-700">
+                    Reseller /r/{selected.reseller_code}
+                    {Number(selected.commission_total) > 0
+                      ? ` · commission ${formatPkr(Number(selected.commission_total) || 0)}`
+                      : ""}
+                  </p>
+                ) : null}
               </div>
 
               {selected.note ? (
@@ -672,6 +840,44 @@ export function AdminManualOrders() {
                   ))}
                 </select>
               </label>
+
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={forReseller}
+                  onChange={(e) => onResellerToggle(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <span className="font-medium text-slate-800">Order of reseller</span>
+                <span className="text-xs text-slate-500">Use reseller sell prices + show in their orders</span>
+              </label>
+
+              {forReseller ? (
+                <label className="block text-sm sm:col-span-2">
+                  <span className="font-medium text-slate-700">Reseller</span>
+                  <select
+                    required
+                    value={resellerId}
+                    onChange={(e) => onResellerChange(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  >
+                    <option value="">Select reseller…</option>
+                    {approvedResellers.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.name || row.username} · /r/{row.code}
+                      </option>
+                    ))}
+                  </select>
+                  {pricesLoading ? (
+                    <p className="mt-1 text-xs text-slate-500">Loading reseller prices…</p>
+                  ) : resellerId && !resellerPrices.size ? (
+                    <p className="mt-1 text-xs text-amber-700">
+                      This reseller has no saved product prices yet. They should set prices first.
+                    </p>
+                  ) : null}
+                </label>
+              ) : null}
+
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">Customer name</span>
                 <input
@@ -794,59 +1000,79 @@ export function AdminManualOrders() {
                     return (
                       <div
                         key={`${item.product_id || item.name}-${index}`}
-                        className="grid grid-cols-[1fr_88px_72px_36px] items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 p-2"
+                        className="rounded-lg border border-slate-100 bg-slate-50/60 p-2"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
-                          <p className="text-xs text-slate-500">{formatPkr(Number(item.price) || 0)}</p>
-                        </div>
-                        {sizes.length ? (
-                          <select
-                            value={item.size}
-                            onChange={(e) => updateItem(index, { size: e.target.value })}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                          >
-                            {sizes.map((size) => (
-                              <option key={size} value={size}>
-                                {size}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
+                        <div className="grid grid-cols-[1fr_88px_64px_36px] items-center gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-900">{item.name}</p>
+                            <p className="text-xs text-slate-500">
+                              Sell {formatPkr(Number(item.price) || 0)}
+                              {forReseller ? ` · WS ${formatPkr(Number(item.wholesale) || 0)}` : ""}
+                            </p>
+                          </div>
+                          {sizes.length ? (
+                            <select
+                              value={item.size}
+                              onChange={(e) => updateItem(index, { size: e.target.value })}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                            >
+                              {sizes.map((size) => (
+                                <option key={size} value={size}>
+                                  {size}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              value={item.size}
+                              onChange={(e) => updateItem(index, { size: e.target.value })}
+                              placeholder="Size"
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+                            />
+                          )}
                           <input
-                            value={item.size}
-                            onChange={(e) => updateItem(index, { size: e.target.value })}
-                            placeholder="Size"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={item.qty}
+                            onChange={(e) => updateItem(index, { qty: e.target.value })}
                             className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
                           />
-                        )}
-                        <input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={item.qty}
-                          onChange={(e) => updateItem(index, { qty: e.target.value })}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm({
-                              ...form,
-                              items: form.items.filter((_, i) => i !== index),
-                            })
-                          }
-                          className="grid place-items-center rounded-lg border border-red-100 bg-white text-red-600"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm({
+                                ...form,
+                                items: form.items.filter((_, i) => i !== index),
+                              })
+                            }
+                            className="grid place-items-center rounded-lg border border-red-100 bg-white text-red-600"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        {forReseller ? (
+                          <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                            <span className="shrink-0 font-medium">Margin</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.margin}
+                              onChange={(e) => setItemMargin(index, e.target.value)}
+                              className="w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                            />
+                            <span className="text-slate-400">→ price updates</span>
+                          </label>
+                        ) : null}
                       </div>
                     );
                   })}
                 </div>
               ) : (
                 <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">
-                  Open the product picker and select one or more suits from the catalogue.
+                  {forReseller && !resellerId
+                    ? "Select a reseller first, then pick products."
+                    : "Open the product picker and select one or more suits from the catalogue."}
                 </p>
               )}
             </div>
@@ -864,7 +1090,7 @@ export function AdminManualOrders() {
               </button>
               <button
                 type="submit"
-                disabled={saving || !form.items.length}
+                disabled={saving || !form.items.length || (forReseller && !resellerId)}
                 className="flex-1 rounded-lg bg-slate-900 py-2.5 text-sm font-medium text-white disabled:opacity-60"
               >
                 {saving ? "Saving…" : editingId ? "Save changes" : "Create order"}
@@ -876,14 +1102,26 @@ export function AdminManualOrders() {
 
       {pickerOpen ? (
         <SaleProductPicker
-          products={products}
+          products={pickerProducts}
           collections={collections}
           selectedProductIds={pickerIds}
           selectedCollectionIds={pickerCollectionIds}
           kicker="Manual order"
           title="Select products"
-          description="Pick one or more products from the catalogue. You can adjust size and quantity after."
+          description={
+            forReseller
+              ? "Prices shown are this reseller’s sell prices (wholesale + margin). You can edit margin after selecting."
+              : "Pick one or more products from the catalogue. You can adjust size and quantity after."
+          }
           confirmLabel={form.items.length ? "Update selection" : "Add products"}
+          priceForProduct={
+            forReseller
+              ? (product) => {
+                  const row = resellerPrices.get(product.id);
+                  return row?.custom_price || null;
+                }
+              : undefined
+          }
           onChange={(nextProducts, nextCollections) => {
             setPickerIds(nextProducts);
             setPickerCollectionIds(nextCollections);

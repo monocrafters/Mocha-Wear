@@ -735,14 +735,33 @@ app.get("/api/admin/orders", adminAuth.requireAdmin, async (_req, res) => {
 
 app.post("/api/admin/orders", adminAuth.requireAdmin, async (req, res) => {
   try {
+    const body = req.body || {};
+    const resellerId = String(body.reseller_id || "").trim();
+    const resolved = resellerId
+      ? await resellerPricing.resolveManualOrderItems(resellerId, body.items || [])
+      : await resellerPricing.resolveManualOrderItems("", body.items || []);
+
     const item = await orders.createOne({
-      ...(req.body || {}),
+      ...body,
       source: "manual",
-      reseller_id: "",
-      reseller_code: "",
-      commission_total: 0,
+      items: resolved.items,
+      reseller_id: resolved.attributed ? resolved.reseller_id : "",
+      reseller_code: resolved.attributed ? resolved.reseller_code : "",
+      commission_total: resolved.attributed ? resolved.commission_total : 0,
     });
+
+    if (resolved.attributed && item.commission_total > 0 && item.reseller_id) {
+      await resellerWallet.creditPending({
+        reseller_id: item.reseller_id,
+        order_id: item.id,
+        amount: item.commission_total,
+      });
+    }
+
     await notifications.notifyNewOrder(item);
+    if (resolved.attributed && resolved.reseller) {
+      await notifications.notifyResellerOrder(item, resolved.reseller);
+    }
     res.status(201).json({ item });
   } catch (error) {
     orders.sendError(res, error);
@@ -752,8 +771,39 @@ app.post("/api/admin/orders", adminAuth.requireAdmin, async (req, res) => {
 app.patch("/api/admin/orders/:id", adminAuth.requireAdmin, async (req, res) => {
   try {
     const before = await orders.getById(req.params.id);
-    const item = await orders.updateOne(req.params.id, req.body);
+    const body = { ...(req.body || {}) };
+
+    if (before?.source === "manual" && (body.items !== undefined || body.reseller_id !== undefined)) {
+      const resellerId =
+        body.reseller_id !== undefined ? String(body.reseller_id || "").trim() : String(before.reseller_id || "").trim();
+      const rawItems = body.items !== undefined ? body.items : before.items;
+      const resolved = await resellerPricing.resolveManualOrderItems(resellerId, rawItems || []);
+      body.items = resolved.items;
+      body.reseller_id = resolved.attributed ? resolved.reseller_id : "";
+      body.reseller_code = resolved.attributed ? resolved.reseller_code : "";
+      body.commission_total = resolved.attributed ? resolved.commission_total : 0;
+    }
+
+    const item = await orders.updateOne(req.params.id, body);
     if (before && before.status !== item.status) await notifications.notifyOrderStatus(item);
+
+    // Newly attributed manual order → credit pending + notify
+    if (
+      before?.source === "manual" &&
+      item.reseller_id &&
+      before.reseller_id !== item.reseller_id
+    ) {
+      if (item.commission_total > 0) {
+        await resellerWallet.creditPending({
+          reseller_id: item.reseller_id,
+          order_id: item.id,
+          amount: item.commission_total,
+        });
+      }
+      const reseller = await resellers.getById(item.reseller_id);
+      if (reseller) await notifications.notifyResellerOrder(item, reseller);
+    }
+
     res.json({ item });
   } catch (error) {
     orders.sendError(res, error);
@@ -1468,6 +1518,16 @@ app.get("/api/admin/resellers", adminAuth.requireAdmin, async (_req, res) => {
     res.json({ items });
   } catch (error) {
     resellers.sendError(res, error);
+  }
+});
+
+app.get("/api/admin/resellers/:id/product-prices", adminAuth.requireAdmin, async (req, res) => {
+  try {
+    const data = await resellerPricing.listResellerProductPrices(req.params.id);
+    res.json(data);
+  } catch (error) {
+    const status = Number(error.status) || 500;
+    res.status(status).json({ message: error.message || "Could not load reseller prices" });
   }
 });
 

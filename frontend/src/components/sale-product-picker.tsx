@@ -16,6 +16,7 @@ export function SaleProductPicker({
   kicker = "New sale",
   title = "Choose products",
   description = "Select single pieces, or take a whole collection in one tap.",
+  priceForProduct,
   onChange,
   onCancel,
   onConfirm,
@@ -29,6 +30,7 @@ export function SaleProductPicker({
   kicker?: string;
   title?: string;
   description?: string;
+  priceForProduct?: (product: Product) => number | null | undefined;
   onChange: (productIds: string[], collectionIds: string[]) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -180,7 +182,14 @@ export function SaleProductPicker({
                             </div>
                             <div className="p-2">
                               <p className="truncate text-sm font-medium text-slate-900">{product.name}</p>
-                              <p className="mt-0.5 text-xs text-slate-500">{formatPkr(product.price)}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {formatPkr(
+                                  (() => {
+                                    const custom = priceForProduct?.(product);
+                                    return custom != null && Number(custom) > 0 ? Number(custom) : product.price;
+                                  })(),
+                                )}
+                              </p>
                             </div>
                           </button>
                         );
