@@ -9,6 +9,11 @@ export const PK_CITIES = [
   "Quetta",
 ] as const;
 
+function resolveListedCity(city: string) {
+  const match = PK_CITIES.find((item) => item.toLowerCase() === city.trim().toLowerCase());
+  return match || "";
+}
+
 export function isListedCity(city: string) {
-  return PK_CITIES.some((item) => item.toLowerCase() === city.trim().toLowerCase());
+  return Boolean(resolveListedCity(city));
 }

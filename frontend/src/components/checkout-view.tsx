@@ -22,7 +22,8 @@ import {
 } from "@/lib/customer";
 import { formatPkr } from "@/lib/money";
 import { placeOrderRequest, readOrdersCache, rememberOrderPhone } from "@/lib/orders";
-import { isListedCity, PK_CITIES } from "@/lib/pk-cities";
+import { isListedCity, PK_CITIES, resolveListedCity } from "@/lib/pk-cities";
+
 import { CheckoutSkeleton } from "@/components/skeletons";
 import { ShopTrustLine } from "@/components/shop-trust-line";
 import { ShopWhatsAppLink } from "@/components/shop-whatsapp-link";
@@ -47,7 +48,6 @@ export function CheckoutView() {
   const [whatsapp, setWhatsapp] = useState("");
   const [sameWhatsappOn, setSameWhatsappOn] = useState(true);
   const [city, setCity] = useState("");
-  const [cityOther, setCityOther] = useState(false);
   const [area, setArea] = useState("");
   const [address, setAddress] = useState("");
   const [landmark, setLandmark] = useState("");
@@ -111,8 +111,7 @@ export function CheckoutView() {
     setPhone(row.phone);
     setWhatsapp(sameWhatsapp(row) ? "" : row.whatsapp);
     setSameWhatsappOn(sameWhatsapp(row));
-    setCity(row.city);
-    setCityOther(!isListedCity(row.city));
+    setCity(resolveListedCity(row.city));
     setArea(row.area);
     setAddress(row.address);
     setLandmark(row.landmark);
@@ -135,8 +134,8 @@ export function CheckoutView() {
   }
 
   function addressOk() {
-    if (!city.trim() || !area.trim() || !address.trim()) {
-      return "City, area, and complete address are required.";
+    if (!isListedCity(city) || !area.trim() || !address.trim()) {
+      return "Select a city from the list, then enter area and complete address.";
     }
     return "";
   }
@@ -398,14 +397,13 @@ export function CheckoutView() {
                   <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">City</span>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {PK_CITIES.map((item) => {
-                      const active = !cityOther && city === item;
+                      const active = city === item;
                       return (
                         <button
                           key={item}
                           type="button"
                           onClick={() => {
                             markEdited();
-                            setCityOther(false);
                             setCity(item);
                           }}
                           className={`min-h-10 border px-3 py-2 text-[12px] ${
@@ -418,32 +416,7 @@ export function CheckoutView() {
                         </button>
                       );
                     })}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        markEdited();
-                        setCityOther(true);
-                        if (isListedCity(city)) setCity("");
-                      }}
-                      className={`min-h-10 border px-3 py-2 text-[12px] ${
-                        cityOther ? "border-mocha-deep bg-mocha-deep text-ivory" : "border-mocha/20 bg-ivory text-mocha-deep"
-                      }`}
-                    >
-                      Other
-                    </button>
                   </div>
-                  {cityOther ? (
-                    <input
-                      autoComplete="address-level2"
-                      value={city}
-                      onChange={(e) => {
-                        markEdited();
-                        setCity(e.target.value);
-                      }}
-                      placeholder="Your city"
-                      className={fieldClass}
-                    />
-                  ) : null}
                 </div>
                 <label className="block">
                   <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Area / town</span>
