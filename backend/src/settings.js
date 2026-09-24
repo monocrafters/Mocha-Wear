@@ -21,7 +21,7 @@ function emptySettings() {
       "A ladies-suit atelier for the modern wardrobe — warm palettes, considered embroidery, and sale drops worth dressing for.",
     site_title: "Mocha Wear — Ladies Suits Sale",
     site_description: "Mocha Wear mid-season sale. Lawn, pret, and formal ladies suits up to 50% off.",
-    email: "hello@mochawear.com",
+    email: "support@mochawear.shop",
     phone: "",
     cities: "Karachi · Lahore · Islamabad",
     delivery_line: "Free nationwide delivery",
@@ -121,6 +121,14 @@ function normalizeNote(note = {}, index = 0) {
   };
 }
 
+function migrateEmail(value) {
+  const email = String(value || "").trim().toLowerCase();
+  if (!email || email === "hello@mochawear.com" || email === "hello@mochawear.shop") {
+    return "support@mochawear.shop";
+  }
+  return String(value || "").trim();
+}
+
 function normalize(data = {}) {
   const fallback = emptySettings();
   const marquee = normalizeMarquee(data.marquee);
@@ -131,7 +139,7 @@ function normalize(data = {}) {
     tagline: text(data.tagline, fallback.tagline),
     site_title: text(data.site_title, fallback.site_title),
     site_description: text(data.site_description, fallback.site_description),
-    email: text(data.email, fallback.email),
+    email: migrateEmail(text(data.email, fallback.email)),
     phone: text(data.phone),
     cities: text(data.cities, fallback.cities),
     delivery_line: text(data.delivery_line, fallback.delivery_line),

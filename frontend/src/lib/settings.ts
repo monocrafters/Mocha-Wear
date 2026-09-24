@@ -58,7 +58,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     "A ladies-suit atelier for the modern wardrobe — warm palettes, considered embroidery, and sale drops worth dressing for.",
   site_title: "Mocha Wear — Ladies Suits Sale",
   site_description: "Mocha Wear mid-season sale. Lawn, pret, and formal ladies suits up to 50% off.",
-  email: "hello@mochawear.com",
+  email: "support@mochawear.shop",
   phone: "",
   cities: "Karachi · Lahore · Islamabad",
   delivery_line: "Free nationwide delivery",

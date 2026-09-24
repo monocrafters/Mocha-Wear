@@ -106,7 +106,7 @@ export function AdminSettings() {
       </Section>
 
       <Section title="Contact" copy="Shown in the footer. Leave phone blank to hide it.">
-        <Field label="Email" value={form.email} onChange={(v) => set("email", v)} placeholder="hello@mochawear.com" />
+        <Field label="Email" value={form.email} onChange={(v) => set("email", v)} placeholder="support@mochawear.shop" />
         <Field label="Phone" value={form.phone} onChange={(v) => set("phone", v)} placeholder="0300 1234567" />
         <Field
           label="Cities"

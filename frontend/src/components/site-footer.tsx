@@ -8,6 +8,7 @@ const visitLinks = [
   { href: "/shop", label: "Shop" },
   { href: "/collections", label: "Collections" },
   { href: "/#sale", label: "Sale" },
+  { href: "/about", label: "About" },
   { href: "/cart", label: "Cart" },
   { href: "/orders", label: "Orders" },
   { href: "/help", label: "Help" },

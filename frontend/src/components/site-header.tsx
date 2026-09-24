@@ -15,6 +15,7 @@ const links = [
   { href: "/shop", label: "Shop" },
   { href: "/collections", label: "Collections" },
   { href: "/#sale", label: "Sale", sale: true },
+  { href: "/about", label: "About" },
   { href: "/orders", label: "Orders" },
   { href: "/help", label: "Help" },
 ];
@@ -34,6 +35,7 @@ function headerActive(pathname: string, href: string, sale?: boolean) {
   if (href === "/shop") return pathname === "/shop" || pathname.startsWith("/products");
   if (href === "/collections") return pathname.startsWith("/collections");
   if (href === "/orders") return pathname.startsWith("/orders");
+  if (href === "/about") return pathname.startsWith("/about");
   if (href === "/help") return pathname.startsWith("/help");
   if (href === "/cart") return pathname.startsWith("/cart") || pathname.startsWith("/checkout");
   return pathname === href;
