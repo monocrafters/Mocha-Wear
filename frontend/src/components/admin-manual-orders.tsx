@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Check, Copy, FileDown, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
-import { isListedCity, PK_CITIES, resolveListedCity } from "@/lib/pk-cities";
+
 import { printOrdersPdf } from "@/lib/order-pdf";
 import {
   ORDER_STATUSES,
@@ -145,7 +145,7 @@ function orderToForm(order: Order): DraftForm {
     name: order.customer?.name || "",
     phone: order.customer?.phone || "",
     whatsapp: order.customer?.whatsapp || "",
-    city: resolveListedCity(order.customer?.city || order.city || "") || "Karachi",
+    city: order.customer?.city || order.city || "Karachi",
     area: order.customer?.area || "",
     address: order.customer?.address || "",
     landmark: order.customer?.landmark || "",
@@ -511,7 +511,7 @@ export function AdminManualOrders() {
     setMessage("");
     try {
       if (forReseller && !resellerId) throw new Error("Select a reseller for this order");
-      if (!isListedCity(form.city)) throw new Error("Select a city from the list");
+      if (!form.city.trim()) throw new Error("Enter a city");
       if (forReseller) {
         for (const item of form.items) {
           if (!item.name.trim()) continue;
@@ -1029,21 +1029,13 @@ export function AdminManualOrders() {
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">City</span>
-                <select
+                <input
                   required
-                  value={resolveListedCity(form.city)}
+                  value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  placeholder="e.g. Lahore, Karachi"
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                >
-                  <option value="" disabled>
-                    Select city…
-                  </option>
-                  {PK_CITIES.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-slate-700">Area</span>

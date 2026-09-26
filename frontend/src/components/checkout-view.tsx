@@ -22,7 +22,7 @@ import {
 } from "@/lib/customer";
 import { formatPkr } from "@/lib/money";
 import { placeOrderRequest, readOrdersCache, rememberOrderPhone } from "@/lib/orders";
-import { isListedCity, PK_CITIES, resolveListedCity } from "@/lib/pk-cities";
+
 
 import { CheckoutSkeleton } from "@/components/skeletons";
 import { ShopTrustLine } from "@/components/shop-trust-line";
@@ -111,7 +111,7 @@ export function CheckoutView() {
     setPhone(row.phone);
     setWhatsapp(sameWhatsapp(row) ? "" : row.whatsapp);
     setSameWhatsappOn(sameWhatsapp(row));
-    setCity(resolveListedCity(row.city));
+    setCity(row.city || "");
     setArea(row.area);
     setAddress(row.address);
     setLandmark(row.landmark);
@@ -134,8 +134,8 @@ export function CheckoutView() {
   }
 
   function addressOk() {
-    if (!isListedCity(city) || !area.trim() || !address.trim()) {
-      return "Select a city from the list, then enter area and complete address.";
+    if (!city.trim() || !area.trim() || !address.trim()) {
+      return "Enter your city, area, and complete address.";
     }
     return "";
   }
@@ -393,31 +393,19 @@ export function CheckoutView() {
               <h2 className="text-[11px] font-semibold tracking-[0.22em] text-mocha-deep uppercase">2 · Address</h2>
               <p className="mt-2 hidden text-sm text-mocha/50 lg:block">House / street the rider can find.</p>
               <div className="mt-4 space-y-3">
-                <div>
+                <label className="block">
                   <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">City</span>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {PK_CITIES.map((item) => {
-                      const active = city === item;
-                      return (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => {
-                            markEdited();
-                            setCity(item);
-                          }}
-                          className={`min-h-10 border px-3 py-2 text-[12px] ${
-                            active
-                              ? "border-mocha-deep bg-mocha-deep text-ivory"
-                              : "border-mocha/20 bg-ivory text-mocha-deep"
-                          }`}
-                        >
-                          {item}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                  <input
+                    autoComplete="address-level2"
+                    value={city}
+                    onChange={(e) => {
+                      markEdited();
+                      setCity(e.target.value);
+                    }}
+                    placeholder="Lahore, Karachi, etc."
+                    className={fieldClass}
+                  />
+                </label>
                 <label className="block">
                   <span className="text-[10px] tracking-[0.16em] text-mocha/40 uppercase">Area / town</span>
                   <input
