@@ -209,7 +209,7 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full min-w-0 overflow-x-clip">
+      <header className={`sticky top-0 z-50 w-full min-w-0 overflow-x-clip ${pathname === "/" ? "edition-site-header" : ""}`}>
         <div className="flex h-7 w-full min-w-0 items-center justify-center overflow-hidden bg-sale text-white sm:h-8">
           <p className="w-full min-w-0 truncate px-4 text-center text-[11px] font-semibold tracking-[0.16em] uppercase sm:tracking-[0.22em]">
             <SaleTimerHeader />

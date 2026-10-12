@@ -33,7 +33,7 @@ export function SaleCountdown() {
           </h2>
         </div>
 
-        <div className="flex items-end" aria-live="polite">
+        <div className="flex items-end" aria-label="Time remaining in this sale">
           {cells.map((cell, i) => (
             <div key={cell.label} className="flex items-end">
               {i > 0 ? (

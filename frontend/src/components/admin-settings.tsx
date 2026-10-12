@@ -183,7 +183,7 @@ export function AdminSettings() {
         </label>
       </Section>
 
-      <Section title="Homepage collections" copy="The collections row on the homepage and collections page.">
+      <Section title="Homepage collections" copy="The first four published collections appear in the homepage edit. Reorder them and manage their images in Collections.">
         <Field label="Kicker" value={form.collections_kicker} onChange={(v) => set("collections_kicker", v)} />
         <Field label="Heading" value={form.collections_heading} onChange={(v) => set("collections_heading", v)} />
         <Field
@@ -194,7 +194,7 @@ export function AdminSettings() {
         />
       </Section>
 
-      <Section title="Homepage products" copy="The sale suits grid on the homepage.">
+      <Section title="Homepage products" copy="The homepage shows up to eight products per collection filter. Product order and publication are managed in Products. All pieces remain available in Shop.">
         <Field label="Kicker" value={form.products_kicker} onChange={(v) => set("products_kicker", v)} />
         <Field label="Heading" value={form.products_heading} onChange={(v) => set("products_heading", v)} />
         <Area label="Copy" value={form.products_copy} onChange={(v) => set("products_copy", v)} className="sm:col-span-2" />
@@ -273,7 +273,7 @@ export function AdminSettings() {
         </div>
       </section>
 
-      <Section title="Newsletter" copy="The join-the-list block at the bottom of the homepage.">
+      <Section title="Newsletter" copy="The join-the-list block opens the visitor's email app to request updates at your contact email. It is hidden when no contact email is set.">
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input
             type="checkbox"

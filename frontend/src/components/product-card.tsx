@@ -14,7 +14,7 @@ function coverOf(product: Product) {
   return product.images?.[0]?.url || "";
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, imageSizes = "(max-width: 1024px) 50vw, 16vw" }: { product: Product; imageSizes?: string }) {
   const sale = useActiveSale();
   const offLabel = productInActiveSale(product, sale) ? saleOffLabel(sale) : "";
   const tag = String(product.badge || "").trim();
@@ -31,7 +31,7 @@ export function ProductCard({ product }: { product: Product }) {
               src={cover}
               alt={product.name}
               className="object-cover transition duration-[900ms] ease-out group-hover:scale-[1.04]"
-              sizes="(max-width: 1024px) 50vw, 16vw"
+              sizes={imageSizes}
               cloudWidth={640}
               cloudHeight={853}
             />
