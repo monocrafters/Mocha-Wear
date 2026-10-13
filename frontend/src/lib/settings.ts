@@ -25,6 +25,11 @@ export type SiteSettings = {
   visit_heading: string;
   atelier_heading: string;
   copyright: string;
+  homepage_hero_heading: string;
+  homepage_hero_accent: string;
+  homepage_hero_copy: string;
+  homepage_hero_cta_label: string;
+  homepage_hero_cta_link: string;
   collections_kicker: string;
   collections_heading: string;
   collections_all_label: string;
@@ -72,6 +77,11 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   visit_heading: "Visit",
   atelier_heading: "Atelier",
   copyright: "© {year} Mocha Wear · All rights reserved",
+  homepage_hero_heading: "Everyday,",
+  homepage_hero_accent: "beautifully.",
+  homepage_hero_copy: "Considered pieces. Effortless days.",
+  homepage_hero_cta_label: "Explore the collection",
+  homepage_hero_cta_link: "/shop",
   collections_kicker: "Shop by collection",
   collections_heading: "Collections",
   collections_all_label: "All collections",
