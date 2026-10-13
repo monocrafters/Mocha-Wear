@@ -15,6 +15,8 @@ type StoreImageProps = {
   /** Hint for Cloudinary transform before next/image fetch. */
   cloudWidth?: number;
   cloudHeight?: number;
+  /** Keep an admin-saved crop intact when the display frame has another ratio. */
+  preserveCrop?: boolean;
 };
 
 export function StoreImage({
@@ -28,11 +30,12 @@ export function StoreImage({
   height,
   cloudWidth,
   cloudHeight,
+  preserveCrop = false,
 }: StoreImageProps) {
   const optimized = optimizeMediaUrl(src, {
     width: cloudWidth,
     height: cloudHeight,
-    crop: cloudWidth || cloudHeight ? "fill" : undefined,
+    crop: cloudWidth || cloudHeight ? (preserveCrop ? "limit" : "fill") : undefined,
   });
   if (!optimized) return null;
 

@@ -97,6 +97,7 @@ export function SaleHero({
             }
             sizes="(max-width: 700px) 100vw, 58vw"
             cloudWidth={1400}
+            preserveCrop
             priority
             className="edition-hero-image"
           />
