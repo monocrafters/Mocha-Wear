@@ -183,44 +183,6 @@ export function AdminSettings() {
         </label>
       </Section>
 
-      <Section title="Homepage hero" copy="Edit the campaign headline and button here. In Hero, select Use on homepage to choose its image or video. Keep the copy short for a clear first impression.">
-        <Field
-          label="Heading (60 characters)"
-          value={form.homepage_hero_heading}
-          onChange={(v) => set("homepage_hero_heading", v)}
-          maxLength={60}
-          required
-        />
-        <Field
-          label="Accent line (60 characters)"
-          value={form.homepage_hero_accent}
-          onChange={(v) => set("homepage_hero_accent", v)}
-          maxLength={60}
-        />
-        <Area
-          label="Short description (120 characters)"
-          value={form.homepage_hero_copy}
-          onChange={(v) => set("homepage_hero_copy", v)}
-          maxLength={120}
-          className="sm:col-span-2"
-        />
-        <Field
-          label="Button label (35 characters)"
-          value={form.homepage_hero_cta_label}
-          onChange={(v) => set("homepage_hero_cta_label", v)}
-          maxLength={35}
-          required
-        />
-        <Field
-          label="Button link"
-          value={form.homepage_hero_cta_link}
-          onChange={(v) => set("homepage_hero_cta_link", v)}
-          placeholder="/shop"
-          required
-        />
-        <p className="text-xs text-slate-500 sm:col-span-2">Keep the copy brief for a clear mobile hero. Links can use /shop, a page anchor, or a full HTTP(S) URL.</p>
-      </Section>
-
       <Section title="Homepage collections" copy="The first four published collections appear in the homepage edit. Reorder them and manage their images in Collections.">
         <Field label="Kicker" value={form.collections_kicker} onChange={(v) => set("collections_kicker", v)} />
         <Field label="Heading" value={form.collections_heading} onChange={(v) => set("collections_heading", v)} />
@@ -393,7 +355,6 @@ function Field({
   placeholder,
   className = "",
   required,
-  maxLength,
 }: {
   label: string;
   value: string;
@@ -401,7 +362,6 @@ function Field({
   placeholder?: string;
   className?: string;
   required?: boolean;
-  maxLength?: number;
 }) {
   return (
     <label className={`block ${className}`}>
@@ -410,7 +370,6 @@ function Field({
         value={value}
         placeholder={placeholder}
         required={required}
-        maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
         className={field}
       />
@@ -424,19 +383,17 @@ function Area({
   onChange,
   rows = 3,
   className = "",
-  maxLength,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   rows?: number;
   className?: string;
-  maxLength?: number;
 }) {
   return (
     <label className={`block ${className}`}>
       <span className="text-sm font-medium text-slate-600">{label}</span>
-      <textarea rows={rows} value={value} maxLength={maxLength} onChange={(e) => onChange(e.target.value)} className={field} />
+      <textarea rows={rows} value={value} onChange={(e) => onChange(e.target.value)} className={field} />
     </label>
   );
 }

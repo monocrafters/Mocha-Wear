@@ -26,8 +26,11 @@ export function EditionCollections() {
     <section id="collections" className="edition-section">
       <div className="edition-section-heading">
         <div>
-          <p className="edition-eyebrow">{settings.collections_kicker}</p>
-          <h2>{settings.collections_heading}</h2>
+          <p className="edition-eyebrow">01 / {settings.collections_kicker}</p>
+          <h2>
+            {settings.collections_heading}
+            <span className="edition-heading-dot">.</span>
+          </h2>
         </div>
         <Link className="edition-text-link" href="/collections">
           {settings.collections_all_label}
@@ -39,7 +42,7 @@ export function EditionCollections() {
           ? [0, 1, 2, 3].map((i) => (
               <div key={i} className="edition-collection-skeleton" />
             ))
-          : collections.slice(0, 4).map((collection) => (
+          : collections.slice(0, 4).map((collection, index) => (
               <Link
                 key={collection.id}
                 href={collectionHref(collection)}
@@ -53,6 +56,9 @@ export function EditionCollections() {
                     cloudWidth={700}
                     className="object-cover"
                   />
+                  <span className="edition-collection-number">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
                   <span className="edition-collection-arrow">
                     <ArrowUpRight size={22} />
                   </span>
@@ -93,8 +99,11 @@ export function EditionProducts() {
       <div className="edition-section">
         <div className="edition-section-heading">
           <div>
-            <p className="edition-eyebrow">{settings.products_kicker}</p>
-            <h2>{settings.products_heading}</h2>
+            <p className="edition-eyebrow">02 / {settings.products_kicker}</p>
+            <h2>
+              {settings.products_heading}
+              <span className="edition-heading-dot">.</span>
+            </h2>
           </div>
           <p className="edition-section-description">
             {settings.products_copy}
@@ -189,6 +198,9 @@ export function EditionStory() {
         <Link href="/about" className="edition-text-link">
           Our story <ArrowUpRight size={18} />
         </Link>
+        <span className="edition-story-signature" aria-hidden>
+          {settings.brand_name}
+        </span>
       </div>
     </section>
   );
@@ -241,6 +253,7 @@ export function EditionFooter() {
           </p>
           <Link href="/" className="edition-footer-brand">
             {settings.brand_name}
+            <span>.</span>
           </Link>
           <p>{settings.mobile_line}</p>
         </div>

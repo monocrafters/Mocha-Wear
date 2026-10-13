@@ -35,11 +35,6 @@ function emptySettings() {
     visit_heading: "Visit",
     atelier_heading: "Atelier",
     copyright: "© {year} Mocha Wear · All rights reserved",
-    homepage_hero_heading: "Everyday,",
-    homepage_hero_accent: "beautifully.",
-    homepage_hero_copy: "Considered pieces. Effortless days.",
-    homepage_hero_cta_label: "Explore the collection",
-    homepage_hero_cta_link: "/shop",
     collections_kicker: "Shop by collection",
     collections_heading: "Collections",
     collections_all_label: "All collections",
@@ -104,44 +99,6 @@ function text(value, fallback = "") {
   return String(value).trim();
 }
 
-const HERO_TEXT_LIMITS = {
-  homepage_hero_heading: 60,
-  homepage_hero_accent: 60,
-  homepage_hero_copy: 120,
-  homepage_hero_cta_label: 35,
-};
-
-function safeHeroLink(value) {
-  if (typeof value !== "string" || /[\\\s\u0000-\u001f\u007f]/.test(value)) return false;
-  if (value.startsWith("/") && !value.startsWith("//")) return true;
-  if (value.startsWith("#") && value.length > 1) return true;
-  if (!/^https?:\/\//i.test(value)) return false;
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
-  } catch {
-    return false;
-  }
-}
-
-function validateHeroFields(fields) {
-  for (const [key, limit] of Object.entries(HERO_TEXT_LIMITS)) {
-    if (!Object.hasOwn(fields, key)) continue;
-    const value = fields[key];
-    const label = key.replace("homepage_hero_", "Hero ").replaceAll("_", " ");
-    if (typeof value !== "string" || value.trim().length > limit) {
-      throw Object.assign(new Error(`${label} must be text of ${limit} characters or fewer.`), { status: 400 });
-    }
-    if (["homepage_hero_heading", "homepage_hero_cta_label"].includes(key) && !value.trim()) {
-      throw Object.assign(new Error(`${label} is required.`), { status: 400 });
-    }
-  }
-  if (Object.hasOwn(fields, "homepage_hero_cta_link") &&
-      (typeof fields.homepage_hero_cta_link !== "string" || !safeHeroLink(fields.homepage_hero_cta_link.trim()))) {
-    throw Object.assign(new Error("Hero button link must be an internal path, page anchor, or HTTP(S) URL."), { status: 400 });
-  }
-}
-
 function normalizeMarquee(value) {
   if (typeof value === "string") {
     return value
@@ -196,13 +153,6 @@ function normalize(data = {}) {
     visit_heading: text(data.visit_heading, fallback.visit_heading),
     atelier_heading: text(data.atelier_heading, fallback.atelier_heading),
     copyright: text(data.copyright, fallback.copyright),
-    ...Object.fromEntries(Object.entries(HERO_TEXT_LIMITS).map(([key, limit]) => [
-      key,
-      text(data[key], fallback[key]).slice(0, limit),
-    ])),
-    homepage_hero_cta_link: safeHeroLink(text(data.homepage_hero_cta_link))
-      ? text(data.homepage_hero_cta_link)
-      : fallback.homepage_hero_cta_link,
     collections_kicker: text(data.collections_kicker, fallback.collections_kicker),
     collections_heading: text(data.collections_heading, fallback.collections_heading),
     collections_all_label: text(data.collections_all_label, fallback.collections_all_label),
@@ -246,7 +196,6 @@ async function getAdmin() {
 }
 
 async function updateSettings(fields = {}) {
-  validateHeroFields(fields);
   const current = await readSettings();
   const next = normalize({ ...current, ...fields });
   await writeSettings(next);

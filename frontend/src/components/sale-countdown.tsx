@@ -21,7 +21,7 @@ export function SaleCountdown() {
   });
 
   return (
-    <section className="relative overflow-hidden border-y border-sand bg-cream/70 text-mocha-deep">
+    <section id="sale" className="relative overflow-hidden border-y border-sand bg-cream/70 text-mocha-deep">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-sale" />
       <div className="mx-auto flex max-w-[1440px] flex-col items-center gap-5 px-4 py-7 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-14 lg:py-10">
         <div className="max-w-xl text-center lg:text-left">

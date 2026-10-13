@@ -68,8 +68,7 @@ export function Reviews() {
     const el = scroller.current;
     if (!el) return;
     const card = el.querySelector("article");
-    const gap = Number.parseFloat(getComputedStyle(el).columnGap) || 0;
-    const amount = card ? card.getBoundingClientRect().width + gap : 300;
+    const amount = card ? card.getBoundingClientRect().width + 12 : 300;
     el.scrollBy({ left: direction * amount, behavior: "smooth" });
   }
 

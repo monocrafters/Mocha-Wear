@@ -10,7 +10,6 @@ import { StoreNotifications } from "@/components/notification-bell";
 import { SaleTimerHeader } from "@/components/sale-timer";
 import { useSiteSettings } from "@/components/site-settings";
 import { useOpenOrderCount } from "@/lib/use-open-orders";
-import styles from "./mobile-navigation.module.css";
 
 const links = [
   { href: "/shop", label: "Shop" },
@@ -22,11 +21,11 @@ const links = [
 ];
 
 const bottomLinks = [
-  { id: "home", href: "/", label: "Home", icon: Home },
   { id: "shop", href: "/shop", label: "Shop", icon: LayoutGrid },
   { id: "collections", href: "/collections", label: "Collections", icon: Tag },
+  { id: "home", href: "/", label: "Home", icon: Home, home: true },
   { id: "orders", href: "/orders", label: "Orders", icon: Package },
-  { id: "cart", href: "/cart", label: "Bag", icon: ShoppingBag },
+  { id: "cart", href: "/cart", label: "Cart", icon: ShoppingBag, cart: true },
 ] as const;
 
 type TabId = (typeof bottomLinks)[number]["id"];
@@ -80,7 +79,7 @@ export function SiteHeader() {
   const { count } = useCart();
   const openOrders = useOpenOrderCount();
   const settings = useSiteSettings();
-  const [active, setActive] = useState<TabId | null>(() => tabFromLocation(pathname, ""));
+  const [active, setActive] = useState<TabId | null>("home");
   const [searchOpen, setSearchOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const settleRef = useRef(0);
@@ -312,30 +311,99 @@ export function SiteHeader() {
         </div>
       </header>
 
-      <nav aria-label="Mobile navigation" className={styles.navigation}>
-        <div className={styles.links}>
+      <nav className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/10 bg-mocha-deep pb-[env(safe-area-inset-bottom)] lg:hidden">
+        <div className="grid grid-cols-5">
           {bottomLinks.map((link) => {
             const Icon = link.icon;
             const isOn = active === link.id;
-            const badge = link.id === "cart" ? count : link.id === "orders" ? openOrders : 0;
+            if (link.id === "home") {
+              return (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  prefetch
+                  scroll={false}
+                  onClick={(event) => {
+                    if (isOn) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setActive("home");
+                  }}
+                  aria-current={isOn ? "page" : undefined}
+                  className={`header-tab relative flex flex-col items-center justify-center pt-1 ${
+                    isOn ? "text-white" : "text-ivory/55"
+                  }`}
+                >
+                  <span
+                    className={`header-tab-icon -mt-3 grid h-10 w-10 place-items-center rounded-full bg-mocha ${
+                      isOn ? "is-on" : ""
+                    }`}
+                  >
+                    <Icon size={17} strokeWidth={1.8} className="text-ivory" />
+                  </span>
+                  <span className="mt-1 text-[10px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
+                </Link>
+              );
+            }
+            if (link.id === "cart") {
+              return (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  prefetch
+                  scroll={false}
+                  onClick={(event) => {
+                    if (isOn) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setActive("cart");
+                  }}
+                  aria-current={isOn ? "page" : undefined}
+                  className={`header-tab relative flex flex-col items-center justify-center gap-1 py-2.5 ${
+                    isOn ? "text-white" : "text-ivory/55"
+                  }`}
+                >
+                  <span className={`header-tab-icon relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
+                    <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
+                    {count ? (
+                      <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-semibold text-white">
+                        {count}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-[10px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
+                </Link>
+              );
+            }
             return (
               <Link
                 key={link.id}
                 href={link.href}
                 prefetch
+                scroll={false}
+                onClick={(event) => {
+                  if (isOn) {
+                    event.preventDefault();
+                    return;
+                  }
+                  setActive(link.id);
+                }}
                 aria-current={isOn ? "page" : undefined}
-                aria-label={badge ? `${link.label}, ${badge} ${link.id === "cart" ? "items" : "open orders"}` : undefined}
-                className={styles.link}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 header-tab ${
+                  isOn ? "text-white" : "text-ivory/55"
+                }`}
               >
-                <span className={styles.icon}>
-                  <Icon size={20} strokeWidth={isOn ? 1.9 : 1.55} aria-hidden="true" />
-                  {badge ? (
-                    <span className={styles.badge} aria-hidden="true">
-                      {badge > 99 ? "99+" : badge}
+                <span className={`header-tab-icon relative grid h-9 w-9 place-items-center rounded-full ${isOn ? "is-on" : ""}`}>
+                  <Icon size={18} strokeWidth={isOn ? 2 : 1.7} />
+                  {link.id === "orders" && openOrders ? (
+                    <span className="absolute -right-2 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-sale px-1 text-[10px] font-semibold text-white">
+                      {openOrders > 9 ? "9+" : openOrders}
                     </span>
                   ) : null}
                 </span>
-                <span className={styles.label}>{link.label}</span>
+                <span className="text-[10px] font-semibold tracking-[0.14em] uppercase">{link.label}</span>
               </Link>
             );
           })}

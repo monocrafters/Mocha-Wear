@@ -9,14 +9,14 @@ import { API_URL, apiFetch } from "@/lib/api";
 import { RESELLER_ACTIVATED_EVENT } from "@/lib/referral";
 
 const POS_KEY = "mocha-wa-pos";
-const SIZE = 48;
+const SIZE = 56;
 const MARGIN = 16;
 
 type Pos = { x: number; y: number };
 
 function defaultPos(): Pos {
   if (typeof window === "undefined") return { x: 0, y: 0 };
-  const nav = document.querySelector('nav[aria-label="Mobile navigation"]')?.getBoundingClientRect().height || 0;
+  const nav = 74 + (Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("env(safe-area-inset-bottom)") || "0", 10) || 0);
   return {
     x: window.innerWidth - SIZE - MARGIN,
     y: window.innerHeight - SIZE - MARGIN - nav,
@@ -35,7 +35,7 @@ function readPos(): Pos | null {
 
 function clamp(pos: Pos): Pos {
   const maxX = Math.max(MARGIN, window.innerWidth - SIZE - MARGIN);
-  const nav = document.querySelector('nav[aria-label="Mobile navigation"]')?.getBoundingClientRect().height || 0;
+  const nav = 80;
   const maxY = Math.max(MARGIN, window.innerHeight - SIZE - MARGIN - nav);
   return {
     x: Math.min(maxX, Math.max(MARGIN, pos.x)),
@@ -175,9 +175,9 @@ export function HomeWhatsAppButton() {
           ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" }
           : { right: 16, bottom: "calc(5.25rem + env(safe-area-inset-bottom))" }
       }
-      className="fixed z-[80] grid h-12 w-12 touch-none place-items-center rounded-full border border-[#d7e2d7] bg-white text-[#267446] shadow-[0_4px_16px_rgba(30,55,36,0.12)] hover:bg-[#eef5ed] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#267446]"
+      className="fixed z-[80] grid h-14 w-14 touch-none place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_24px_rgba(37,211,102,0.45)] hover:bg-[#1ebe57] lg:bottom-8"
     >
-      <svg viewBox="0 0 24 24" className="pointer-events-none h-6 w-6 fill-current" aria-hidden>
+      <svg viewBox="0 0 24 24" className="pointer-events-none h-7 w-7 fill-current" aria-hidden>
         <path d="M12.04 2c-5.46 0-9.91 4.4-9.91 9.83 0 1.73.46 3.43 1.33 4.92L2 22l5.39-1.41a10.1 10.1 0 0 0 4.65 1.17h.01c5.46 0 9.91-4.4 9.91-9.83C21.96 6.4 17.5 2 12.04 2Zm5.77 13.98c-.24.68-1.4 1.25-1.93 1.33-.5.08-1.13.11-1.82-.11-.42-.14-.96-.31-1.66-.61-2.92-1.26-4.82-4.2-4.97-4.4-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.01-2.41.27-.29.58-.36.77-.36h.55c.18 0 .42-.07.66.5.24.58.82 2 .89 2.15.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.16-.3.37-.43.5-.14.14-.29.29-.12.56.16.27.73 1.2 1.56 1.95 1.08.96 1.98 1.26 2.26 1.4.27.14.43.12.59-.07.16-.19.68-.79.86-1.06.18-.27.36-.22.61-.13.24.1 1.54.73 1.8.86.27.14.44.2.51.31.07.12.07.68-.17 1.36Z" />
       </svg>
     </a>

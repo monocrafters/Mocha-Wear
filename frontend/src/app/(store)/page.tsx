@@ -11,21 +11,7 @@ import {
 } from "@/components/home-edition";
 import type { HeroSlide } from "@/components/admin-hero";
 import { API_URL } from "@/lib/api";
-import { DM_Sans, Cormorant_Garamond } from "next/font/google";
 import "./home-edition.css";
-
-const sans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-home-sans",
-  display: "swap",
-});
-const display = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
-  variable: "--font-home-display",
-  display: "swap",
-});
 
 export default async function Home() {
   // Render the first hero immediately, without waiting for client catalog requests.
@@ -40,13 +26,10 @@ export default async function Home() {
     /* The client retries; the editorial fallback still renders. */
   }
   return (
-    <div
-      className={`home-edition ${sans.variable} ${display.variable}`}
-      id="top"
-    >
+    <div className="home-edition" id="top">
       <main>
         <SaleHero initialSlides={slides} />
-        <div id="sale" className="edition-sale">
+        <div className="edition-sale">
           <SaleCountdown />
         </div>
         <EditionCollections />

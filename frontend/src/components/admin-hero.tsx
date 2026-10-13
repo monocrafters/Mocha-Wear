@@ -160,14 +160,12 @@ export function AdminHero() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  const [savingOrder, setSavingOrder] = useState(false);
   const slidesRef = useRef(slides);
   const dragIdRef = useRef<string | null>(null);
   slidesRef.current = slides;
 
   const open = creating || Boolean(editing);
   const visibleSlides = slides.filter((slide) => slideKind(slide) === tab);
-  const homepageSlide = slides.find((slide) => slide.is_published && (slide.image || slide.video));
 
   async function load() {
     setLoading(true);
@@ -326,10 +324,6 @@ export function AdminHero() {
   }
 
   function onDragStart(event: DragEvent, id: string) {
-    if (savingOrder) {
-      event.preventDefault();
-      return;
-    }
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", id);
     dragIdRef.current = id;
@@ -337,7 +331,6 @@ export function AdminHero() {
   }
 
   function onDragOver(event: DragEvent, id: string) {
-    if (savingOrder) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     const movingId = dragIdRef.current;
@@ -359,40 +352,22 @@ export function AdminHero() {
     });
   }
 
-  async function saveOrder(ordered: HeroSlide[]) {
-    setSavingOrder(true);
-    setError("");
-    try {
-      const res = await apiFetch(`${API_URL}/api/admin/hero/reorder`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: ordered.map((slide) => slide.id) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not save hero order");
-      setSlides(data.slides || ordered);
-    } catch (err) {
-      await load();
-      setError(err instanceof Error ? err.message : "Could not save hero order");
-    } finally {
-      setSavingOrder(false);
-    }
-  }
-
   async function persistOrder() {
-    if (!dragIdRef.current || savingOrder) return;
+    if (!dragIdRef.current) return;
     dragIdRef.current = null;
     setDragId(null);
     setOverId(null);
-    await saveOrder(slidesRef.current);
-  }
-
-  async function selectHomepageMedia(slide: HeroSlide) {
-    if (savingOrder || dragId || !slide.is_published || !(slide.image || slide.video)) return;
-    // Move only the chosen media; retain every other item in its existing order across both tabs.
-    const ordered = [slide, ...slides.filter((item) => item.id !== slide.id)];
-    await saveOrder(ordered);
+    const ordered = slidesRef.current.map((slide, index) => ({ ...slide, sort_order: index + 1 }));
+    const res = await apiFetch(`${API_URL}/api/admin/hero/reorder`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ordered.map((slide) => slide.id) }),
+    });
+    if (!res.ok) {
+      setError("Could not save slide order");
+      await load();
+    }
   }
 
   async function confirmDeleteSlide() {
@@ -445,12 +420,12 @@ export function AdminHero() {
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          Choose “Use on homepage” on any published image or video, in either tab. The active media is marked “On homepage”.
-          Edit the campaign heading and button in Settings → Homepage hero. Slide copy and badges remain saved but are not shown there.
+          {tab === "image"
+            ? "Add a cropped image only — no copy, product, or buttons. It fills the homepage hero."
+            : "Drag the list cards to set homepage order. Slide 1 plays first."}
         </p>
         <button
           type="button"
-          disabled={savingOrder}
           onClick={() => startCreate(tab)}
           className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white"
         >
@@ -472,7 +447,7 @@ export function AdminHero() {
             } ${overId === slide.id && dragId && dragId !== slide.id ? "border-sale" : "border-slate-200"}`}
           >
             <div
-              draggable={!savingOrder}
+              draggable
               onDragStart={(event) => onDragStart(event, slide.id)}
               className="flex cursor-grab items-center px-2 text-slate-400 hover:bg-slate-50 hover:text-slate-900 active:cursor-grabbing"
               aria-label={`Drag to reorder ${tab === "image" ? "image" : "slide"} ${index + 1}`}
@@ -493,17 +468,12 @@ export function AdminHero() {
                 <img src={slide.image} alt={slide.alt} className="absolute inset-0 h-full w-full object-cover" />
               ) : null}
             </div>
-            <div className="flex min-w-0 flex-1 flex-col items-start justify-between gap-3 px-4 py-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-4 px-4 py-3">
               <div className="min-w-0">
                 <p className="text-[10px] text-slate-500 uppercase">
                   {tab === "image" ? `Image ${index + 1}` : `Slide ${index + 1}`}
                   {slide.is_published ? " · Live" : " · Hidden"}
                 </p>
-                {homepageSlide?.id === slide.id ? (
-                  <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                    On homepage
-                  </span>
-                ) : null}
                 {tab === "image" ? (
                   <h3 className="mt-1 truncate text-lg font-semibold leading-tight text-slate-900">
                     {slide.alt || "Hero image"}
@@ -520,29 +490,18 @@ export function AdminHero() {
                   </>
                 )}
               </div>
-              <div className="flex shrink-0 flex-wrap justify-start gap-2 sm:justify-end">
-                {slide.is_published && (slide.image || slide.video) && homepageSlide?.id !== slide.id ? (
-                  <button
-                    type="button"
-                    disabled={savingOrder || Boolean(dragId)}
-                    onClick={() => selectHomepageMedia(slide)}
-                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    Use on homepage
-                  </button>
-                ) : null}
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
                 <button
                   type="button"
-                  disabled={savingOrder}
                   onClick={() => startEdit(slide)}
                   className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700"
                 >
                   Edit
                 </button>
-                <button type="button" disabled={savingOrder} onClick={() => toggleSlide(slide)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700">
+                <button type="button" onClick={() => toggleSlide(slide)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700">
                   {slide.is_published ? "Hide" : "Show"}
                 </button>
-                <button type="button" disabled={savingOrder} onClick={() => setPendingDelete(slide)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600">
+                <button type="button" onClick={() => setPendingDelete(slide)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600">
                   Delete
                 </button>
               </div>
@@ -814,7 +773,7 @@ export function AdminHero() {
               <div className="border border-slate-200 bg-white p-4">
                 <p className="text-sm font-medium text-slate-600">Sale on this slide</p>
                 <p className="mt-1 text-xs text-slate-900/55">
-                  These slide sale details remain saved. The homepage campaign does not display slide badges or a timer.
+                  SALE label stays on the form. Enable it to show on the homepage, and pick a sale for the timer.
                 </p>
                 <label className="mt-4 flex items-center gap-2 text-sm">
                   <input
@@ -940,7 +899,7 @@ export function AdminHero() {
           title={form.kind === "image" ? "Crop hero image" : "Crop image"}
           hint={
             form.kind === "image"
-              ? "Drag and zoom to save the image crop. The homepage adjusts the framing for each screen size."
+              ? "This fills the full homepage hero. Drag and zoom until the frame is filled."
               : "Drag and zoom until the frame is filled."
           }
           onCancel={() => {
