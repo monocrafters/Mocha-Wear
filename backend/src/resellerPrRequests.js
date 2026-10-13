@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { createDocumentStore } = require("./cloudStore");
 const orders = require("./orders");
 const notifications = require("./notifications");
+const resellers = require("./resellers");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "reseller_pr_requests.json");
@@ -111,9 +112,12 @@ function buildProgress(delivered, requests = []) {
 }
 
 async function getProgress(resellerId) {
+  const reseller = await resellers.getById(resellerId);
+  if (!reseller || reseller.pr_enabled === false) return { enabled: false };
   const delivered = await countDeliveredProducts(resellerId);
   const requests = await listByReseller(resellerId);
   return {
+    enabled: true,
     ...buildProgress(delivered, requests),
     requests,
   };
@@ -121,6 +125,9 @@ async function getProgress(resellerId) {
 
 async function createRequest(resellerId, { note } = {}, reseller = {}) {
   const progress = await getProgress(resellerId);
+  if (!progress.enabled) {
+    throw Object.assign(new Error("PR is not enabled for this account."), { status: 403 });
+  }
   if (!progress.can_request) {
     const err = new Error(
       progress.pending_request
@@ -171,6 +178,10 @@ async function reviewRequest(id, { status, admin_note } = {}, reseller = {}) {
   }
 
   const current = data.requests[index];
+  const account = await resellers.getById(current.reseller_id);
+  if (next === "approved" && (!account || account.pr_enabled === false)) {
+    throw Object.assign(new Error("Enable PR for this reseller before approving a package."), { status: 403 });
+  }
   if (current.status !== "pending") {
     const err = new Error("This PR request was already reviewed");
     err.status = 400;
@@ -185,7 +196,9 @@ async function reviewRequest(id, { status, admin_note } = {}, reseller = {}) {
   await writeStore(data);
 
   try {
-    await notifications.notifyResellerPrReviewed(data.requests[index], reseller, next);
+    if (account && account.pr_enabled !== false) {
+      await notifications.notifyResellerPrReviewed(data.requests[index], account, next);
+    }
   } catch (error) {
     console.error("PR review notification failed:", error.message);
   }

@@ -129,6 +129,8 @@ function shape(row = {}, index = 0) {
     custom_domain_error: String(row.custom_domain_error || "").trim(),
     custom_domain_verified_at: String(row.custom_domain_verified_at || "").trim(),
     status: row.status === "suspended" ? "suspended" : "approved",
+    // Existing accounts keep their programme; new accounts opt in explicitly.
+    pr_enabled: row.pr_enabled === undefined ? true : row.pr_enabled === true,
     commission_min_percent: nullablePercent(row.commission_min_percent),
     commission_max_percent: nullablePercent(row.commission_max_percent),
     wallet_pending: Math.max(0, asNumber(row.wallet_pending, 0)),
@@ -268,6 +270,9 @@ async function uniqueCode(preferred, excludeId = "") {
 }
 
 async function createOne(body = {}) {
+  if (body.pr_enabled !== undefined && typeof body.pr_enabled !== "boolean") {
+    throw Object.assign(new Error("PR enabled must be a checkbox value"), { status: 400 });
+  }
   const name = String(body.name || "").trim();
   const username = String(body.username || "").trim().toLowerCase();
   const password = String(body.password || "");
@@ -294,6 +299,7 @@ async function createOne(body = {}) {
     password_hash: hashPassword(password),
     code: await uniqueCode(body.code),
     status: "approved",
+    pr_enabled: body.pr_enabled === true,
     commission_min_percent: body.commission_min_percent,
     commission_max_percent: body.commission_max_percent,
     wallet_pending: 0,
@@ -307,6 +313,9 @@ async function createOne(body = {}) {
 }
 
 async function updateOne(id, body = {}) {
+  if (body.pr_enabled !== undefined && typeof body.pr_enabled !== "boolean") {
+    throw Object.assign(new Error("PR enabled must be a checkbox value"), { status: 400 });
+  }
   const data = await readStore();
   const index = data.resellers.findIndex((row) => row.id === id);
   if (index < 0) {
@@ -381,6 +390,7 @@ async function updateOne(id, body = {}) {
   if (body.whatsapp_number !== undefined) current.whatsapp_number = normalizeWhatsapp(body.whatsapp_number);
   if (body.social_handle !== undefined) current.social_handle = String(body.social_handle || "").trim();
   if (body.status !== undefined) current.status = body.status === "suspended" ? "suspended" : "approved";
+  if (body.pr_enabled !== undefined) current.pr_enabled = body.pr_enabled;
   if (body.commission_min_percent !== undefined) {
     current.commission_min_percent = nullablePercent(body.commission_min_percent);
   }

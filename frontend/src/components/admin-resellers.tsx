@@ -14,6 +14,7 @@ type Reseller = {
   social_handle?: string;
   code: string;
   status: string;
+  pr_enabled?: boolean;
   commission_min_percent?: number | null;
   commission_max_percent?: number | null;
   wallet_pending?: number;
@@ -22,6 +23,7 @@ type Reseller = {
 };
 
 const emptyForm = {
+  pr_enabled: false,
   name: "",
   username: "",
   password: "",
@@ -83,7 +85,8 @@ export function AdminResellers() {
     setSaving(true);
     setError("");
     try {
-      const body: Record<string, string | number | null | undefined> = {
+      const body: Record<string, string | number | boolean | null | undefined> = {
+        pr_enabled: form.pr_enabled,
         name: form.name,
         username: form.username,
         password: form.password || undefined,
@@ -119,7 +122,7 @@ export function AdminResellers() {
 
   function startEdit(reseller: Reseller) {
     setEditReseller(reseller);
-    setForm({ name: reseller.name, username: reseller.username, password: "",
+    setForm({ pr_enabled: reseller.pr_enabled !== false, name: reseller.name, username: reseller.username, password: "",
       email: reseller.email || "", phone: reseller.phone || "", social_handle: reseller.social_handle || "",
       code: reseller.code, commission_min_percent: reseller.commission_min_percent == null ? "" : String(reseller.commission_min_percent),
       commission_max_percent: reseller.commission_max_percent == null ? "" : String(reseller.commission_max_percent) });
@@ -323,6 +326,7 @@ export function AdminResellers() {
                     <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${statusTone(r.status)}`}>
                       {r.status}
                     </span>
+                    <span className="mt-1 block text-xs text-slate-500">PR {r.pr_enabled === false ? "disabled" : "enabled"}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
@@ -416,6 +420,13 @@ export function AdminResellers() {
                 <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}
                   placeholder="Auto-generated if blank"
                   className="mt-1 w-full border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <input type="checkbox" checked={form.pr_enabled} onChange={(e) => setForm({ ...form, pr_enabled: e.target.checked })} className="mt-1 h-4 w-4 accent-slate-900" />
+                <span>
+                  <span className="block text-sm font-medium text-slate-900">Enable PR packages</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">Allow a PR request after every 100 delivered products. Uncheck to hide PR progress, requests, and notifications from this reseller.</span>
+                </span>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">

@@ -14,25 +14,32 @@ export type PrRequest = {
   reviewed_at?: string;
 };
 
-export type PrProgress = {
-  target: number;
-  delivered: number;
-  current: number;
-  percent: number;
-  earned: number;
-  used: number;
-  next_milestone: number;
-  can_request: boolean;
-  unlocked: boolean;
-  pending_request: PrRequest | null;
-  requests?: PrRequest[];
-};
+export type PrProgress =
+  | { enabled: false }
+  | {
+      enabled: true;
+      target: number;
+      delivered: number;
+      current: number;
+      percent: number;
+      earned: number;
+      used: number;
+      next_milestone: number;
+      can_request: boolean;
+      unlocked: boolean;
+      pending_request: PrRequest | null;
+      requests?: PrRequest[];
+    };
 
 export async function fetchPrProgress(): Promise<PrProgress> {
-  const res = await apiFetch(`${API_URL}/api/reseller/pr-progress`, { credentials: "include" });
+  const res = await apiFetch(`${API_URL}/api/reseller/pr-progress`, {
+    credentials: "include",
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Could not load PR progress");
-  return data as PrProgress;
+  return data.enabled === false
+    ? { enabled: false }
+    : ({ ...data, enabled: true } as PrProgress);
 }
 
 export async function requestPrPackage(note = "") {

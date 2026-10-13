@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Gift, Loader2 } from "lucide-react";
 import {
   fetchPrProgress,
@@ -18,24 +18,27 @@ export function ResellerPrProgress({ compact = false }: { compact?: boolean }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function load() {
-    setError("");
+  const load = useCallback(async () => {
     try {
       const data = await fetchPrProgress();
       setProgress(data);
+      setError("");
     } catch (err) {
       setError(resellerErrorMessage(err, t("pr.loadError")));
     } finally {
       setLoading(false);
     }
-  }
+  }, [t]);
 
   useEffect(() => {
     void load();
-  }, []);
+    const onFocus = () => { void load(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [load]);
 
   async function onRequest() {
-    if (!progress?.can_request || sending) return;
+    if (!progress?.enabled || !progress.can_request || sending) return;
     setSending(true);
     setError("");
     setMessage("");
@@ -45,6 +48,7 @@ export function ResellerPrProgress({ compact = false }: { compact?: boolean }) {
       setMessage(t("pr.requestSent"));
       await load();
     } catch (err) {
+      await load();
       setError(resellerErrorMessage(err, t("pr.requestError")));
     } finally {
       setSending(false);
@@ -52,14 +56,13 @@ export function ResellerPrProgress({ compact = false }: { compact?: boolean }) {
   }
 
   if (loading) {
-    return (
-      <div className={`animate-pulse rounded-xl bg-white ${compact ? "h-16" : "h-28"}`} />
-    );
+    return null;
   }
 
   if (!progress) {
-    return error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null;
+    return null;
   }
+  if (!progress.enabled) return null;
 
   const pending = progress.pending_request;
   const statusText = pending

@@ -51,12 +51,13 @@ async function contact(headers = {}) {
 
 test("WhatsApp settings require login and only update the signed-in reseller's contact", async () => {
   assert.equal((await save({ whatsapp_number: "03001234567" }, false)).status, 401);
-  assert.equal((await save({ whatsapp_number: "0300 123-4567", id: other.id, status: "suspended", phone: "changed", wallet_cleared: 9999 })).status, 200);
+  assert.equal((await save({ whatsapp_number: "0300 123-4567", id: other.id, status: "suspended", phone: "changed", wallet_cleared: 9999, pr_enabled: true })).status, 200);
   const me = await (await fetch(`${base}/me`, { headers: { Authorization: `Bearer ${token}` } })).json();
   assert.equal(me.reseller.whatsapp_number, "923001234567");
   assert.equal(me.reseller.phone, "03001111111");
   assert.equal(me.reseller.status, "approved");
   assert.equal(me.reseller.wallet_cleared, 0);
+  assert.equal(me.reseller.pr_enabled, false);
   assert.equal((await resellers.getById(other.id)).whatsapp_number, "");
 });
 

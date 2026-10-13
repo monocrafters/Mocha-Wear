@@ -79,8 +79,10 @@ async function listUser(phone) {
 
 async function listReseller(resellerId) {
   const id = String(resellerId || "").trim();
+  const reseller = await require("./resellers").getById(id);
   return (await readStore()).items.filter((item) => {
     if (item.role !== "reseller") return false;
+    if ((!reseller || reseller.pr_enabled === false) && String(item.type || "").startsWith("pr_")) return false;
     const target = String(item.reseller_id || "").trim();
     return target === id;
   });
