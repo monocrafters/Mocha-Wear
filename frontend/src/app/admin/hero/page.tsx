@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AdminSpotlight } from "@/components/admin-spotlight";
 import { AdminHero } from "@/components/admin-hero";
 import { AdminShell } from "@/components/admin-shell";
 
@@ -12,8 +13,9 @@ export default function AdminHeroPage() {
       active="hero"
       kicker="Storefront"
       title="Hero section"
-      copy="Use Slides for product copy and buttons. Use Hero image to add a cropped photo that fills the homepage hero."
+      copy="Manage desktop collection spotlights and mobile campaign slides."
     >
+      <AdminSpotlight />
       <AdminHero />
     </AdminShell>
   );

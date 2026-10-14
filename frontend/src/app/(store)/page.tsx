@@ -1,3 +1,4 @@
+import { CollectionSpotlight } from "@/components/collection-spotlight";
 import { Reviews } from "@/components/reviews";
 import { SaleCountdown } from "@/components/sale-countdown";
 import { CollectionHero } from "@/components/collection-hero";
@@ -16,6 +17,7 @@ import { DM_Sans, Cormorant_Garamond, Bodoni_Moda, Manrope } from "next/font/goo
 import "./home-edition.css";
 import "./home-desktop.css";
 import "./home-collection-hero.css";
+import "./collection-spotlight.css";
 
 const desktopSans = Manrope({ subsets: ["latin"], variable: "--font-desktop-sans", display: "swap" });
 const desktopDisplay = Bodoni_Moda({ subsets: ["latin"], weight: ["400"], style: ["normal", "italic"], variable: "--font-desktop-display", display: "swap" });
@@ -53,6 +55,7 @@ export default async function Home() {
       <main>
         <div className="home-featured-campaign"><SaleHero initialSlides={slides} /></div>
         <CollectionHero />
+        <CollectionSpotlight />
         <div id="sale" className="edition-sale">
           <SaleCountdown />
         </div>

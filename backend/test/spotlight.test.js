@@ -1,0 +1,10 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+let document;
+require.cache[require.resolve('../src/cloudStore')]={exports:{createDocumentStore:()=>({read:async()=>document,write:async d=>{document=d}})}};
+require.cache[require.resolve('../src/collections')]={exports:{listAll:async()=>({items:[{id:'a'},{id:'b'}]}),listPublished:async()=>[{id:'a'}]}};
+const api=require('../src/spotlight');
+const config=()=>({enabled:true,autoplay:true,interval:6000,items:[{id:'a',collection_id:'a',title:'Cotton',description:'Test',image:'/images/collections/cotton-lawn.png',background:'',enabled:true},{id:'b',collection_id:'b',title:'Hidden',image:'',background:'',enabled:true}]});
+test('save persists and public hides unpublished collections',async()=>{await api.save(config());assert.equal((await api.getAdmin()).items.length,2);assert.equal((await api.getPublic()).items.length,1)});
+test('invalid settings and image URLs rejected',async()=>{for(const patch of [{interval:100},{autoplay:'true'},{enabled:null}])await assert.rejects(api.save({...config(),...patch}),{status:400});const c=config();c.items[0].image='javascript:alert(1)';await assert.rejects(api.save(c),{status:400})});
+test('unknown and duplicate collections rejected',async()=>{const c=config();c.items[1].collection_id='a';await assert.rejects(api.save(c),{status:400});c.items[1].collection_id='missing';await assert.rejects(api.save(c),{status:400})});
+test('order and disabled entry survive round trip',async()=>{const c=config();c.items.reverse();c.items[1].enabled=false;await api.save(c);assert.equal((await api.getAdmin()).items[0].id,'b');assert.equal((await api.getPublic()).items.length,0)});

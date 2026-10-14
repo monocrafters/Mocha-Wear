@@ -1,0 +1,52 @@
+{
+  "enabled": true,
+  "autoplay": true,
+  "interval": 6000,
+  "items": [
+    {
+      "id": "4a54df99-e3f3-4174-bb0a-2c5325389bd4",
+      "collection_id": "4a54df99-e3f3-4174-bb0a-2c5325389bd4",
+      "title": "Cotton & Lawn",
+      "description": "Everyday lawn, marked down",
+      "image": "/images/collections/cotton-lawn.png",
+      "background": "/images/collections/cotton-lawn.png",
+      "enabled": true
+    },
+    {
+      "id": "e5aaffaf-8130-42fd-999c-c7c9baef7dc3",
+      "collection_id": "e5aaffaf-8130-42fd-999c-c7c9baef7dc3",
+      "title": "Khaddar",
+      "description": "Discover your next everyday favourite.",
+      "image": "/images/collections/khaddar.png",
+      "background": "/images/collections/khaddar.png",
+      "enabled": true
+    },
+    {
+      "id": "301e75d2-be29-42d4-b9c3-9a902d96c860",
+      "collection_id": "301e75d2-be29-42d4-b9c3-9a902d96c860",
+      "title": "Bana Dora",
+      "description": "Discover your next everyday favourite.",
+      "image": "/images/collections/bana-dora.png",
+      "background": "/images/collections/bana-dora.png",
+      "enabled": true
+    },
+    {
+      "id": "baedb66d-3411-4f28-ae08-716ba01af2a1",
+      "collection_id": "baedb66d-3411-4f28-ae08-716ba01af2a1",
+      "title": "GRIP SILK",
+      "description": "Discover your next everyday favourite.",
+      "image": "/images/collections/grip-silk.png",
+      "background": "/images/collections/grip-silk.png",
+      "enabled": true
+    },
+    {
+      "id": "d33ef81d-9255-4cd0-b1f7-b203e96674df",
+      "collection_id": "d33ef81d-9255-4cd0-b1f7-b203e96674df",
+      "title": "Cotrai",
+      "description": "Premium Winter Collection",
+      "image": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790351105/mocha-wear/collections/covers/us12b0tpgdq077lpezq8.jpg",
+      "background": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790351105/mocha-wear/collections/covers/us12b0tpgdq077lpezq8.jpg",
+      "enabled": true
+    }
+  ]
+}

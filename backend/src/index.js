@@ -420,6 +420,25 @@ app.delete("/api/admin/products/:id", adminAuth.requireAdmin, async (req, res) =
   }
 });
 
+const spotlight = require("./spotlight");
+app.get("/api/spotlight", httpCache.publicContent, async (_req, res) => {
+  try { res.json({spotlight:await spotlight.getPublic()}); } catch(error) { hero.sendError(res,error); }
+});
+app.get("/api/admin/spotlight", adminAuth.requireAdmin, async (_req,res) => {
+  try { res.json({spotlight:await spotlight.getAdmin()}); } catch(error) { hero.sendError(res,error); }
+});
+app.put("/api/admin/spotlight", adminAuth.requireAdmin, async (req,res) => {
+  try { res.json({spotlight:await spotlight.save(req.body)}); } catch(error) { hero.sendError(res,error); }
+});
+app.post("/api/admin/spotlight/image", adminAuth.requireAdmin, mediaFields, async (req,res) => {
+  try {
+    const file=req.files?.cover?.[0];
+    if(!file || !file.mimetype.startsWith("image/")) return res.status(400).json({message:"Choose an image."});
+    const uploaded=await cloudinary.uploadMedia(file,"mocha-wear/hero/collections");
+    res.json({url:uploaded.url});
+  } catch(error) { hero.sendError(res,error); }
+});
+
 app.get("/api/hero", httpCache.publicContent, async (_req, res) => {
   try {
     res.json({ hero: await hero.getPublic() });
