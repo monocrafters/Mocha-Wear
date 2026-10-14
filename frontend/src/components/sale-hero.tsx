@@ -64,6 +64,7 @@ export function SaleHero({
       onFocusCapture={() => setInteracting(true)}
       onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false); }}
     >
+      <div className="desktop-campaign-top" aria-hidden="true"><span>{settings.brand_name} / The collection</span><span>A little everyday extraordinary.</span></div>
       <div className="edition-hero-wash" aria-hidden="true">
         {feature?.image ? (
           <StoreImage
@@ -125,6 +126,7 @@ export function SaleHero({
           {!feature ? <a className="edition-button" href="/shop">Shop the collection<ArrowUpRight size={18} aria-hidden="true" /></a> : null}
         </div>
       </div>
+      <div className="desktop-campaign-bottom"><span><b>{String(activeIndex + 1).padStart(2, "0")}</b> / THE FEATURED EDIT</span><a href="#collections">Discover your next favourite <span aria-hidden="true">↓</span></a></div>
       {slides.length > 1 ? <div className="edition-feature-controls">
         <button type="button" onClick={() => changeSlide(-1)} aria-label="Previous slide"><ChevronLeft size={18} /></button>
         <span aria-hidden="true">{activeIndex + 1} / {slides.length}</span>

@@ -23,7 +23,7 @@ export function EditionCollections() {
   const settings = useSiteSettings();
   if (!loading && !collections.length) return null;
   return (
-    <section id="collections" className="edition-section">
+    <section id="collections" className="edition-section desktop-collection-section">
       <div className="edition-section-heading">
         <div>
           <p className="edition-eyebrow">{settings.collections_kicker}</p>
@@ -39,7 +39,7 @@ export function EditionCollections() {
           ? [0, 1, 2, 3].map((i) => (
               <div key={i} className="edition-collection-skeleton" />
             ))
-          : collections.slice(0, 4).map((collection) => (
+          : collections.slice(0, 4).map((collection, index) => (
               <Link
                 key={collection.id}
                 href={collectionHref(collection)}
@@ -58,6 +58,7 @@ export function EditionCollections() {
                   </span>
                 </div>
                 <div className="edition-collection-title">
+                  <span className="desktop-collection-number" aria-hidden="true">0{index + 1}</span>
                   <h3>{collection.name}</h3>
                   <span>
                     {collection.subtitle ||
@@ -264,6 +265,7 @@ export function EditionFooter() {
           ) : null}
         </div>
       </div>
+      <div className="desktop-footer-signature" aria-hidden="true">{settings.brand_name}<span>wear it your way.</span></div>
       <div className="edition-footer-bottom">
         <span>{copyrightLine(settings)}</span>
         <a href="#top">Back to top ↑</a>

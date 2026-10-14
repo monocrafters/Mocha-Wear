@@ -11,8 +11,12 @@ import {
 } from "@/components/home-edition";
 import type { HeroSlide } from "@/components/admin-hero";
 import { API_URL } from "@/lib/api";
-import { DM_Sans, Cormorant_Garamond } from "next/font/google";
+import { DM_Sans, Cormorant_Garamond, Bodoni_Moda, Manrope } from "next/font/google";
 import "./home-edition.css";
+import "./home-desktop.css";
+
+const desktopSans = Manrope({ subsets: ["latin"], variable: "--font-desktop-sans", display: "swap" });
+const desktopDisplay = Bodoni_Moda({ subsets: ["latin"], weight: ["400"], style: ["normal", "italic"], variable: "--font-desktop-display", display: "swap" });
 
 const sans = DM_Sans({
   subsets: ["latin"],
@@ -41,7 +45,7 @@ export default async function Home() {
   }
   return (
     <div
-      className={`home-edition ${sans.variable} ${display.variable}`}
+      className={`home-edition ${sans.variable} ${display.variable} ${desktopSans.variable} ${desktopDisplay.variable}`}
       id="top"
     >
       <main>
