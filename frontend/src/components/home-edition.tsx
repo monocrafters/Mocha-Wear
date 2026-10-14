@@ -78,6 +78,7 @@ export function EditionProducts() {
   const { products, collections, loading, error, revalidate } = useCatalog();
   const settings = useSiteSettings();
   const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("featured");
   const available = collections.filter((collection) =>
     products.some((product) => productInCollection(product, collection.id)),
   );
@@ -85,9 +86,8 @@ export function EditionProducts() {
     (collection) => collection.id === filter,
   );
   const active = selectedCollection?.id || "";
-  const selection = products
-    .filter((product) => !active || productInCollection(product, active))
-    .slice(0, 8);
+  const matching = products.filter((product) => !active || productInCollection(product, active));
+  const selection = [...matching].sort((a, b) => sort === "price-asc" ? a.price - b.price : sort === "price-desc" ? b.price - a.price : 0).slice(0, 8);
   if (!loading && !products.length && !error) return null;
   return (
     <section id="shop" className="edition-products-section">
@@ -100,6 +100,10 @@ export function EditionProducts() {
           <p className="edition-section-description">
             {settings.products_copy}
           </p>
+        </div>
+        <div className="collection-product-toolbar">
+          <label>Collection <select aria-label="Filter by collection" value={active} onChange={event => setFilter(event.target.value)}><option value="">All collections</option>{available.map(collection => <option key={collection.id} value={collection.id}>{collection.name}</option>)}</select></label>
+          <div><span>{loading ? "Loading pieces..." : `Showing ${selection.length} of ${matching.length} pieces`}</span><label>Sort by <select aria-label="Sort products" value={sort} onChange={event => setSort(event.target.value)}><option value="featured">Featured</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></label></div>
         </div>
         <div className="edition-filters" aria-label="Filter featured products">
           <button aria-pressed={!active} onClick={() => setFilter("")}>
