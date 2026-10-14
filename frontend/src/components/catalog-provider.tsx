@@ -12,6 +12,7 @@ import {
 } from "@/lib/api-cache";
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
+import { productInCollection } from "@/lib/product";
 import { setSharedActiveSale, type ActiveSale } from "@/lib/active-sale";
 import { getReferralCode, RESELLER_ACTIVATED_EVENT } from "@/lib/referral";
 import { fetchCatalogVersion, syncCatalogIfStale, writeCatalogVersion } from "@/lib/catalog-meta";
@@ -42,7 +43,7 @@ function seedDetailCaches(products: Product[], collections: Collection[]) {
   for (const collection of collections) {
     if (!collection?.slug) continue;
     primeApiCache(`/api/collections/${collection.slug}`, { item: collection }, { memoryOnly: true });
-    const items = products.filter((product) => product.collection_id === collection.id);
+    const items = products.filter((product) => productInCollection(product, collection.id));
     primeApiCache(`/api/products?collection=${collection.slug}`, { items }, { memoryOnly: true });
     primeApiCache(`/api/products?collection=${collection.id}`, { items }, { memoryOnly: true });
   }
@@ -293,7 +294,7 @@ export function useCatalogProduct(slug?: string) {
   );
   const related = useMemo(() => {
     if (!product?.collection_id) return [];
-    return products.filter((item) => item.collection_id === product.collection_id && item.id !== product.id).slice(0, 6);
+    return products.filter((item) => productInCollection(item, product.collection_id) && item.id !== product.id).slice(0, 6);
   }, [products, product]);
 
   return { product, collection, related, catalogLoading: loading };
@@ -307,7 +308,7 @@ export function useCatalogCollection(slug?: string) {
   );
   const items = useMemo(() => {
     if (!collection) return [];
-    return products.filter((product) => product.collection_id === collection.id);
+    return products.filter((product) => productInCollection(product, collection.id));
   }, [products, collection]);
 
   return { collection, products: items, catalogLoading: loading };

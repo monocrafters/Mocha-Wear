@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { apiJson, peekApiCache, primeApiCache } from "@/lib/api-cache";
 import { formatPkr } from "@/lib/money";
 import { collectionHref } from "@/lib/collection";
+import { productInCollection } from "@/lib/product";
 import type { Collection } from "@/components/admin-collections";
 import type { Product, ProductImage, ProductLabel } from "@/components/admin-products";
 import { ProductBuyActions } from "@/components/product-buy-actions";
@@ -57,7 +58,7 @@ export default function ProductPage() {
         catalogRelated.length
           ? catalogRelated
           : products
-              .filter((row) => row.collection_id === cached.collection_id && row.id !== cached.id)
+              .filter((row) => productInCollection(row, cached.collection_id) && row.id !== cached.id)
               .slice(0, 6),
       );
       return;
@@ -88,7 +89,7 @@ export default function ProductPage() {
         setRelated((prev) =>
           prev.length
             ? prev
-            : products.filter((row) => row.collection_id === cached.collection_id && row.id !== cached.id).slice(0, 6),
+            : products.filter((row) => productInCollection(row, cached.collection_id) && row.id !== cached.id).slice(0, 6),
         );
       }
       return;
@@ -117,7 +118,7 @@ export default function ProductPage() {
         setCollection(col || null);
 
         const fromCatalog = products
-          .filter((row) => row.collection_id === data.item.collection_id && row.id !== data.item.id)
+          .filter((row) => productInCollection(row, data.item.collection_id) && row.id !== data.item.id)
           .slice(0, 6);
         if (fromCatalog.length) {
           setRelated(fromCatalog);

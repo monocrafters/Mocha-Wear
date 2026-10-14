@@ -1,3 +1,13 @@
+type CollectionMembership = { collection_id?: string; collection_ids?: string[] };
+
+export function productCollectionIds(item: CollectionMembership) {
+  return item.collection_ids ?? (item.collection_id ? [item.collection_id] : []);
+}
+
+export function productInCollection(item: CollectionMembership, collectionId: string) {
+  return productCollectionIds(item).includes(collectionId);
+}
+
 export function productCode(item: { code?: string; slug?: string }) {
   return String(item.code || item.slug || "").trim();
 }

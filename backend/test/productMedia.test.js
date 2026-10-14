@@ -53,7 +53,7 @@ test("Product Media opt-in persists, follows edits, and keeps nested assets acro
     () => media.pasteItem({ action: "copy", item_type: "folder", id, target_folder_id: manual.id }),
   ]) await assert.rejects(operation(), { status: 400 });
   await media.renameFolder(child.id, { name: "Updated campaign" });
-  assert.equal((await media.browse(id)).folders[0].name, "Updated campaign");
+  assert.equal((await media.browse(id)).folders.find(folder => folder.id === child.id).name, "Updated campaign");
   await products.updateOne(product.id, { existing_images: [] });
   assert.equal((await media.browse()).folders.find(f => f.id === id).cover_url, "");
   await products.removeOne(product.id);

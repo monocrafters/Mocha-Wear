@@ -5,6 +5,7 @@ import { Check, Search } from "lucide-react";
 import type { Collection } from "@/components/admin-collections";
 import type { Product } from "@/components/admin-products";
 import { formatPkr } from "@/lib/money";
+import { productCollectionIds, productInCollection } from "@/lib/product";
 
 export function SaleProductPicker({
   products,
@@ -52,15 +53,15 @@ export function SaleProductPicker({
     const sections: { id: string; name: string; items: Product[] }[] = collections.map((collection) => ({
       id: collection.id,
       name: collection.name,
-      items: visible.filter((item) => item.collection_id === collection.id),
+      items: visible.filter((item) => productInCollection(item, collection.id)),
     }));
-    const unassigned = visible.filter((item) => !item.collection_id || !byId.has(item.collection_id));
+    const unassigned = visible.filter((item) => !productCollectionIds(item).some((id) => byId.has(id)));
     if (unassigned.length) sections.push({ id: "unassigned", name: "Unassigned", items: unassigned });
     return sections.filter((section) => section.items.length);
   }, [collections, visible]);
 
   function idsInCollection(collectionId: string) {
-    return products.filter((item) => item.collection_id === collectionId).map((item) => item.id);
+    return products.filter((item) => productInCollection(item, collectionId)).map((item) => item.id);
   }
 
   function syncCollections(productIds: string[]) {

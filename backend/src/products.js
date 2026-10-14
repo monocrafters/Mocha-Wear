@@ -99,6 +99,25 @@ function sameCode(a, b) {
   return codeify(a) === codeify(b);
 }
 
+function collectionIds(row = {}) {
+  const ids = Array.isArray(row.collection_ids) ? row.collection_ids : [row.collection_id];
+  return [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
+}
+
+function collectionsFromBody(body, existing) {
+  if (body.collection_ids !== undefined) {
+    const ids = parseJson(body.collection_ids, null);
+    if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")) {
+      const err = new Error("Collections must be a list of collection IDs");
+      err.status = 400;
+      throw err;
+    }
+    return collectionIds({ collection_ids: ids });
+  }
+  if (body.collection_id !== undefined) return collectionIds(body);
+  return collectionIds(existing);
+}
+
 function shapeImage(image, index = 0) {
   if (typeof image === "string") {
     return { id: crypto.randomUUID(), url: image, alt: "", sort_order: index };
@@ -146,7 +165,9 @@ function shape(row = {}, index = 0) {
     name: String(row.name || "").trim() || `Product ${index + 1}`,
     code,
     slug: slugify(code),
-    collection_id: String(row.collection_id || "").trim(),
+    // Keep a primary collection for existing links and older clients.
+    collection_id: collectionIds(row)[0] || "",
+    collection_ids: collectionIds(row),
     description: String(row.description || "").trim(),
     fabric: String(row.fabric || "").trim(),
     pieces: String(row.pieces || "").trim(),
@@ -195,7 +216,7 @@ function payloadFromBody(body = {}, existing = {}) {
     name,
     code,
     slug: slugify(code),
-    collection_id: body.collection_id ?? existing.collection_id,
+    collection_ids: collectionsFromBody(body, existing),
     description: body.description ?? existing.description,
     fabric: body.fabric ?? existing.fabric,
     pieces: body.pieces ?? existing.pieces,
@@ -231,7 +252,7 @@ async function listPublished(filter = {}) {
   return (await listAll()).filter((item) => {
     if (!item.is_published) return false;
     if (!collection) return true;
-    return item.collection_id === collection;
+    return item.collection_ids.includes(collection);
   });
 }
 
@@ -333,7 +354,7 @@ async function resolveSaleProductIds(productIds = [], collectionIds = []) {
   const collections = new Set((collectionIds || []).map(String).filter(Boolean));
   if (collections.size) {
     (await listAll()).forEach((item) => {
-      if (collections.has(item.collection_id)) ids.add(item.id);
+      if (item.collection_ids.some((id) => collections.has(id))) ids.add(item.id);
     });
   }
   return [...ids];

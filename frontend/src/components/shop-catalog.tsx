@@ -7,6 +7,7 @@ import { ProductCard, productGridClass } from "@/components/product-card";
 import { ProductGridSkeleton, Skeleton } from "@/components/skeletons";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSiteSettings } from "@/components/site-settings";
+import { productInCollection } from "@/lib/product";
 
 export function ShopCatalog() {
   const { products, collections, loading } = useCatalog();
@@ -15,7 +16,7 @@ export function ShopCatalog() {
 
   const items = useMemo(() => {
     if (active === "all") return products;
-    return products.filter((product) => product.collection_id === active);
+    return products.filter((product) => productInCollection(product, active));
   }, [products, active]);
 
   return (

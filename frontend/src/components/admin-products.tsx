@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { applyCatalogVersion } from "@/lib/catalog-meta";
 import { formatPkr } from "@/lib/money";
-import { PRODUCT_BADGES, PRODUCT_SIZE_PRESETS, productSizes } from "@/lib/product";
+import { PRODUCT_BADGES, PRODUCT_SIZE_PRESETS, productSizes, productCollectionIds, productInCollection } from "@/lib/product";
 import type { Collection } from "@/components/admin-collections";
 import { CollectionPicker } from "@/components/collection-picker";
 import { AdminConfirm } from "@/components/admin-confirm";
@@ -30,6 +30,7 @@ export type Product = {
   slug: string;
   code?: string;
   collection_id: string;
+  collection_ids?: string[];
   description: string;
   fabric: string;
   pieces: string;
@@ -71,7 +72,7 @@ type ImageDraft = {
 const emptyForm = {
   name: "",
   code: "",
-  collection_id: "",
+  collection_ids: [] as string[],
   description: "",
   fabric: "",
   pieces: "",
@@ -153,14 +154,14 @@ export function AdminProducts() {
   const dragIdRef = useRef<string | null>(null);
 
   const open = creating || Boolean(editing);
-  const hasUnassigned = items.some((item) => !item.collection_id);
+  const hasUnassigned = items.some((item) => !productCollectionIds(item).length);
   const visible = useMemo(() => {
     const byCollection =
       filter === "all"
         ? items
         : filter === "unassigned"
-          ? items.filter((item) => !item.collection_id)
-          : items.filter((item) => item.collection_id === filter);
+          ? items.filter((item) => !productCollectionIds(item).length)
+          : items.filter((item) => productInCollection(item, filter));
     const filtered =
       resellerFilter === "resellers"
         ? byCollection.filter((item) => item.reseller_enabled)
@@ -221,7 +222,7 @@ export function AdminProducts() {
     setForm({
       name: item.name,
       code: item.code || toCode(item.slug || item.name),
-      collection_id: item.collection_id,
+      collection_ids: productCollectionIds(item),
       description: item.description,
       fabric: item.fabric,
       pieces: item.pieces,
@@ -339,7 +340,7 @@ export function AdminProducts() {
       }
       const body = new FormData();
       Object.entries(form).forEach(([key, value]) => {
-        body.append(key, String(value));
+        body.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
       });
       body.append(
         "image_order",
@@ -517,7 +518,7 @@ export function AdminProducts() {
               </div>
               <div className="p-2">
                 <p className="truncate text-[9px] text-slate-500 uppercase">
-                  {collectionName(item.collection_id)} · {item.code || "No code"}
+                  {productCollectionIds(item).map(collectionName).join(", ") || "Unassigned"} · {item.code || "No code"}
                 </p>
                 <h3 className="mt-0.5 truncate text-sm font-semibold text-slate-900">{item.name}</h3>
                 <p className="mt-0.5 text-[11px] text-slate-700">
@@ -666,12 +667,13 @@ export function AdminProducts() {
               </label>
 
               <div>
-                <span className="text-sm font-medium text-slate-600">Collection</span>
+                <span className="text-sm font-medium text-slate-600">Collections</span>
+                <p className="mt-1 text-xs text-slate-500">Select every collection this product belongs to.</p>
                 <div className="mt-2">
                   <CollectionPicker
                     collections={collections}
-                    value={form.collection_id}
-                    onChange={(id) => setForm({ ...form, collection_id: id })}
+                    value={form.collection_ids}
+                    onChange={(ids) => setForm({ ...form, collection_ids: ids })}
                   />
                 </div>
               </div>

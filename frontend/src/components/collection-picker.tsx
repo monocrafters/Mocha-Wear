@@ -10,12 +10,12 @@ export function CollectionPicker({
   onChange,
 }: {
   collections: Collection[];
-  value: string;
-  onChange: (id: string) => void;
+  value: string[];
+  onChange: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const selected = collections.find((item) => item.id === value);
+  const selected = collections.filter((item) => value.includes(item.id));
 
   useEffect(() => {
     function onDoc(event: MouseEvent) {
@@ -29,13 +29,15 @@ export function CollectionPicker({
     <div ref={root} className="relative">
       <button
         type="button"
+        aria-label="Collections"
+        aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className="flex w-full items-center justify-between gap-3 border border-slate-200 bg-white px-3 py-2.5 text-left text-sm outline-none hover:border-slate-300 focus:border-blue-500"
       >
         <span className="flex min-w-0 items-center gap-2.5">
-          {selected?.cover_image ? (
+          {selected[0]?.cover_image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={selected.cover_image} alt="" className="h-8 w-7 shrink-0 object-cover" />
+            <img src={selected[0].cover_image} alt="" className="h-8 w-7 shrink-0 object-cover" />
           ) : (
             <span className="grid h-8 w-7 shrink-0 place-items-center bg-slate-100 text-[9px] text-slate-400">
               —
@@ -43,10 +45,10 @@ export function CollectionPicker({
           )}
           <span className="min-w-0">
             <span className="block truncate font-medium text-slate-900">
-              {selected?.name || "Unassigned"}
+              {selected.map((item) => item.name).join(", ") || "Unassigned"}
             </span>
             <span className="block truncate text-[11px] text-slate-500">
-              {selected?.code || "No collection"}
+              {selected.length ? `${selected.length} selected` : "No collection"}
             </span>
           </span>
         </span>
@@ -58,10 +60,9 @@ export function CollectionPicker({
           <PickerRow
             label="Unassigned"
             hint="Not in a collection"
-            active={!value}
+            active={!value.length}
             onClick={() => {
-              onChange("");
-              setOpen(false);
+              onChange([]);
             }}
           />
           {collections.map((item) => (
@@ -70,10 +71,9 @@ export function CollectionPicker({
               image={item.cover_image}
               label={item.name}
               hint={item.code || item.slug}
-              active={value === item.id}
+              active={value.includes(item.id)}
               onClick={() => {
-                onChange(item.id);
-                setOpen(false);
+                onChange(value.includes(item.id) ? value.filter((id) => id !== item.id) : [...value, item.id]);
               }}
             />
           ))}
@@ -99,6 +99,7 @@ function PickerRow({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
         active ? "bg-slate-50" : "bg-white"

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Copy, FolderOpen, Loader2, Search, SlidersHorizontal } from "lucide-react";
+import { Check, ChevronRight, Copy, FolderOpen, Loader2, Pencil, Search, SlidersHorizontal } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatPkr } from "@/lib/money";
 import { ui } from "@/lib/admin-ui";
@@ -494,6 +494,7 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
               const margin = productMargin(product);
               const activeOnCard = isActiveFlag(product.is_active);
               const draft = drafts[product.id] ?? "";
+              const editingPrice = mode === "active" && drafts[product.id] !== undefined;
               const draftNum = draft ? Number(draft) : 0;
               const draftMargin =
                 Number.isFinite(draftNum) && draftNum > 0
@@ -575,17 +576,23 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
                         </div>
                       </Link>
 
-                      {mode === "pending" && ready ? (
+                      {(mode === "pending" || editingPrice) && ready ? (
                         <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          {editingPrice ? (
+                            <p className="mb-1 text-[10px] text-slate-500">
+                              {t("products.allowedRange")}: {formatPkr(product.min_price)} – {formatPkr(product.max_price)}
+                            </p>
+                          ) : null}
                           <div className="flex items-end gap-1.5">
                             <label className="min-w-0 flex-1">
                               <input
                                 type="number"
+                                aria-label={t("products.yourPrice")}
                                 inputMode="numeric"
                                 min={product.min_price}
                                 max={product.max_price}
                                 value={draft}
-                                disabled={isBusy}
+                                disabled={Boolean(busyId)}
                                 onChange={(e) =>
                                   setDrafts((prev) => ({ ...prev, [product.id]: e.target.value }))
                                 }
@@ -595,8 +602,8 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
                             </label>
                             <button
                               type="button"
-                              disabled={isBusy || !draft}
-                              onClick={() => savePrice(product, draft, true)}
+                              disabled={Boolean(busyId) || !draft}
+                              onClick={() => savePrice(product, draft, mode === "active" ? activeOnCard : true)}
                               className={`inline-flex shrink-0 items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-50 ${
                                 justSaved ? "bg-emerald-600" : "bg-slate-900 hover:bg-slate-800"
                               }`}
@@ -609,6 +616,23 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
                               {isBusy ? t("products.saving") : justSaved ? t("products.saved") : t("products.save")}
                             </button>
                           </div>
+                          {editingPrice ? (
+                            <button
+                              type="button"
+                              disabled={Boolean(busyId)}
+                              onClick={() => {
+                                setDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[product.id];
+                                  return next;
+                                });
+                                setActionError("");
+                              }}
+                              className="mt-1 text-xs text-slate-500 hover:text-slate-900 disabled:opacity-50"
+                            >
+                              {t("products.cancel")}
+                            </button>
+                          ) : null}
                           {draft ? (
                             <p className="mt-1 text-[10px] text-slate-500">
                               {t("products.margin")}{" "}
@@ -626,12 +650,28 @@ export function ResellerProductList({ mode }: { mode: ProductListMode }) {
 
                       {mode === "active" && saved ? (
                         <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                          {!editingPrice ? (
+                            <button
+                              type="button"
+                              disabled={!ready || Boolean(busyId)}
+                              onClick={() => {
+                                setActionError("");
+                                setSavedId("");
+                                setDrafts((prev) => ({ ...prev, [product.id]: String(product.custom_price) }));
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {justSaved ? <Check size={13} /> : <Pencil size={13} />}
+                              {justSaved ? t("products.saved") : t("products.editPrice")}
+                            </button>
+                          ) : null}
+                          {!ready ? <p className="text-[10px] text-amber-700">{t("products.wholesaleMissing")}</p> : null}
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[10px] text-slate-500">{t("products.activeOnLink")}</span>
                             <ActiveToggle
                               compact
                               checked={activeOnCard}
-                              disabled={isBusy}
+                              disabled={Boolean(busyId)}
                               label={t("products.active")}
                               onChange={(next) => toggleActive(product, next)}
                             />
