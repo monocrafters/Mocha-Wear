@@ -66,15 +66,11 @@ export function SaleHero({
     >
       <div className="desktop-campaign-top" aria-hidden="true"><span>{settings.brand_name} / The collection</span><span>A little everyday extraordinary.</span></div>
       <div className="edition-hero-wash" aria-hidden="true">
-        {feature?.image ? (
-          <StoreImage
-            src={feature.image}
-            alt=""
-            sizes="100vw"
-            cloudWidth={80}
-            className="edition-hero-palette"
-          />
-        ) : null}
+        {slides.filter(slide => slide.image).map(slide => (
+          <div key={slide.id} className={`edition-palette-layer${slide.id === feature?.id ? " is-active" : ""}`}>
+            <StoreImage src={slide.image} alt="" sizes="100vw" cloudWidth={80} className="edition-hero-palette" />
+          </div>
+        ))}
       </div>
       <div className="edition-hero-art">
         {feature?.video ? (
@@ -89,19 +85,12 @@ export function SaleHero({
             aria-label={feature.alt || "Featured collection film"}
           />
         ) : feature?.image ? (
-          <StoreImage
-            src={feature.image}
-            alt={
-              feature.alt ||
-              feature.heading ||
-              `${settings.brand_name} collection`
-            }
-            sizes="(max-width: 700px) 100vw, 58vw"
-            cloudWidth={1400}
-            preserveCrop
-            priority
-            className="edition-hero-image"
-          />
+          slides.filter(slide => slide.image && !slide.video).map(slide => (
+            <div key={slide.id} aria-hidden={slide.id !== feature.id} className={`edition-image-layer${slide.id === feature.id ? " is-active" : ""}`}>
+              <StoreImage src={slide.image} alt={slide.id === feature.id ? (slide.alt || slide.heading || `${settings.brand_name} collection`) : ""}
+                sizes="(max-width: 700px) 100vw, 62vw" cloudWidth={1400} preserveCrop priority={slide.id === slides[0]?.id} className="edition-hero-image" />
+            </div>
+          ))
         ) : (
           <div className="edition-art-fallback" aria-hidden="true">
             m.
@@ -109,6 +98,7 @@ export function SaleHero({
         )}
       </div>
       <div className="edition-hero-copy" aria-live={playing ? "off" : "polite"} aria-atomic="true">
+        <div className="edition-copy-content" key={feature?.id || "fallback"}>
         {!imageOnly && feature?.kicker ? <p className="edition-hero-kicker">{feature.kicker}</p> : null}
         <h1 id="campaign-heading" className={imageOnly ? "sr-only" : undefined}>
           {feature?.heading || `${settings.brand_name} collection`}
@@ -124,6 +114,7 @@ export function SaleHero({
           {feature?.primary_cta_label ? <a className="edition-button" href={feature.primary_cta_link || "/shop"}>{feature.primary_cta_label}<ArrowUpRight size={18} aria-hidden="true" /></a> : null}
           {feature?.secondary_cta_label ? <a className="edition-text-link" href={feature.secondary_cta_link || "/collections"}>{feature.secondary_cta_label}<ArrowUpRight size={16} aria-hidden="true" /></a> : null}
           {!feature ? <a className="edition-button" href="/shop">Shop the collection<ArrowUpRight size={18} aria-hidden="true" /></a> : null}
+        </div>
         </div>
       </div>
       <div className="desktop-campaign-bottom"><span><b>{String(activeIndex + 1).padStart(2, "0")}</b> / THE FEATURED EDIT</span><a href="#collections">Discover your next favourite <span aria-hidden="true">↓</span></a></div>
