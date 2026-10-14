@@ -1,26 +1,193 @@
 "use client";
-import {useEffect,useState} from 'react';
-import {API_URL,apiFetch} from '@/lib/api';
-import defaults from '@/lib/spotlight-defaults.json';
-import type {Collection} from './admin-collections';
-import type {SpotlightConfig} from './collection-spotlight';
-import {StoreImage} from './store-image';
-export function AdminSpotlight(){
- const [config,setConfig]=useState<SpotlightConfig>(defaults);
- const [collections,setCollections]=useState<Collection[]>([]);
- const [status,setStatus]=useState('');const [ready,setReady]=useState(false);const [busy,setBusy]=useState(false);
- useEffect(()=>{let live=true;(async()=>{try{const [a,b]=await Promise.all([apiFetch(`${API_URL}/api/admin/spotlight`,{credentials:'include'}),apiFetch(`${API_URL}/api/admin/collections`,{credentials:'include'})]);if(!a.ok||!b.ok)throw new Error('Collection spotlight API is not available yet. Deploy the updated backend before saving.');const [x,y]=await Promise.all([a.json(),b.json()]);if(live){setConfig(x.spotlight);setCollections(y.items);setReady(true)}}catch(e){if(live)setStatus(e instanceof Error?e.message:'Could not load editor')}})();return()=>{live=false}},[]);
- function update(index:number,patch:Partial<SpotlightConfig['items'][number]>){setConfig(c=>({...c,items:c.items.map((i,n)=>n===index?{...i,...patch}:i)}))}
- async function upload(index:number,key:'image'|'background',file:File){setBusy(true);setStatus('Uploading image...');try{const body=new FormData();body.append('cover',file);const res=await apiFetch(`${API_URL}/api/admin/spotlight/image`,{method:'POST',credentials:'include',body});const data=await res.json();if(!res.ok)throw new Error(data.message||'Upload failed');update(index,{[key]:data.url});setStatus('Image uploaded. Save changes to publish.')}catch(e){setStatus(e instanceof Error?e.message:'Upload failed')}finally{setBusy(false)}}
- async function save(){setBusy(true);setStatus('Saving...');try{const res=await apiFetch(`${API_URL}/api/admin/spotlight`,{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)});const data=await res.json();if(!res.ok)throw new Error(data.message||'Save failed');setConfig(data.spotlight);setStatus('Collection spotlight saved.')}catch(e){setStatus(e instanceof Error?e.message:'Save failed')}finally{setBusy(false)}}
- function move(index:number,delta:number){setConfig(c=>{const items=[...c.items];[items[index],items[index+delta]]=[items[index+delta],items[index]];return {...c,items}})}
- const available=collections.filter(c=>!config.items.some(i=>i.collection_id===c.id));
- return <section className="rounded-2xl border border-slate-200 bg-white p-6 mb-8"><div className="flex justify-between gap-5"><div><p className="text-xs uppercase tracking-widest text-slate-500">Desktop homepage</p><h2 className="text-2xl mt-2">Collection spotlight</h2><p className="text-sm text-slate-500 mt-2">A growing circle reveals each collection. Upload square artwork, choose a background, then set the order. Existing slides below remain available for mobile.</p></div><button disabled={!ready||busy} onClick={save} className="rounded-lg bg-slate-900 text-white px-5 py-3 self-start disabled:opacity-40">Save changes</button></div>
- <p role="status" className="text-sm my-4 text-slate-600">{status}</p>
- <fieldset disabled={!ready||busy} className="disabled:opacity-50"><div className="flex flex-wrap gap-6 border-y py-4 text-sm"><label><input type="checkbox" checked={config.enabled} onChange={e=>setConfig({...config,enabled:e.target.checked})}/> Enable spotlight</label><label><input type="checkbox" checked={config.autoplay} onChange={e=>setConfig({...config,autoplay:e.target.checked})}/> Auto rotate</label><label>Seconds per collection <input className="border rounded w-16 p-1" type="number" min={4} max={15} value={config.interval/1000} onChange={e=>setConfig({...config,interval:Number(e.target.value)*1000})}/></label></div>
- <div className="grid gap-5 mt-5 lg:grid-cols-2">{config.items.map((item,index)=><article key={item.id} className="border rounded-xl p-4"><div className="flex gap-3 items-center mb-4"><div className="relative w-20 h-20 rounded-full overflow-hidden shrink-0"><StoreImage src={item.image} alt={item.title} sizes="80px"/></div><div><strong>{item.title}</strong><p className="text-xs text-slate-500">{collections.find(c=>c.id===item.collection_id)?.name||'Collection'} · Position {index+1}</p><label className="text-xs"><input type="checkbox" checked={item.enabled} onChange={e=>update(index,{enabled:e.target.checked})}/> Published</label></div><div className="ml-auto flex gap-2"><button type="button" aria-label={`Move ${item.title} up`} disabled={index===0} onClick={()=>move(index,-1)}>↑</button><button type="button" aria-label={`Move ${item.title} down`} disabled={index===config.items.length-1} onClick={()=>move(index,1)}>↓</button></div></div>
- <label className="block text-xs mb-3">Heading<input className="border rounded p-2 w-full mt-1" maxLength={100} value={item.title} onChange={e=>update(index,{title:e.target.value})}/></label><label className="block text-xs mb-3">Description<textarea className="border rounded p-2 w-full mt-1" maxLength={350} value={item.description} onChange={e=>update(index,{description:e.target.value})}/></label>
- {(['image','background'] as const).map(key=><label key={key} className="block text-xs mt-3">{key==='image'?'Circle image (square)':'Background image (full frame preserved)'}<input className="block mt-2 w-full" type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)void upload(index,key,f)}}/><input aria-label={`${item.title} ${key} URL`} className="border rounded p-2 w-full mt-2" value={item[key]} onChange={e=>update(index,{[key]:e.target.value})}/></label>)}
- <button type="button" className="text-red-600 text-xs mt-4" onClick={()=>setConfig(c=>({...c,items:c.items.filter((_,n)=>n!==index)}))}>Remove from spotlight</button></article>)}</div>
- <label className="block text-sm mt-6">Add a collection<select className="border rounded p-3 ml-3" value="" onChange={e=>{const c=available.find(c=>c.id===e.target.value);if(c)setConfig(prev=>({...prev,items:[...prev.items,{id:c.id,collection_id:c.id,title:c.name,description:c.subtitle||'',image:c.cover_image,background:c.banner_image_desktop||c.cover_image,enabled:true}]}))}}><option value="">Choose collection</option>{available.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></fieldset></section>
+
+import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, ImagePlus } from "lucide-react";
+import { API_URL, apiFetch } from "@/lib/api";
+import defaults from "@/lib/spotlight-defaults.json";
+import type { Collection } from "./admin-collections";
+import type { SpotlightConfig } from "./collection-spotlight";
+import { StoreImage } from "./store-image";
+
+type SpotlightItem = SpotlightConfig["items"][number];
+const inputClass = "mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm";
+
+function requestError(status: number, message?: string) {
+  if (status === 401 || status === 403) return "Your admin session has expired. Sign in again to edit the collection hero.";
+  if (status === 404) return "The collection hero editor needs the updated backend. Your existing homepage settings have not changed.";
+  return message || "Could not save the collection hero. Please try again.";
+}
+
+export function AdminSpotlight() {
+  const [config, setConfig] = useState<SpotlightConfig>(defaults);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [status, setStatus] = useState("Loading collection hero...");
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const [heroResponse, collectionsResponse] = await Promise.all([
+          apiFetch(`${API_URL}/api/admin/spotlight`, { credentials: "include" }),
+          apiFetch(`${API_URL}/api/admin/collections`, { credentials: "include" }),
+        ]);
+        if (!collectionsResponse.ok) throw new Error(requestError(collectionsResponse.status, "Could not load collections."));
+        const catalog = await collectionsResponse.json();
+        if (live) setCollections(catalog.items);
+        if (!heroResponse.ok) throw new Error(requestError(heroResponse.status, "Could not load the collection hero."));
+        const data = await heroResponse.json();
+        if (live) {
+          setConfig(data.spotlight);
+          setReady(true);
+          setStatus("");
+        }
+      } catch (error) {
+        if (live) setStatus(error instanceof Error ? error.message : "Could not load the editor.");
+      }
+    })();
+    return () => { live = false; };
+  }, []);
+
+  function update(id: string, patch: Partial<SpotlightItem>) {
+    setConfig((current) => ({
+      ...current,
+      items: current.items.map((item) => item.id === id ? { ...item, ...patch } : item),
+    }));
+  }
+
+  async function upload(id: string, key: "image" | "background", file: File) {
+    setBusy(true);
+    setStatus("Uploading collection artwork...");
+    try {
+      const body = new FormData();
+      body.append("cover", file);
+      const response = await apiFetch(`${API_URL}/api/admin/spotlight/image`, { method: "POST", credentials: "include", body });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(requestError(response.status, data.message));
+      update(id, { [key]: data.url });
+      setStatus("Artwork uploaded. Save changes to publish it.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save() {
+    setBusy(true);
+    setStatus("Saving collection hero...");
+    try {
+      const response = await apiFetch(`${API_URL}/api/admin/spotlight`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(requestError(response.status, data.message));
+      setConfig(data.spotlight);
+      setStatus("Collection hero saved.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Save failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function move(index: number, delta: number) {
+    setConfig((current) => {
+      const nextIndex = index + delta;
+      if (nextIndex < 0 || nextIndex >= current.items.length) return current;
+      const items = [...current.items];
+      [items[index], items[nextIndex]] = [items[nextIndex], items[index]];
+      return { ...current, items };
+    });
+  }
+
+  function addCollection(id: string) {
+    const collection = collections.find((item) => item.id === id);
+    if (!collection) return;
+    setConfig((current) => ({
+      ...current,
+      items: [...current.items, {
+        id: collection.id,
+        collection_id: collection.id,
+        title: collection.name,
+        description: collection.subtitle || "",
+        image: "",
+        background: "",
+        enabled: false,
+      }],
+    }));
+    setStatus("Collection added as a draft. Upload its collection artwork, then publish and save.");
+  }
+
+  const available = collections.filter((collection) => !config.items.some((item) => item.collection_id === collection.id));
+
+  return (
+    <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="max-w-2xl">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Desktop homepage</p>
+          <h2 className="mt-2 text-2xl">Collection hero</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Introduce each collection with one composed image of its articles. Upload the complete collection artwork, arrange the order and choose which collections appear.
+          </p>
+        </div>
+        <button type="button" disabled={!ready || busy} onClick={save} className="rounded-lg bg-slate-900 px-5 py-3 text-sm text-white disabled:opacity-40">Save changes</button>
+      </div>
+      <p role="status" aria-live="polite" className="my-4 text-sm text-slate-600">{status}</p>
+      <fieldset disabled={!ready || busy} className="disabled:opacity-50">
+        <legend className="sr-only">Collection hero settings</legend>
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-y border-slate-100 py-5 text-sm">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={config.enabled} onChange={(event) => setConfig({ ...config, enabled: event.target.checked })} /> Enable collection hero</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={config.autoplay} onChange={(event) => setConfig({ ...config, autoplay: event.target.checked })} /> Automatic transitions</label>
+          <label className="flex items-center gap-2">Seconds per collection <input className="w-16 rounded-lg border border-slate-200 p-2" type="number" min={4} max={15} step={1} value={config.interval / 1000} onChange={(event) => setConfig({ ...config, interval: Number(event.target.value) * 1000 })} /></label>
+          <p className="w-full text-xs text-slate-500">Default: the next collection appears automatically every 5 seconds.</p>
+        </div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          {config.items.map((item, index) => {
+            const collection = collections.find((entry) => entry.id === item.collection_id);
+            return (
+              <article key={item.id} className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="relative aspect-[2/1] bg-slate-50">
+                  {item.image ? <StoreImage src={item.image} alt={`${item.title} collection artwork`} sizes="(min-width: 1280px) 40vw, 80vw" cloudWidth={900} preserveCrop className="object-contain" /> : <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400"><ImagePlus size={28} /><span className="text-sm">Add collection artwork</span></div>}
+                </div>
+                <div className="p-5">
+                  <div className="mb-5 flex items-start gap-3">
+                    <div>
+                      <h3 className="font-semibold">{item.title}</h3>
+                      <p className="mt-1 text-xs text-slate-500">{collection?.name || "Collection unavailable"} · Position {index + 1}</p>
+                    </div>
+                    <div className="ml-auto flex gap-1">
+                      <button type="button" aria-label={`Move ${item.title} up`} disabled={index === 0} onClick={() => move(index, -1)} className="rounded-lg border border-slate-200 p-2 disabled:opacity-30"><ArrowUp size={16} /></button>
+                      <button type="button" aria-label={`Move ${item.title} down`} disabled={index === config.items.length - 1} onClick={() => move(index, 1)} className="rounded-lg border border-slate-200 p-2 disabled:opacity-30"><ArrowDown size={16} /></button>
+                    </div>
+                  </div>
+                  <label className="mb-4 flex items-center gap-2 text-sm"><input type="checkbox" checked={item.enabled} onChange={(event) => update(item.id, { enabled: event.target.checked })} /> Published in the hero</label>
+                  <label className="mb-3 block text-xs">Collection title<input className={inputClass} maxLength={100} value={item.title} onChange={(event) => update(item.id, { title: event.target.value })} /></label>
+                  <label className="mb-4 block text-xs">Short introduction<textarea aria-label="Short introduction" className={inputClass} rows={2} maxLength={350} value={item.description} onChange={(event) => update(item.id, { description: event.target.value })} /></label>
+                  <label className="block text-xs">Collection artwork
+                    <span className="mt-1 block leading-5 text-slate-500">Compose the collection’s articles into one high-resolution image. Keep text and pricing out of the artwork; the hero displays the title and collection link separately.</span>
+                    <input className="mt-2 block w-full text-xs" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(item.id, "image", file); event.target.value = ""; }} />
+                    <input aria-label={`${item.title} image URL`} className={inputClass} placeholder="Uploaded collection artwork URL" value={item.image} onChange={(event) => update(item.id, { image: event.target.value })} />
+                  </label>
+                  <details className="mt-4 rounded-lg border border-slate-100 p-3">
+                    <summary className="cursor-pointer text-xs text-slate-600">Alternative background artwork (optional)</summary>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">Leave empty to use the same collection artwork throughout. Upload an alternative composition only if the background needs a different image.</p>
+                    <label className="mt-2 block text-xs">Background artwork<input className="mt-2 block w-full" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(item.id, "background", file); event.target.value = ""; }} /><input aria-label={`${item.title} background URL`} className={inputClass} placeholder="Optional background artwork URL" value={item.background} onChange={(event) => update(item.id, { background: event.target.value })} /></label>
+                  </details>
+                  {!collection && ready && <p className="mt-3 text-xs text-amber-700">This collection no longer exists. Remove this entry before saving.</p>}
+                  <button type="button" className="mt-4 text-xs text-red-600" onClick={() => setConfig((current) => ({ ...current, items: current.items.filter((entry) => entry.id !== item.id) }))}>Remove from hero</button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <label className="mt-6 block text-sm">Add a collection<select aria-label="Add a collection" className="ml-3 rounded-lg border border-slate-200 p-3" value="" onChange={(event) => addCollection(event.target.value)}><option value="">Choose collection</option>{available.map((collection) => <option key={collection.id} value={collection.id}>{collection.name}{collection.is_published ? "" : " (unpublished)"}</option>)}</select></label>
+        <p className="mt-2 text-xs text-slate-500">New collections start as drafts. A collection must also be published in your catalog to appear on the homepage.</p>
+      </fieldset>
+    </section>
+  );
 }

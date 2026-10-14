@@ -1,0 +1,36 @@
+{
+  "tool": "Built-in image_gen",
+  "purpose": "Complete collection montages replacing single-article hero artwork",
+  "assets": [
+    {
+      "slug": "cotton-lawn",
+      "articleCount": 9,
+      "file": "frontend/public/images/collections/cotton-lawn-edit-v2.png",
+      "prompt": "Use case: compositing. Asset type: square collection artwork for a luxury Pakistani fashion storefront. Input image is a reference sheet containing ALL NINE distinct Cotton & Lawn outfits, numbered only for identification. Create one very high-resolution SQUARE editorial collection collage featuring exactly these nine outfits, every outfit once. Extract the clothed models and arrange them as a balanced 3-by-3 fashion lookbook montage on a single warm ivory neutral background, refined spacing and very subtle studio shadows. Keep the complete outfit silhouette visible, including trousers, preserving the original colours, prints, embroidery, neckline, sleeves and garments precisely. Do not redesign or invent any clothing, omit outfits, repeat outfits or merge outfits. Each outfit is equally important. Crop/layout all nine within a central safe square, leave generous outer margin. Elegant cohesive realistic photography. NO words, product names, numerals, text, prices, logos, borders, watermarks or graphic decorations. Deliver only the finished square artwork, not a website mockup. References in order: Sky Floral, Noir Gul, Midnight Muse, Rang-e-Meher, Desert Grace, Rose Mist, Crimson Royale, Siyah Noor, Mint Elegance."
+    },
+    {
+      "slug": "khaddar",
+      "articleCount": 16,
+      "file": "frontend/public/images/collections/khaddar-collection-v2.png",
+      "prompt": "Use case: compositing. Asset type: high-quality square collection montage for the Mocha Wear fashion website. Input image is a contact sheet of ALL 16 actual articles in the Khaddar collection. Create ONE premium, beautifully unified square composition containing EVERY one of these 16 distinct outfits exactly once, arranged in four rows of four. Preserve each article's fabric colour, motif, neckline, sleeve pattern, hem, and trouser pattern faithfully. Keep the full outfit visible head to feet. Remove reference frames, captions, numbers, and different location backgrounds; replace with one continuous soft warm-ivory studio backdrop, subtle natural ground shadows, consistent soft daylight. Keep figures separated with breathing room, beautiful fashion editorial photographic detail. This is a complete collection overview, not a single-article campaign. Exact total 16 figures/outfits, none missing, none duplicated. Square image; composition fits within entire square without clipping. No text, prices, logos, labels, watermark, borders, cards, or invented outfits."
+    },
+    {
+      "slug": "bana-dora",
+      "articleCount": 11,
+      "file": "frontend/public/images/collections/bana-dora-collection-v2.png",
+      "prompt": "Use case: compositing. Asset type: high-quality square collection montage for the Mocha Wear fashion website. Input image is a contact sheet of ALL 11 actual articles in the Bana Dora collection. Create ONE premium, beautifully unified square composition containing EVERY one of these 11 distinct outfits exactly once, arranged in three balanced rows, four then three then four. Preserve each article's fabric colour, motif, neckline, sleeve pattern, hem, and trouser pattern faithfully. Keep the full outfit visible head to feet. Remove reference frames, captions, numbers, and different location backgrounds; replace with one continuous soft warm-ivory studio backdrop, subtle natural ground shadows, consistent soft daylight. Keep figures separated with breathing room, beautiful fashion editorial photographic detail. This is a complete collection overview, not a single-article campaign. Exact total 11 figures/outfits, none missing, none duplicated. Square image; composition fits within entire square without clipping. No text, prices, logos, labels, watermark, borders, cards, or invented outfits."
+    },
+    {
+      "slug": "grip-silk",
+      "articleCount": 3,
+      "file": "frontend/public/images/collections/grip-silk-edit-v2.png",
+      "prompt": "Use case: compositing. Asset type: high-quality square collection montage for the Mocha Wear fashion website. Input image is a contact sheet of ALL 3 actual articles in the Grip Silk collection. Create ONE premium, beautifully unified square composition containing EVERY one of these 3 distinct outfits exactly once, arranged in three full-length figures together in one beautifully balanced horizontal group. Preserve each article's fabric colour, motif, neckline, sleeve pattern, hem, and trouser pattern faithfully. Keep the full outfit visible head to feet. Remove reference frames, captions, numbers, and different location backgrounds; replace with one continuous soft warm-ivory studio backdrop, subtle natural ground shadows, consistent soft daylight. Keep figures separated with breathing room, beautiful fashion editorial photographic detail. This is a complete collection overview, not a single-article campaign. Exact total 3 figures/outfits, none missing, none duplicated. Square image; composition fits within entire square without clipping. No text, prices, logos, labels, watermark, borders, cards, or invented outfits."
+    },
+    {
+      "slug": "cotrai",
+      "articleCount": 9,
+      "file": "frontend/public/images/collections/cotrai-edit-v2.png",
+      "prompt": "Use case: compositing. Asset type: high-quality square collection montage for the Mocha Wear fashion website. Input image is a contact sheet of ALL 9 actual articles in the Cotrai collection. Create ONE premium, beautifully unified square composition containing EVERY one of these 9 distinct outfits exactly once, arranged in three rows of three. Preserve each article's fabric colour, motif, neckline, sleeve pattern, hem, and trouser pattern faithfully. Keep the full outfit visible head to feet. Remove reference frames, captions, numbers, and different location backgrounds; replace with one continuous soft warm-ivory studio backdrop, subtle natural ground shadows, consistent soft daylight. Keep figures separated with breathing room, beautiful fashion editorial photographic detail. This is a complete collection overview, not a single-article campaign. Exact total 9 figures/outfits, none missing, none duplicated. Square image; composition fits within entire square without clipping. No text, prices, logos, labels, watermark, borders, cards, or invented outfits."
+    }
+  ]
+}

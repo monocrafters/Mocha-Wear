@@ -1,0 +1,277 @@
+[
+  {
+    "id": "4a54df99-e3f3-4174-bb0a-2c5325389bd4",
+    "name": "Cotton & Lawn",
+    "slug": "cotton-lawn",
+    "products": [
+      {
+        "id": "c68c681a-e42c-41bd-bf04-fa8d746bedcc",
+        "name": "Sky Floral",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787138272/mocha-wear/products/wb9vvh881otspuros3ac.jpg"
+      },
+      {
+        "id": "5236aa0f-243c-457e-9a2b-165d448a8398",
+        "name": "Noir Gul",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787140517/mocha-wear/products/umesepg3xwktxtbxk0zl.jpg"
+      },
+      {
+        "id": "624237dd-3062-407a-951b-29db18476f1e",
+        "name": "Midnight Muse",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787141031/mocha-wear/products/vphst6ugfh4cx6sm1cpg.jpg"
+      },
+      {
+        "id": "d68eddad-73c1-4982-8be7-2a4d8810390a",
+        "name": "Rang-e-Meher",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787141285/mocha-wear/products/rsqretlt6g6q3jendm2b.jpg"
+      },
+      {
+        "id": "ea7c213e-1178-42dd-a3aa-ec9435dbfc2e",
+        "name": "Desert Grace",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787141557/mocha-wear/products/kjemjpfzsiqwgocgzium.jpg"
+      },
+      {
+        "id": "fe485e5b-0c6f-485d-98f9-cd9647402d4e",
+        "name": "Rose Mist",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787141417/mocha-wear/products/miujw6h8gnfnl7xhbeo1.jpg"
+      },
+      {
+        "id": "22acaf67-f236-49ef-868e-8155b55816b1",
+        "name": "Crimson Royale",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787161605/mocha-wear/products/oodnjzta7zgjwjhusvl8.png"
+      },
+      {
+        "id": "7f59117a-14f2-4c82-8be1-6a1953855711",
+        "name": "Siyah Noor",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787161910/mocha-wear/products/cnwg5rxoetwhbatantfm.png"
+      },
+      {
+        "id": "c63f77cb-4fc9-41c8-b4e3-da141372ff3f",
+        "name": "Mint Elegance",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787240831/mocha-wear/products/vfl8kgkwptufwe0m6gp6.jpg"
+      }
+    ]
+  },
+  {
+    "id": "e5aaffaf-8130-42fd-999c-c7c9baef7dc3",
+    "name": "Khaddar",
+    "slug": "khaddar",
+    "products": [
+      {
+        "id": "fd9ad325-25cd-4089-8cb8-077f252c2532",
+        "name": "Golden Vine",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789133545/mocha-wear/products/hhvmc2l1sbtsnrrcuhk2.png"
+      },
+      {
+        "id": "919792d8-4aa8-4981-bed6-e4717b89b7dd",
+        "name": "Teal Fiesta",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789133833/mocha-wear/products/gr4xff9wzuuslttdcpis.png"
+      },
+      {
+        "id": "337e9a6e-fb5f-4f62-9b13-14ca1403ffc2",
+        "name": "Olive Muse",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789134032/mocha-wear/products/qqstp8xzdwi1z4b0sypq.png"
+      },
+      {
+        "id": "723a884b-a4eb-4ed7-8eb2-170797ae33b1",
+        "name": "Beige Charm",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789134395/mocha-wear/products/qjuplr7hv6bhanqkepu7.png"
+      },
+      {
+        "id": "5c55c703-8e2e-43d3-9fb4-ed3d0640f943",
+        "name": "Amber Noir",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789135484/mocha-wear/products/k1jsufnoqjdmdrju2lll.png"
+      },
+      {
+        "id": "1d2d751d-f6a9-4f52-b1b0-3d0659d2837b",
+        "name": "Cloral Bloom",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789135797/mocha-wear/products/dtkfoealwc0n7k3i7olj.png"
+      },
+      {
+        "id": "9e97c9ca-35d1-4d84-bf3a-521777004b87",
+        "name": "Floral Grace",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789136048/mocha-wear/products/r04ypiupdolm6arwk9ht.png"
+      },
+      {
+        "id": "608eb94b-fcab-4c0a-93bd-e13481bbd6c8",
+        "name": "Navy Blossom",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789136264/mocha-wear/products/c70h7gnodo8gcstwpro9.png"
+      },
+      {
+        "id": "33856c66-f59b-42c4-8044-7dc1d643f82a",
+        "name": "Scarlet Grace",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789136567/mocha-wear/products/p3xf6v2dpvho2vstr00u.png"
+      },
+      {
+        "id": "d0fc005a-12da-4c7b-93dd-186a7fd25992",
+        "name": "Rose Garden",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789136797/mocha-wear/products/vut4ffwhkilhjsxy88sw.png"
+      },
+      {
+        "id": "427213b9-d1aa-4306-9002-c0912984bf79",
+        "name": "Ivory Noir",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789137041/mocha-wear/products/sjbz5ddx4jmxwwup6uz7.png"
+      },
+      {
+        "id": "6eeba4f6-ddd7-42a0-b41a-af1aa8474ade",
+        "name": "Rust Heritage",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789137215/mocha-wear/products/tdq2yhoeyn95w7rypanv.png"
+      },
+      {
+        "id": "8cad512e-41b6-4a90-b63f-a0efa9ee1e07",
+        "name": "Sapphire Motif",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789137424/mocha-wear/products/ieudjarwf3baef59m2xa.png"
+      },
+      {
+        "id": "f5790b8f-ee2b-4d29-a3df-70489b15a84b",
+        "name": "Golden Paisley",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789137590/mocha-wear/products/jze2bobj1pcoutdevyy1.png"
+      },
+      {
+        "id": "7180e5b4-df1c-4b06-8147-e68d64c51124",
+        "name": "Azure Bloom",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789137753/mocha-wear/products/d3f8qpmahjmy76obhoym.png"
+      },
+      {
+        "id": "7ed741b4-16c9-4a3e-a875-eff37f1125ee",
+        "name": "Rang Riwaaz",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789155946/mocha-wear/products/npr7ckni9pzwtysclbro.png"
+      }
+    ]
+  },
+  {
+    "id": "301e75d2-be29-42d4-b9c3-9a902d96c860",
+    "name": "Bana Dora",
+    "slug": "bana-dora",
+    "products": [
+      {
+        "id": "41eea316-bd51-4668-a8b3-ef3e3cc329eb",
+        "name": "Mahveen",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787672043/mocha-wear/products/gn3ypkuzq2kritjs77zv.png"
+      },
+      {
+        "id": "25a098f4-b73b-4516-b9b5-ff584f1c611f",
+        "name": "Safed Noor",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787675250/mocha-wear/products/pqvbm9rdceitjizza5g6.png"
+      },
+      {
+        "id": "2d3e274f-910f-434c-bded-f67ac5bc8bcc",
+        "name": "Gul Dastaan",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787675482/mocha-wear/products/bivswp6cryimvdtbhutn.png"
+      },
+      {
+        "id": "e01fca4f-698e-467c-8bd2-9d96b3a90cc0",
+        "name": "Noor-e-jamun",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787675641/mocha-wear/products/lbckh8i2gicxq3c3rb2d.png"
+      },
+      {
+        "id": "dc802ad1-84e7-4892-8942-e18cbe9b00ac",
+        "name": "Lime Blossom",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790080654/mocha-wear/products/ylirfrgjrrboyjwgrvsj.png"
+      },
+      {
+        "id": "331cf958-d840-4215-927c-516812ae6ac2",
+        "name": "Peach Serenity",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790080830/mocha-wear/products/n9rijt3vev90lzpdfd8s.png"
+      },
+      {
+        "id": "2cb267be-fee5-40d9-a6e0-53aa170a2fe9",
+        "name": "Royal Mosiac",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790082503/mocha-wear/products/ewanoa8q0c2nu5uayx7n.png"
+      },
+      {
+        "id": "b1b65c73-cd62-4499-9eef-f7f9d9ca2731",
+        "name": "Ivory Jewel",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790083587/mocha-wear/products/ix3lxusaoymtoriqia5s.png"
+      },
+      {
+        "id": "efdd0b21-b1b0-4687-8042-68ce1d7e9ccb",
+        "name": "Indigo Grace",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790084198/mocha-wear/products/di0ruzwjlw2gdcwp9pvs.png"
+      },
+      {
+        "id": "7e09098c-74b4-4d56-a2b8-9f01dd57132e",
+        "name": "Pastel Bloom",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790085531/mocha-wear/products/bwibnvcfjldezqhdjvxz.png"
+      },
+      {
+        "id": "80f212b5-0ea7-457f-9e99-2f4b465cb0a6",
+        "name": "Ember Muse",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790253846/mocha-wear/products/lxmnotw2bmyfy03swk0r.png"
+      }
+    ]
+  },
+  {
+    "id": "baedb66d-3411-4f28-ae08-716ba01af2a1",
+    "name": "GRIP SILK",
+    "slug": "grip-silk",
+    "products": [
+      {
+        "id": "b381292b-3d5c-4a3a-a219-3ad7f685a374",
+        "name": "Naqsh-e-Feroza",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787939941/mocha-wear/products/igh4zedushghjclcvybf.png"
+      },
+      {
+        "id": "5217eddd-5cd5-4525-af8b-81524747141c",
+        "name": "Floral Grace",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787940543/mocha-wear/products/bwdaguskbmczwoltrvsb.png"
+      },
+      {
+        "id": "d072a8e8-2ebe-4d2f-92eb-12183fa45382",
+        "name": "Kashida",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1787941266/mocha-wear/products/gwpiiatvprhmb3okkpuq.png"
+      }
+    ]
+  },
+  {
+    "id": "d33ef81d-9255-4cd0-b1f7-b203e96674df",
+    "name": "Cotrai",
+    "slug": "cotrai",
+    "products": [
+      {
+        "id": "5e3a0965-e59b-4645-b6e2-47113318e847",
+        "name": "Caramel Motif",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1789134703/mocha-wear/products/mla5gy20rgtchtgcoegx.png"
+      },
+      {
+        "id": "7e09098c-74b4-4d56-a2b8-9f01dd57132e",
+        "name": "Pastel Bloom",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790085531/mocha-wear/products/bwibnvcfjldezqhdjvxz.png"
+      },
+      {
+        "id": "5d7fe124-5c4c-4f33-a173-0370dbd0b111",
+        "name": "Red Flora",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790344329/mocha-wear/products/mcqxoqfthtvwalrmg1iu.png"
+      },
+      {
+        "id": "ba855842-0be2-4075-804f-44f65f962daf",
+        "name": "Blue indigo",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790344515/mocha-wear/products/xk28bmitjadrotiu3azv.png"
+      },
+      {
+        "id": "f301b2fd-db68-45cb-b520-959da9f1aee1",
+        "name": "Sand Noir",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790344949/mocha-wear/products/sstpdodmmhu93ovzlnqd.png"
+      },
+      {
+        "id": "d5020b93-8540-44ab-995a-21e552859d8b",
+        "name": "Rose Charm",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790345086/mocha-wear/products/qwjjfieiwgirmye3e5ni.png"
+      },
+      {
+        "id": "bff083ca-4ee0-4388-9a20-f2997a0f10c2",
+        "name": "Ivory Art",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790345256/mocha-wear/products/ggcjxak6nqphgmbciwln.png"
+      },
+      {
+        "id": "ae88cce6-7d2a-4f9c-bb44-f18fd3fe06ee",
+        "name": "Midnight Rose",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790345381/mocha-wear/products/u0azk0pufmqlceototlc.png"
+      },
+      {
+        "id": "3e6daf45-7241-4af1-9b7f-f78c8c8352bb",
+        "name": "Golden Glow",
+        "source": "https://res.cloudinary.com/xcmvb6uz/image/upload/v1790345511/mocha-wear/products/onvfwkpgzkttjnhozvyw.png"
+      }
+    ]
+  }
+]
