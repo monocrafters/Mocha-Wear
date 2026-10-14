@@ -46,6 +46,18 @@ function nullablePercent(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeWhatsapp(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  let digits = raw.replace(/[\s()+-]/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (/^03\d{9}$/.test(digits)) digits = `92${digits.slice(1)}`;
+  if (!/^[1-9]\d{7,14}$/.test(digits) || (digits.startsWith("92") && !/^923\d{9}$/.test(digits))) {
+    throw Object.assign(new Error("Enter a valid WhatsApp number with country code, e.g. +923001234567"), { status: 400 });
+  }
+  return digits;
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(String(password), salt, 64, SCRYPT_OPTS).toString("hex");
@@ -98,6 +110,7 @@ function shape(row = {}, index = 0) {
     name: String(row.name || "").trim() || `Reseller ${index + 1}`,
     email: String(row.email || "").trim(),
     phone: String(row.phone || "").trim(),
+    whatsapp_number: String(row.whatsapp_number || "").trim(),
     social_handle: String(row.social_handle || "").trim(),
     username: String(row.username || "").trim().toLowerCase(),
     password_hash: String(row.password_hash || ""),
@@ -275,6 +288,7 @@ async function createOne(body = {}) {
     name,
     email: body.email,
     phone: body.phone,
+    whatsapp_number: normalizeWhatsapp(body.whatsapp_number),
     social_handle: body.social_handle,
     username,
     password_hash: hashPassword(password),
@@ -364,6 +378,7 @@ async function updateOne(id, body = {}) {
   if (body.name !== undefined) current.name = String(body.name || "").trim() || current.name;
   if (body.email !== undefined) current.email = String(body.email || "").trim();
   if (body.phone !== undefined) current.phone = String(body.phone || "").trim();
+  if (body.whatsapp_number !== undefined) current.whatsapp_number = normalizeWhatsapp(body.whatsapp_number);
   if (body.social_handle !== undefined) current.social_handle = String(body.social_handle || "").trim();
   if (body.status !== undefined) current.status = body.status === "suspended" ? "suspended" : "approved";
   if (body.commission_min_percent !== undefined) {

@@ -141,6 +141,11 @@ async function applyResellerPricing(product, req) {
   };
 }
 
+async function storefrontContact(req) {
+  const reseller = await approvedFromReq(req);
+  return { whatsapp_number: reseller?.whatsapp_number || "" };
+}
+
 async function applyResellerPricingToList(productList, req) {
   const items = Array.isArray(productList) ? productList : [];
   return Promise.all(items.map((item) => applyResellerPricing(item, req)));
@@ -507,6 +512,7 @@ async function sharePreview(code, slug) {
 }
 
 module.exports = {
+  storefrontContact,
   getGlobalResellerSettings,
   priceBounds,
   adjustCompareAtPrice,

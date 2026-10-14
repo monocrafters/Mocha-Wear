@@ -1048,6 +1048,7 @@ app.get("/api/r/:code/p/:slug", async (req, res) => {
 app.post("/api/reseller/login", resellerAuth.login);
 app.get("/api/reseller/me", resellerAuth.me);
 app.post("/api/reseller/logout", resellerAuth.logout);
+require("./resellerContactRoutes").register(app, resellerAuth);
 
 app.post("/api/reseller/change-password", resellerAuth.requireReseller, async (req, res) => {
   try {

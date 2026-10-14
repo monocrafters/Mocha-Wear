@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ResellerShell } from "@/components/reseller-shell";
 import { PasswordInput } from "@/components/password-input";
 import { ThemePreferencePicker } from "@/components/theme-preference-picker";
@@ -12,12 +12,57 @@ import { ui } from "@/lib/admin-ui";
 export function ResellerSettings() {
   const { locale, setLocale, t } = useResellerLocale();
   const [saved, setSaved] = useState(false);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [contactLoading, setContactLoading] = useState(true);
+  const [contactLoaded, setContactLoaded] = useState(false);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState("");
+  const [contactSaved, setContactSaved] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordOk, setPasswordOk] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    apiFetch(`${API_URL}/api/reseller/me`, { credentials: "include" })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Could not load WhatsApp settings");
+        if (live) {
+          setWhatsapp(data.reseller?.whatsapp_number || "");
+          setContactLoaded(true);
+        }
+      })
+      .catch((err) => { if (live) setContactError(resellerErrorMessage(err, "Could not load WhatsApp settings")); })
+      .finally(() => { if (live) setContactLoading(false); });
+    return () => { live = false; };
+  }, []);
+
+  async function saveContact(event: FormEvent) {
+    event.preventDefault();
+    setContactSaving(true);
+    setContactError("");
+    setContactSaved(false);
+    try {
+      const res = await apiFetch(`${API_URL}/api/reseller/settings`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp_number: whatsapp }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not save WhatsApp number");
+      setWhatsapp(data.whatsapp_number || "");
+      setContactSaved(true);
+    } catch (err) {
+      setContactError(resellerErrorMessage(err, "Could not save WhatsApp number"));
+    } finally {
+      setContactSaving(false);
+    }
+  }
 
   function pick(next: ResellerLocale) {
     setLocale(next);
@@ -67,6 +112,27 @@ export function ResellerSettings() {
     <ResellerShell active="settings" kicker={t("settings.kicker")} title={t("settings.title")} copy={t("settings.copy")}>
       <div className="w-full max-w-3xl space-y-4">
         {saved ? <p className={ui.ok}>{t("settings.saved")}</p> : null}
+
+        <form onSubmit={saveContact} className="border border-slate-200 bg-white p-4 sm:p-5">
+          <label className={ui.label} htmlFor="reseller-whatsapp">{t("settings.whatsapp")}</label>
+          <p id="whatsapp-help" className="mt-1 text-sm text-slate-500">{t("settings.whatsappHelp")}</p>
+          <input
+            id="reseller-whatsapp"
+            type="tel"
+            autoComplete="tel"
+            aria-describedby="whatsapp-help"
+            value={whatsapp}
+            disabled={!contactLoaded || contactSaving}
+            onChange={(event) => { setWhatsapp(event.target.value); setContactSaved(false); }}
+            placeholder="+923001234567"
+            className={ui.input}
+          />
+          {contactError ? <p role="alert" className={`mt-3 ${ui.error}`}>{contactError}</p> : null}
+          {contactSaved ? <p role="status" className={`mt-3 ${ui.ok}`}>{t("settings.whatsappSaved")}</p> : null}
+          <button type="submit" disabled={!contactLoaded || contactSaving} className={`mt-4 ${ui.btnPrimary}`}>
+            {contactLoading ? t("settings.whatsappLoading") : contactSaving ? t("products.saving") : t("products.save")}
+          </button>
+        </form>
 
         <ThemePreferencePicker
           title={t("settings.theme")}

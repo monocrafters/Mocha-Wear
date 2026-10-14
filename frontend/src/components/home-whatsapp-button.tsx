@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson } from "@/lib/api-cache";
 import { useSiteSettings } from "@/components/site-settings";
 import { whatsappChatHref } from "@/lib/settings";
+import { usePathname } from "next/navigation";
+import { API_URL, apiFetch } from "@/lib/api";
+import { RESELLER_ACTIVATED_EVENT } from "@/lib/referral";
 
 const POS_KEY = "mocha-wa-pos";
 const SIZE = 56;
@@ -42,6 +45,8 @@ function clamp(pos: Pos): Pos {
 
 export function HomeWhatsAppButton() {
   const settings = useSiteSettings();
+  const pathname = usePathname();
+  const [resellerNumber, setResellerNumber] = useState<string | null>(null);
   const [helpNumber, setHelpNumber] = useState("");
   const [helpMessage, setHelpMessage] = useState("");
   const [pos, setPos] = useState<Pos | null>(null);
@@ -54,6 +59,34 @@ export function HomeWhatsAppButton() {
     moved: boolean;
   } | null>(null);
   const skipClick = useRef(false);
+
+  useEffect(() => {
+    let live = true;
+    let request = 0;
+    async function loadContact() {
+      const current = ++request;
+      try {
+        const res = await apiFetch(`${API_URL}/api/store-contact`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Could not load contact");
+        const data = await res.json();
+        if (live && current === request) setResellerNumber(data.whatsapp_number || "");
+      } catch {
+        if (live && current === request) setResellerNumber("");
+      }
+    }
+    function onReferralChange() {
+      setResellerNumber(null);
+      void loadContact();
+    }
+    void loadContact();
+    window.addEventListener(RESELLER_ACTIVATED_EVENT, onReferralChange);
+    window.addEventListener("focus", loadContact);
+    return () => {
+      live = false;
+      window.removeEventListener(RESELLER_ACTIVATED_EVENT, onReferralChange);
+      window.removeEventListener("focus", loadContact);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     apiJson<{ help?: { whatsapp_number?: string; whatsapp_display?: string; default_message?: string } }>("/api/help")
@@ -114,8 +147,9 @@ export function HomeWhatsAppButton() {
   }, []);
 
   if (settings.floating_whatsapp_enabled === false) return null;
+  if (resellerNumber === null) return null;
 
-  const number = settings.floating_whatsapp_number || settings.phone || helpNumber;
+  const number = resellerNumber || settings.floating_whatsapp_number || settings.phone || helpNumber;
   const message = settings.floating_whatsapp_message || helpMessage;
   const href = whatsappChatHref(number, message);
   if (!href) return null;
