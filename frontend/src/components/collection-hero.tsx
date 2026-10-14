@@ -10,6 +10,17 @@ import { collectionCardSrc, collectionHref } from "@/lib/collection";
 export function CollectionHero() {
   const { collections, products, loading, error, revalidate } = useCatalog();
   const rail = useRef<HTMLDivElement>(null);
+  const section = useRef<HTMLElement>(null);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const node = section.current;
+    if (!node || loading) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setRevealed(true); observer.disconnect(); }
+    }, { threshold: .15 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loading]);
   const [edges, setEdges] = useState({ start: true, end: true });
   useEffect(() => {
     const node = rail.current;
@@ -27,9 +38,8 @@ export function CollectionHero() {
     node.scrollBy({ left: direction * node.clientWidth * .8, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   }
   return (
-    <section className="collection-hero" aria-labelledby="collection-hero-title">
-      <div className="collection-hero-intro"><span>HOME <ChevronRight size={12} /> COLLECTIONS</span><Link href="/shop">Explore all pieces <span aria-hidden="true">↗</span></Link></div>
-      <h1 id="collection-hero-title">Find your everyday favourite.</h1>
+    <section ref={section} className={`collection-hero${revealed ? " is-revealed" : ""}`} aria-labelledby="collection-hero-title">
+      <div className="collection-hero-intro"><h2 id="collection-hero-title">Find your favourite collection</h2><Link href="/shop">Explore all pieces <span aria-hidden="true">↗</span></Link></div>
       <div className="collection-hero-carousel">
         <button className="collection-hero-prev" disabled={edges.start} onClick={() => move(-1)} aria-label="Previous collections"><ChevronLeft size={18} /></button>
         <div className="collection-hero-rail" ref={rail} aria-label="Shop by collection">

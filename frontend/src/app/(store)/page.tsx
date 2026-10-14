@@ -51,7 +51,7 @@ export default async function Home() {
       id="top"
     >
       <main>
-        <div className="home-mobile-campaign"><SaleHero initialSlides={slides} /></div>
+        <div className="home-featured-campaign"><SaleHero initialSlides={slides} /></div>
         <CollectionHero />
         <div id="sale" className="edition-sale">
           <SaleCountdown />
