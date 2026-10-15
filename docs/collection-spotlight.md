@@ -1,3 +1,5 @@
+Current artwork (v3): fabric-only mood photography replaces all outfit montages at the user’s request. The circle is filled edge-to-edge. No models or product articles appear in these images. Sources/prompts: collection-fabric-prompts-v3.json. Files: frontend/public/images/collections/*-fabric-v3.png. The v2 notes below are historical.
+
 # Collection hero
 
 The desktop homepage uses a restrained collection carousel with a larger active circle. It advances every five seconds by default, including while hovered or after manual selection. Explicit pause/play controls remain available. Hidden browser tabs suspend the timer; returning starts a full interval. Reduced-motion preferences remove animated movement. Mobile retains the existing hero.

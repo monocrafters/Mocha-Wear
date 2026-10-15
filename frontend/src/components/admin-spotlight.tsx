@@ -132,7 +132,7 @@ export function AdminSpotlight() {
           <p className="text-xs uppercase tracking-widest text-slate-500">Desktop homepage</p>
           <h2 className="mt-2 text-2xl">Collection hero</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Introduce each collection with one composed image of its articles. Upload the complete collection artwork, arrange the order and choose which collections appear.
+            Introduce each collection with fabric textures and draping. Upload a square mood image, arrange the order and choose which collections appear.
           </p>
         </div>
         <button type="button" disabled={!ready || busy} onClick={save} className="rounded-lg bg-slate-900 px-5 py-3 text-sm text-white disabled:opacity-40">Save changes</button>
@@ -169,7 +169,7 @@ export function AdminSpotlight() {
                   <label className="mb-3 block text-xs">Collection title<input className={inputClass} maxLength={100} value={item.title} onChange={(event) => update(item.id, { title: event.target.value })} /></label>
                   <label className="mb-4 block text-xs">Short introduction<textarea aria-label="Short introduction" className={inputClass} rows={2} maxLength={350} value={item.description} onChange={(event) => update(item.id, { description: event.target.value })} /></label>
                   <label className="block text-xs">Collection artwork
-                    <span className="mt-1 block leading-5 text-slate-500">Compose the collection’s articles into one high-resolution image. Keep text and pricing out of the artwork; the hero displays the title and collection link separately.</span>
+                    <span className="mt-1 block leading-5 text-slate-500">Use a square fabric or texture image with a central focal point for the circular crop. Avoid models, outfits, product grids, text and pricing.</span>
                     <input className="mt-2 block w-full text-xs" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(item.id, "image", file); event.target.value = ""; }} />
                     <input aria-label={`${item.title} image URL`} className={inputClass} placeholder="Uploaded collection artwork URL" value={item.image} onChange={(event) => update(item.id, { image: event.target.value })} />
                   </label>

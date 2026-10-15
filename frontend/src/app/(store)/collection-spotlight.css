@@ -44,7 +44,7 @@
     transition: transform 1100ms cubic-bezier(.22, 1, .36, 1), box-shadow 900ms;
   }
   .spotlight-collection-surround { object-fit: cover; filter: blur(18px) saturate(.5); opacity: .16; transform: scale(1.12); }
-  .spotlight-collection-image { width: 70.7% !important; height: 70.7% !important; left: 14.65% !important; top: 14.65% !important; object-fit: contain; object-position: center; transition: opacity 500ms; }
+  .spotlight-collection-image { width: 100% !important; height: 100% !important; left: 0 !important; top: 0 !important; object-fit: cover; object-position: center; transition: opacity 500ms; }
   .spotlight-choice[aria-pressed="true"] .spotlight-circle { box-shadow: 0 0 0 1px #baa994, 0 15px 40px #7051391a; }
   .spotlight-choice:not([aria-pressed="true"]):hover .spotlight-circle { transform: scale(calc(1.035 - var(--distance) * .18)); box-shadow: 0 8px 30px #4235281a; }
   .spotlight-choice-label { font-size: 10px; text-transform: uppercase; letter-spacing: .11em; margin-top: 19px; transform: translateY(calc(var(--distance) * -14px)); transition: transform 1100ms cubic-bezier(.22, 1, .36, 1), color 500ms; }

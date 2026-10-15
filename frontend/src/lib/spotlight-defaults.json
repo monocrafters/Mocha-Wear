@@ -8,8 +8,8 @@
       "collection_id": "4a54df99-e3f3-4174-bb0a-2c5325389bd4",
       "title": "Cotton & Lawn",
       "description": "A little colour. A little character. Entirely you.",
-      "image": "/images/collections/cotton-lawn-edit-v2.png",
-      "background": "/images/collections/cotton-lawn-edit-v2.png",
+      "image": "/images/collections/cotton-lawn-fabric-v3.png",
+      "background": "/images/collections/cotton-lawn-fabric-v3.png",
       "enabled": true
     },
     {
@@ -17,8 +17,8 @@
       "collection_id": "e5aaffaf-8130-42fd-999c-c7c9baef7dc3",
       "title": "Khaddar",
       "description": "Warm textures. Beautifully considered details.",
-      "image": "/images/collections/khaddar-collection-v2.png",
-      "background": "/images/collections/khaddar-collection-v2.png",
+      "image": "/images/collections/khaddar-fabric-v3.png",
+      "background": "/images/collections/khaddar-fabric-v3.png",
       "enabled": true
     },
     {
@@ -26,8 +26,8 @@
       "collection_id": "301e75d2-be29-42d4-b9c3-9a902d96c860",
       "title": "Bana Dora",
       "description": "Colour and character, woven into every day.",
-      "image": "/images/collections/bana-dora-collection-v2.png",
-      "background": "/images/collections/bana-dora-collection-v2.png",
+      "image": "/images/collections/bana-dora-fabric-v3.png",
+      "background": "/images/collections/bana-dora-fabric-v3.png",
       "enabled": true
     },
     {
@@ -35,8 +35,8 @@
       "collection_id": "baedb66d-3411-4f28-ae08-716ba01af2a1",
       "title": "Grip Silk",
       "description": "An effortless touch of elegance.",
-      "image": "/images/collections/grip-silk-edit-v2.png",
-      "background": "/images/collections/grip-silk-edit-v2.png",
+      "image": "/images/collections/grip-silk-fabric-v3.png",
+      "background": "/images/collections/grip-silk-fabric-v3.png",
       "enabled": true
     },
     {
@@ -44,8 +44,8 @@
       "collection_id": "d33ef81d-9255-4cd0-b1f7-b203e96674df",
       "title": "Cotrai",
       "description": "Your everyday winter favourites.",
-      "image": "/images/collections/cotrai-edit-v2.png",
-      "background": "/images/collections/cotrai-edit-v2.png",
+      "image": "/images/collections/cotrai-fabric-v3.png",
+      "background": "/images/collections/cotrai-fabric-v3.png",
       "enabled": true
     }
   ]

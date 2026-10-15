@@ -1,0 +1,30 @@
+{
+  "tool": "Built-in image_gen",
+  "assets": [
+    {
+      "slug": "cotton-lawn",
+      "file": "frontend/public/images/collections/cotton-lawn-fabric-v3.png",
+      "prompt": "Premium editorial textile still-life photograph for a luxury fashion collection circle. airy matte cotton lawn in pale sage and warm ivory, delicate lightweight folds, fine natural weave. Only raw unstitched fabric, arranged as a beautiful abstract sculptural landscape, close macro view. Entire square filled edge-to-edge with cloth; no empty margin. Large readable curved folds concentrated around the centre, soft directional daylight, subtle realistic shadows, restrained warm coordinated palette, rich tactile detail, sophisticated natural photography. Square high-resolution asset. Absolutely no people, models, faces, hands, mannequins, finished clothing, outfits, garments, product collages, accessories, text, logos, borders or watermarks."
+    },
+    {
+      "slug": "khaddar",
+      "file": "frontend/public/images/collections/khaddar-fabric-v3.png",
+      "prompt": "Premium editorial textile still-life photograph for a luxury fashion collection circle. warm oatmeal and caramel khaddar cloth, tactile handwoven slub texture, generous softly sculpted folds. Only raw unstitched fabric, arranged as a beautiful abstract sculptural landscape, close macro view. Entire square filled edge-to-edge with cloth; no empty margin. Large readable curved folds concentrated around the centre, soft directional daylight, subtle realistic shadows, restrained warm coordinated palette, rich tactile detail, sophisticated natural photography. Square high-resolution asset. Absolutely no people, models, faces, hands, mannequins, finished clothing, outfits, garments, product collages, accessories, text, logos, borders or watermarks."
+    },
+    {
+      "slug": "bana-dora",
+      "file": "frontend/public/images/collections/bana-dora-fabric-v3.png",
+      "prompt": "Premium editorial textile still-life photograph for a luxury fashion collection circle. dusty mauve and muted rose woven cloth, delicate fine linear texture, graceful overlapping folds. Only raw unstitched fabric, arranged as a beautiful abstract sculptural landscape, close macro view. Entire square filled edge-to-edge with cloth; no empty margin. Large readable curved folds concentrated around the centre, soft directional daylight, subtle realistic shadows, restrained warm coordinated palette, rich tactile detail, sophisticated natural photography. Square high-resolution asset. Absolutely no people, models, faces, hands, mannequins, finished clothing, outfits, garments, product collages, accessories, text, logos, borders or watermarks."
+    },
+    {
+      "slug": "grip-silk",
+      "file": "frontend/public/images/collections/grip-silk-fabric-v3.png",
+      "prompt": "Premium editorial textile still-life photograph for a luxury fashion collection circle. champagne and pale golden silk, luminous fluid folds with restrained pearlescent highlights, exceptionally smooth surface. Only raw unstitched fabric, arranged as a beautiful abstract sculptural landscape, close macro view. Entire square filled edge-to-edge with cloth; no empty margin. Large readable curved folds concentrated around the centre, soft directional daylight, subtle realistic shadows, restrained warm coordinated palette, rich tactile detail, sophisticated natural photography. Square high-resolution asset. Absolutely no people, models, faces, hands, mannequins, finished clothing, outfits, garments, product collages, accessories, text, logos, borders or watermarks."
+    },
+    {
+      "slug": "cotrai",
+      "file": "frontend/public/images/collections/cotrai-fabric-v3.png",
+      "prompt": "Premium editorial textile still-life photograph for a luxury fashion collection circle. warm cinnamon and soft taupe fine corduroy, clearly visible narrow parallel wales, plush softly curved folds. Only raw unstitched fabric, arranged as a beautiful abstract sculptural landscape, close macro view. Entire square filled edge-to-edge with cloth; no empty margin. Large readable curved folds concentrated around the centre, soft directional daylight, subtle realistic shadows, restrained warm coordinated palette, rich tactile detail, sophisticated natural photography. Square high-resolution asset. Absolutely no people, models, faces, hands, mannequins, finished clothing, outfits, garments, product collages, accessories, text, logos, borders or watermarks."
+    }
+  ]
+}
