@@ -18,6 +18,7 @@ import "./home-edition.css";
 import "./home-desktop.css";
 import "./home-collection-hero.css";
 import "./collection-spotlight.css";
+import "./home-refined.css";
 
 const desktopSans = Manrope({ subsets: ["latin"], variable: "--font-desktop-sans", display: "swap" });
 const desktopDisplay = Bodoni_Moda({ subsets: ["latin"], weight: ["400"], style: ["normal", "italic"], variable: "--font-desktop-display", display: "swap" });
@@ -56,6 +57,7 @@ export default async function Home() {
         <div className="home-featured-campaign"><SaleHero initialSlides={slides} /></div>
         <CollectionHero />
         <CollectionSpotlight />
+        <div className="home-lower-content">
         <div id="sale" className="edition-sale">
           <SaleCountdown />
         </div>
@@ -68,6 +70,7 @@ export default async function Home() {
         <EditionServices />
         <div className="edition-newsletter">
           <JoinList />
+        </div>
         </div>
       </main>
       <EditionFooter />

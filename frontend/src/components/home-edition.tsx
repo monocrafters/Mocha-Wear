@@ -39,7 +39,7 @@ export function EditionCollections() {
           ? [0, 1, 2, 3].map((i) => (
               <div key={i} className="edition-collection-skeleton" />
             ))
-          : collections.slice(0, 4).map((collection, index) => (
+          : collections.map((collection, index) => (
               <Link
                 key={collection.id}
                 href={collectionHref(collection)}
@@ -162,10 +162,7 @@ export function EditionProducts() {
 
 export function EditionStory() {
   const settings = useSiteSettings();
-  const { products } = useCatalog();
-  const image =
-    products.find((product) => product.images?.[1]?.url)?.images[1]?.url ||
-    products[0]?.images?.[0]?.url;
+  const image = "/images/collections/cotton-lawn-fabric-v3.png";
   return (
     <section className="edition-story">
       <div className="edition-story-photo">

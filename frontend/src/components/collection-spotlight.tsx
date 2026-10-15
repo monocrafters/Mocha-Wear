@@ -105,16 +105,15 @@ export function CollectionSpotlight() {
             const wrapping = Math.abs(position - previousPosition) > items.length / 2;
             const visible = Math.abs(position) <= 2;
             const image = item.image || collections.find(c => c.id === item.collection_id)?.cover_image || "";
-            return <button
+            return <Link
               key={item.id}
-              type="button"
+              href={collectionHref(collections.find(c => c.id === item.collection_id)!)}
               className={`spotlight-choice${visible ? "" : " is-outside"}${wrapping ? " is-wrapping" : ""}`}
               style={{ "--position": position, "--distance": Math.abs(position), "--wrap-animation": selection.revision % 2 ? "spotlight-wrap-in" : "spotlight-wrap-in-alternate" } as CSSProperties}
-              aria-label={`Show ${item.title} collection`}
-              aria-pressed={active.id === item.id}
+              aria-label={`Explore ${item.title} collection`}
+              data-active={active.id === item.id}
               tabIndex={visible ? 0 : -1}
               aria-hidden={!visible}
-              onClick={() => choose(item.id)}
             >
               <span className="spotlight-circle">
                 {image && <StoreImage src={image} alt="" sizes="80px" cloudWidth={100} className="spotlight-collection-surround" />}
@@ -122,7 +121,7 @@ export function CollectionSpotlight() {
               </span>
               <span className="spotlight-choice-label">{item.title}</span>
               <span className="spotlight-active-mark" aria-hidden="true" />
-            </button>;
+            </Link>;
           })}
         </div>
         {items.length > 1 && <button className="spotlight-arrow spotlight-arrow-next" type="button" aria-label="Next collection" onClick={() => choose(items[(index + 1) % items.length].id)}><ChevronRight size={19} /></button>}
