@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -219,7 +220,8 @@ export function SiteHeader() {
 
         <div className="w-full min-w-0 bg-mocha-deep">
           <div className="mx-auto flex h-14 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-4 sm:h-[72px] sm:px-8">
-            <Link href="/" className="header-brand flex min-w-0 items-baseline gap-2">
+            <Link href="/" className="header-brand flex min-w-0 items-center gap-2">
+              <BrandLogo size={42} />
               <span className="header-brand-mark font-serif truncate text-[1.45rem] leading-none tracking-[0.12em] text-ivory sm:text-[1.7rem]">
                 {settings.brand_name}
               </span>

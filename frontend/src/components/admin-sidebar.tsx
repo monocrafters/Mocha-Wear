@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandLogo } from "@/components/brand-logo";
 import Link from "next/link";
 import {
   Activity,
@@ -89,9 +90,7 @@ export function AdminSidebar({ username, active, onLogout, open, onClose }: Admi
       >
         <div className="flex h-14 items-center justify-between border-b border-slate-800 px-4">
           <Link href="/admin" className="flex items-center gap-2" onClick={onClose}>
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-slate-800 text-[11px] font-semibold text-white">
-              M
-            </span>
+            <BrandLogo size={32} />
             <span className="text-sm font-semibold text-white">Mocha Admin</span>
           </Link>
           <button

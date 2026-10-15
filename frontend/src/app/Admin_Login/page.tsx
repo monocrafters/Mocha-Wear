@@ -1,3 +1,4 @@
+import { BrandLogo } from "@/components/brand-logo";
 import type { Metadata } from "next";
 import { AdminLoginForm } from "@/components/admin-login-form";
 import { DashboardThemeProvider } from "@/components/dashboard-theme-provider";
@@ -14,9 +15,7 @@ export default function AdminLoginPage() {
       <main className="grid min-h-svh lg:grid-cols-2">
         <div className="relative hidden flex-col justify-between bg-slate-950 p-10 text-slate-300 lg:flex">
           <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-md bg-slate-800 text-sm font-semibold text-white">
-              M
-            </span>
+            <BrandLogo size={32} />
             <p className="text-sm font-semibold text-white">Mocha Wear</p>
           </div>
           <div>
@@ -33,7 +32,8 @@ export default function AdminLoginPage() {
 
         <div className="dash-bg flex items-center justify-center px-6 py-16">
           <div className="dash-surface w-full max-w-md rounded-2xl border dash-border p-8 shadow-sm">
-            <p className="dash-muted text-sm font-medium">Admin</p>
+            <BrandLogo size={56} />
+            <p className="dash-muted mt-4 text-sm font-medium">Admin</p>
             <h2 className="dash-text mt-1 text-2xl font-semibold tracking-tight">Sign in</h2>
             <p className="dash-muted mt-2 text-sm leading-6">Use your admin username and password.</p>
             <AdminLoginForm />

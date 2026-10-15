@@ -1,0 +1,51 @@
+/* Store-only visual system: dashboard route groups do not load this wrapper. */
+.store-theme-home,.store-page-theme { display:contents; }
+.store-page-theme { --mocha-deep:#342d27; --mocha:#66594d; --latte:#c3ae98; --gold:#8a7059; --cream:#f0ebe3; --ivory:#faf9f6; --sand:#e2d9cd; --sale:#765744; --sale-deep:#513d30; }
+.store-page-theme main { background:#faf9f6; color:#342d27; }
+.store-page-theme main h1 { font-family:var(--font-bodoni),Georgia,serif; font-weight:400; letter-spacing:-.045em; line-height:1.13; }
+.store-page-theme main h2 { letter-spacing:-.025em; }
+.store-page-theme .store-kicker { color:#8a7059; font-size:10px; letter-spacing:.18em; }
+.store-page-theme main :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { border-color:#d8ccbc; border-radius:5px; background-color:#fff; color:#3d352e; }
+.store-page-theme main :is(input,select,textarea):focus-visible { outline:2px solid #9b826a; outline-offset:3px; }
+.store-page-theme main :is(button,a).bg-sale,.store-page-theme main :is(button,a).bg-mocha-deep { background:#3d352e; color:#fffaf4; border-radius:4px; transition:background .2s,box-shadow .2s; }
+.store-page-theme main :is(button,a).bg-sale:hover,.store-page-theme main :is(button,a).bg-mocha-deep:hover { background:#6c5440; box-shadow:0 4px 16px #3d352e15; }
+.store-page-theme main article.border,.store-page-theme main aside.border { border-color:#e2d9cd; border-radius:6px; background:#fff; }
+.store-page-theme main article.group > a > div:first-child { border-radius:5px; background:#eee9e1; }
+.store-page-theme main article.group h3 { font-family:var(--font-manrope),sans-serif; font-weight:500; font-size:14px; letter-spacing:0; line-height:1.5; }
+.store-page-theme main article.group p { line-height:1.8; }
+.store-page-theme main article.group p > .font-serif { font-family:var(--font-manrope),sans-serif; font-size:14px; }
+.store-page-theme main .hide-scrollbar > button { border-radius:24px; padding:10px 18px; min-height:42px; font-size:11px; letter-spacing:.025em; }
+.store-page-theme main .border-sand { border-color:#e2d9cd; }
+.store-page-theme main [class*="text-mocha/4"],.store-page-theme main [class*="text-mocha/5"] { color:#7b6b5c; }
+.store-page-theme footer { background:#302b27; color:#f7f3eb; border-color:#62574a; }
+.store-page-theme footer :is(h2,h3,a) { color:#f7f3eb; }
+.store-page-theme footer p,.store-page-theme footer span { color:#cbbbA7; }
+.store-page-theme footer input { color:#342d27; }
+.store-page-theme [data-store-page] { min-width:0; }
+@media(min-width:1024px) {
+ .store-page-theme main { min-height:65vh; }
+ .store-page-theme main > section,.store-page-theme main > div.mx-auto { max-width:1480px; }
+ .store-page-theme main > section { padding-left:4.2vw; padding-right:4.2vw; }
+ .store-page-theme main h1 { font-size:clamp(42px,4vw,60px); }
+ .store-page-theme main .grid:has(>article.group) { grid-template-columns:repeat(4,minmax(0,1fr)); gap:42px 24px; }
+ .store-page-theme[data-store-page=collections] main .grid:has(>a) { gap:24px; }
+ .store-page-theme[data-store-page=collections] main a.group { border-radius:6px; overflow:hidden; }
+ .store-page-theme[data-store-page=cart] main article { padding:20px; margin-bottom:14px; }
+ .store-page-theme[data-store-page=cart] main aside { padding:30px; background:#f1ece4; }
+ .store-page-theme[data-store-page=checkout] main form { background:#fff; border:1px solid #e4dccf; border-radius:8px; padding:28px; }
+ .store-page-theme[data-store-page=help] main a.group { border-radius:6px; box-shadow:0 3px 16px #3d352e04; }
+ .store-page-theme[data-store-page=about] main article { border-radius:6px; }
+ .store-page-theme[data-store-page=orders] main form { padding:28px; background:#fff; border:1px solid #e4dccf; border-radius:8px; }
+ .store-page-theme[data-store-page=search] main input { min-height:50px; }
+ .store-page-theme header { --mocha-deep:#342d27; }
+}
+@media(max-width:1023px) {
+ .store-page-theme main h1 { font-size:30px; }
+ .store-page-theme main article.group h3 { font-size:13px; }
+ .store-page-theme main article.group p > .font-serif { font-size:13px; }
+ .store-page-theme main .grid:has(>article.group) { column-gap:12px; row-gap:26px; }
+ .store-page-theme main > section > div:first-child:has(h1) { padding-top:20px; padding-bottom:18px; }
+ .store-page-theme main input,.store-page-theme main select { min-height:44px; font-size:16px; }
+ .store-page-theme[data-store-page=cart] main article { padding:13px; }
+}
+@media(prefers-reduced-motion:reduce) { .store-page-theme main :is(a,button) { transition:none; } }

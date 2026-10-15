@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useCatalog } from "./catalog-provider";
 import { StoreImage } from "./store-image";
@@ -23,6 +23,8 @@ export function CollectionSpotlight() {
   const [selection, setSelection] = useState({ id: "", previousId: "", revision: 0 });
   const [paused, setPaused] = useState(false);
   const [cycle, setCycle] = useState(0);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClickUntil = useRef(0);
 
   useEffect(() => {
     let live = true;
@@ -95,7 +97,22 @@ export function CollectionSpotlight() {
         <span>{active.description || "A little colour. A little character. Entirely you."}</span>
       </header>
 
-      <div className="spotlight-orbit">
+      <div className="spotlight-orbit"
+        style={{ touchAction: "pan-y" }}
+        onTouchStart={event => { suppressClickUntil.current = 0; const touch = event.touches[0]; touchStart.current = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : null; }}
+        onTouchMove={event => { const start = touchStart.current; if (!start) return; const touch = event.touches[0]; if (Math.abs(touch.clientX - start.x) > 12) suppressClickUntil.current = Date.now() + 700; }}
+        onTouchCancel={() => { touchStart.current = null; }}
+        onTouchEnd={event => {
+          const start = touchStart.current; touchStart.current = null;
+          if (!start || items.length < 2) return;
+          const touch = event.changedTouches[0]; const dx = touch.clientX - start.x; const dy = touch.clientY - start.y;
+          if (Math.abs(dx) >= 35 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+            suppressClickUntil.current = Date.now() + 700;
+            choose(items[(index + (dx < 0 ? 1 : -1) + items.length) % items.length].id);
+          }
+        }}
+        onClickCapture={event => { if (Date.now() < suppressClickUntil.current) { event.preventDefault(); event.stopPropagation(); } }}
+      >
         {items.length > 1 && <button className="spotlight-arrow spotlight-arrow-prev" type="button" aria-label="Previous collection" onClick={() => choose(items[(index - 1 + items.length) % items.length].id)}><ChevronLeft size={19} /></button>}
         <div className="spotlight-rail" aria-label="Choose a collection">
           {items.map((item, itemIndex) => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandLogo } from "@/components/brand-logo";
 import Link from "next/link";
 import { useSiteSettings } from "@/components/site-settings";
 import { copyrightLine, instagramHref } from "@/lib/settings";
@@ -38,7 +39,7 @@ export function SiteFooter({ showOnMobile = false }: { showOnMobile?: boolean })
 
         <div className="mx-auto grid max-w-[1440px] gap-12 px-8 py-20 md:grid-cols-4">
           <div className="md:col-span-2">
-            <p className="font-serif text-4xl tracking-[0.18em] uppercase">{settings.brand_name}</p>
+            <BrandLogo size={72} />
             {settings.brand_suffix ? (
               <p className="mt-1 text-[10px] tracking-[0.4em] text-gold uppercase">{settings.brand_suffix}</p>
             ) : null}
@@ -112,7 +113,7 @@ function MobileStrip() {
   const settings = useSiteSettings();
   return (
     <div className="border-b border-ivory/10 px-5 py-8 lg:hidden">
-      <p className="font-serif text-3xl tracking-[0.18em] uppercase">{settings.brand_name}</p>
+      <BrandLogo size={72} />
       {settings.brand_suffix ? (
         <p className="mt-1 text-[10px] tracking-[0.4em] text-gold uppercase">{settings.brand_suffix}</p>
       ) : null}

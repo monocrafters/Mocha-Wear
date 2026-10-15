@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandLogo } from "@/components/brand-logo";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -242,7 +243,7 @@ export function EditionFooter() {
             {settings.brand_suffix || "The atelier"}
           </p>
           <Link href="/" className="edition-footer-brand">
-            {settings.brand_name}
+            <BrandLogo size={80} />
           </Link>
           <p>{settings.mobile_line}</p>
         </div>
