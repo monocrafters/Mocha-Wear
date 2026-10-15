@@ -81,7 +81,12 @@ export async function apiFetch(input: string, init?: RequestInit, retries = 4, c
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      const res = await fetch(input, nextInit);
+      const preview = process.env.NEXT_PUBLIC_LAN_PREVIEW === "1" && typeof window !== "undefined";
+      const publicPaths = ["products", "collections", "hero", "spotlight", "settings", "reviews", "help", "sales/active", "store-contact"];
+      const suffix = input.startsWith(`${API_URL}/api/`) ? input.slice(`${API_URL}/api/`.length) : "";
+      const isPublic = publicPaths.some(path => suffix.split("?")[0] === path);
+      const target = preview && isPublic && (!nextInit.method || nextInit.method === "GET") ? `/api/preview/${suffix}` : input;
+      const res = await fetch(target, nextInit);
 
       // Expired localStorage bearer can block a still-valid cookie — clear and retry once.
       if (

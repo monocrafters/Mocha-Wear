@@ -97,9 +97,11 @@
   .spotlight-active-mark { margin-top:5px; }
   .spotlight-arrow { width:28px; height:28px; top:calc(var(--orbit-size) / 2 - 10px); background:#fffd; }
   .spotlight-arrow-prev { left:7px; } .spotlight-arrow-next { right:7px; }
-  .spotlight-copy { margin-bottom:14px; min-height:38px; }
-  .spotlight-copy a { min-height:38px; min-width:190px; font-size:10px; padding:9px 14px; }
-  .spotlight-bottom { min-height:48px; font-size:9px; grid-template-columns:1fr auto 1fr; gap:4px; }
+  .spotlight-copy { display:none; }
+  .spotlight-choice-label::after { content:" ↗"; font-size:11px; margin-left:3px; color:#8a7059; }
+  .spotlight-bottom { min-height:46px; margin-top:4px; font-size:9px; grid-template-columns:1fr auto 1fr; gap:4px; border-top:0; }
+  .spotlight-pagination span { height:3px; width:3px; }
+  .spotlight-pagination [aria-current] span { width:17px; }
   .spotlight-bottom > a { gap:5px; }
   .spotlight-pagination > button { width:20px; }
   .spotlight-playback { gap:4px; }
