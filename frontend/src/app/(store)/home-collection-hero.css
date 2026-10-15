@@ -1,8 +1,8 @@
 .collection-hero,.collection-product-toolbar {display:none;}
 @media(min-width:1024px) {
   .home-edition {background:#fff;--edition-ink:#191919;--edition-muted:#777;--edition-line:#e5e5e5;}
-  .edition-site-header > div:nth-child(2) {background:#fff;border-color:#eee;}
-  .edition-site-header .header-brand-mark,.edition-site-header .header-link,.edition-site-header .header-icon-btn {color:#171717;}
+  
+  
   .home-mobile-campaign,.desktop-collection-section {display:none;}
   .collection-hero {display:block;padding:34px 4.2vw 48px;background:#fff;color:#191919;}
   .collection-hero-intro {display:flex;align-items:center;justify-content:space-between;font-size:11px;letter-spacing:.04em;color:#666;}

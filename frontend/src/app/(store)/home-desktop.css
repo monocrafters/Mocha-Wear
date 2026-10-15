@@ -7,16 +7,16 @@
     --font-home-sans:var(--font-desktop-sans); --font-home-display:var(--font-desktop-display);
     color:var(--edition-ink); background:#f9f6f0; font-family:var(--font-desktop-sans),sans-serif;
   }
-  .edition-site-header > div:first-child {height:28px;background:#38232f;}
-  .edition-site-header > div:first-child p {font-size:9px;letter-spacing:.2em;font-weight:500;}
-  .edition-site-header > div:nth-child(2) {background:#f9f6f0;border-bottom:1px solid #ded5ce;}
-  .edition-site-header > div:nth-child(2) > div {max-width:none;height:82px;padding-inline:4.2vw;}
-  .edition-site-header .header-brand-mark {font-family:Georgia,serif;font-size:37px;letter-spacing:-2px;color:#38232f;}
-  .edition-site-header .header-brand > span:last-child {color:#7e6a70;font-size:8px;}
-  .edition-site-header .header-link {color:#38232f;font-size:10px;letter-spacing:.12em;padding-inline:18px;}
-  .edition-site-header .header-pill-fill {background:transparent;border-bottom:1px solid #38232f;border-radius:0;}
-  .edition-site-header .header-icon-btn {color:#38232f;}
-  .edition-site-header .header-icon-btn:hover {background:#eee6de;color:#38232f;}
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   .home-edition :is(a,button,input):focus-visible {outline-color:#663d50;}
   .home-edition .edition-eyebrow {font-size:10px;letter-spacing:.2em;color:#826a75;}
   /* A product stage: intact campaign artwork and a compact information card. */

@@ -1,0 +1,51 @@
+/* Shared storefront header; independent of route-specific CSS. */
+.edition-site-header > div:first-child {
+  background: #263c30;
+  height: 24px;
+}
+.edition-site-header > div:nth-child(2) {
+  background: #fff;
+  border-bottom: 1px solid #e8eae5;
+}
+.edition-site-header .header-brand-mark {
+  font-family: var(--font-inter), sans-serif;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -1.3px;
+  color: #263c30;
+}
+.edition-site-header .header-link {
+  color: #525b52;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.edition-site-header .header-pill-fill {
+  background: #eff2ed;
+  box-shadow: none;
+}
+.edition-site-header .header-icon-btn {
+  color: #263c30;
+}
+.edition-site-header .header-icon-btn:hover {
+  color: #263c30;
+  background: #eff2ed;
+}
+@media(max-width:700px){.edition-site-header .header-brand-mark {
+    font-size: 24px;
+  }
+.edition-site-header > div:first-child p {
+    font-size: 9px;
+    letter-spacing: 0.045em;
+  }}
+@media(min-width:1024px){.edition-site-header > div:first-child {height:28px;background:#38232f;}
+.edition-site-header > div:first-child p {font-size:9px;letter-spacing:.2em;font-weight:500;}
+.edition-site-header > div:nth-child(2) {background:#f9f6f0;border-bottom:1px solid #ded5ce;}
+.edition-site-header > div:nth-child(2) > div {max-width:none;height:82px;padding-inline:4.2vw;}
+.edition-site-header .header-brand-mark {font-family:Georgia,serif;font-size:37px;letter-spacing:-2px;color:#38232f;}
+.edition-site-header .header-brand > span:last-child {color:#7e6a70;font-size:8px;}
+.edition-site-header .header-link {color:#38232f;font-size:10px;letter-spacing:.12em;padding-inline:18px;}
+.edition-site-header .header-pill-fill {background:transparent;border-bottom:1px solid #38232f;border-radius:0;}
+.edition-site-header .header-icon-btn {color:#38232f;}
+.edition-site-header .header-icon-btn:hover {background:#eee6de;color:#38232f;}}
+@media(min-width:1024px){.edition-site-header > div:nth-child(2) {background:#fff;border-color:#eee;}
+.edition-site-header .header-brand-mark,.edition-site-header .header-link,.edition-site-header .header-icon-btn {color:#171717;}}

@@ -1,5 +1,6 @@
 import { StoreTheme } from "@/components/store-theme";
 import "./store-refined.css";
+import "./store-header.css";
 import { SiteHeader } from "@/components/site-header";
 import { CatalogProvider } from "@/components/catalog-provider";
 import { HomeWhatsAppButton } from "@/components/home-whatsapp-button";

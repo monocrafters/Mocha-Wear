@@ -1,34 +1,10 @@
-.edition-site-header > div:first-child {
-  background: #263c30;
-  height: 24px;
-}
-.edition-site-header > div:nth-child(2) {
-  background: #fff;
-  border-bottom: 1px solid #e8eae5;
-}
-.edition-site-header .header-brand-mark {
-  font-family: var(--font-inter), sans-serif;
-  font-size: 26px;
-  font-weight: 500;
-  letter-spacing: -1.3px;
-  color: #263c30;
-}
-.edition-site-header .header-link {
-  color: #525b52;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-.edition-site-header .header-pill-fill {
-  background: #eff2ed;
-  box-shadow: none;
-}
-.edition-site-header .header-icon-btn {
-  color: #263c30;
-}
-.edition-site-header .header-icon-btn:hover {
-  color: #263c30;
-  background: #eff2ed;
-}
+
+
+
+
+
+
+
 .home-edition {
   --edition-ink: #25382b;
   --edition-muted: #596354;
@@ -654,13 +630,8 @@
   }
 }
 @media (max-width: 700px) {
-  .edition-site-header .header-brand-mark {
-    font-size: 24px;
-  }
-  .edition-site-header > div:first-child p {
-    font-size: 9px;
-    letter-spacing: 0.045em;
-  }
+  
+  
   .edition-hero {
     min-height: min(calc(100svh - 156px - env(safe-area-inset-bottom)), 740px);
     align-items: flex-end;
