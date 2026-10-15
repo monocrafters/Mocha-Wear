@@ -1,0 +1,30 @@
+{
+  "tool": "Built-in image_gen",
+  "assets": [
+    {
+      "slug": "cotton-lawn",
+      "file": "frontend/public/images/collections/cotton-lawn-suit-v4.png",
+      "prompt": "Use case: ads-marketing. Square premium editorial fashion portrait for a small circular collection thumbnail. One adult South Asian woman wearing a generic original sage green lightweight cotton lawn stitched kurta with understated ivory botanical embroidery, matching trousers. Modest elegant ready-to-wear Pakistani two-piece suit, visibly tailored neckline, sleeves and cuffs, beautiful realistic stitching. NOT a copy of any existing product. Consistent series art direction: warm ivory plaster studio, softly diffused daylight, natural skin and realistic textile detail, calm confident expression. Model centered with entire head and shoulders safely within middle 65 percent, generous headroom above hair. Frame from above head to mid-thigh, so neckline and fabric details are large and legible in a circle. Relaxed natural hands near waist. Elegant understated styling, no handbag, no extravagant jewelry. No text, logos, watermark, collage, additional people or loose fabric-only scene. High quality photorealistic fashion photography."
+    },
+    {
+      "slug": "khaddar",
+      "file": "frontend/public/images/collections/khaddar-suit-v4.png",
+      "prompt": "Use case: ads-marketing. Square premium editorial fashion portrait for a small circular collection thumbnail. One adult South Asian woman wearing a generic original warm oatmeal khaddar stitched kurta, subtle tonal embroidered neckline and cuffs, matching trousers. Modest elegant ready-to-wear Pakistani two-piece suit, visibly tailored neckline, sleeves and cuffs, beautiful realistic stitching. NOT a copy of any existing product. Consistent series art direction: warm ivory plaster studio, softly diffused daylight, natural skin and realistic textile detail, calm confident expression. Model centered with entire head and shoulders safely within middle 65 percent, generous headroom above hair. Frame from above head to mid-thigh, so neckline and fabric details are large and legible in a circle. Relaxed natural hands near waist. Elegant understated styling, no handbag, no extravagant jewelry. No text, logos, watermark, collage, additional people or loose fabric-only scene. High quality photorealistic fashion photography."
+    },
+    {
+      "slug": "bana-dora",
+      "file": "frontend/public/images/collections/bana-dora-suit-v4.png",
+      "prompt": "Use case: ads-marketing. Square premium editorial fashion portrait for a small circular collection thumbnail. One adult South Asian woman wearing a generic original dusty mauve stitched Pakistani kurta with delicate ivory embroidery and fine woven texture, matching trousers. Modest elegant ready-to-wear Pakistani two-piece suit, visibly tailored neckline, sleeves and cuffs, beautiful realistic stitching. NOT a copy of any existing product. Consistent series art direction: warm ivory plaster studio, softly diffused daylight, natural skin and realistic textile detail, calm confident expression. Model centered with entire head and shoulders safely within middle 65 percent, generous headroom above hair. Frame from above head to mid-thigh, so neckline and fabric details are large and legible in a circle. Relaxed natural hands near waist. Elegant understated styling, no handbag, no extravagant jewelry. No text, logos, watermark, collage, additional people or loose fabric-only scene. High quality photorealistic fashion photography."
+    },
+    {
+      "slug": "grip-silk",
+      "file": "frontend/public/images/collections/grip-silk-suit-v4.png",
+      "prompt": "Use case: ads-marketing. Square premium editorial fashion portrait for a small circular collection thumbnail. One adult South Asian woman wearing a generic original champagne grip silk stitched kurta, fluid drape and refined tonal embroidered neckline, matching trousers. Modest elegant ready-to-wear Pakistani two-piece suit, visibly tailored neckline, sleeves and cuffs, beautiful realistic stitching. NOT a copy of any existing product. Consistent series art direction: warm ivory plaster studio, softly diffused daylight, natural skin and realistic textile detail, calm confident expression. Model centered with entire head and shoulders safely within middle 65 percent, generous headroom above hair. Frame from above head to mid-thigh, so neckline and fabric details are large and legible in a circle. Relaxed natural hands near waist. Elegant understated styling, no handbag, no extravagant jewelry. No text, logos, watermark, collage, additional people or loose fabric-only scene. High quality photorealistic fashion photography."
+    },
+    {
+      "slug": "cotrai",
+      "file": "frontend/public/images/collections/cotrai-suit-v4.png",
+      "prompt": "Use case: ads-marketing. Square premium editorial fashion portrait for a small circular collection thumbnail. One adult South Asian woman wearing a generic original warm cinnamon fine corduroy stitched kurta, understated tonal neckline and cuffs, matching trousers. Modest elegant ready-to-wear Pakistani two-piece suit, visibly tailored neckline, sleeves and cuffs, beautiful realistic stitching. NOT a copy of any existing product. Consistent series art direction: warm ivory plaster studio, softly diffused daylight, natural skin and realistic textile detail, calm confident expression. Model centered with entire head and shoulders safely within middle 65 percent, generous headroom above hair. Frame from above head to mid-thigh, so neckline and fabric details are large and legible in a circle. Relaxed natural hands near waist. Elegant understated styling, no handbag, no extravagant jewelry. No text, logos, watermark, collage, additional people or loose fabric-only scene. High quality photorealistic fashion photography."
+    }
+  ]
+}

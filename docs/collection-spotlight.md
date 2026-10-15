@@ -1,3 +1,5 @@
+Current artwork (v4): user-selected generic stitched suits on models. Hero uses *-suit-v4.png promotional portraits, not actual catalog articles. Exact prompts and saved paths: collection-suit-prompts-v4.json. Prior artwork notes below are historical.
+
 Current artwork (v3): fabric-only mood photography replaces all outfit montages at the user’s request. The circle is filled edge-to-edge. No models or product articles appear in these images. Sources/prompts: collection-fabric-prompts-v3.json. Files: frontend/public/images/collections/*-fabric-v3.png. The v2 notes below are historical.
 
 # Collection hero
