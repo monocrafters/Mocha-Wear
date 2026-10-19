@@ -49,3 +49,8 @@
  .store-page-theme[data-store-page=cart] main article { padding:13px; }
 }
 @media(prefers-reduced-motion:reduce) { .store-page-theme main :is(a,button) { transition:none; } }
+
+/* Older admin banners are 1200px wide: avoid enlarging them beyond their source. */
+@media(min-width:1024px) {
+ .store-page-theme[data-store-page=collections] main > section { max-width:1264px; padding-inline:32px; }
+}

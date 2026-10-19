@@ -83,12 +83,12 @@ function CollectionCard({ collection, index }: { collection: Collection; index: 
           mobile={srcs.mobile}
           desktop={srcs.desktop}
           alt={collection.name}
-          className="absolute inset-0 h-full w-full object-cover transition duration-[900ms] ease-out group-hover:scale-[1.03]"
+          className="absolute inset-0 h-full w-full object-cover transition duration-[900ms] ease-out"
         />
       ) : (
         <div className="absolute inset-0 bg-sand" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-mocha-deep/90 via-mocha-deep/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-mocha-deep/80 via-transparent to-transparent" />
       <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-ivory lg:p-7">
         <div className="min-w-0">
           {kicker ? (
