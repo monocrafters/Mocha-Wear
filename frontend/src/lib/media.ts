@@ -1,17 +1,8 @@
-/** Prefer Cloudinary auto format/quality when the URL allows it. */
+/** Serve the saved source unchanged, preserving admin crops and original quality. */
 export function optimizeMediaUrl(
   src: string,
-  options?: { width?: number; height?: number; crop?: "fill" | "limit" | "fit" },
+  // Kept for compatibility with existing callers; no delivery resizing is applied.
+  _options?: { width?: number; height?: number; crop?: "fill" | "limit" | "fit" },
 ) {
-  const url = String(src || "").trim();
-  if (!url) return "";
-  if (!url.includes("res.cloudinary.com") || !url.includes("/upload/")) return url;
-  if (/\/upload\/(?:[^/]+,)*f_auto/.test(url)) return url;
-
-  const parts = ["f_auto", "q_auto"];
-  if (options?.width) parts.push(`w_${Math.round(options.width)}`);
-  if (options?.height) parts.push(`h_${Math.round(options.height)}`);
-  if (options?.crop) parts.push(`c_${options.crop}`);
-
-  return url.replace("/upload/", `/upload/${parts.join(",")}/`);
+  return String(src || "").trim();
 }

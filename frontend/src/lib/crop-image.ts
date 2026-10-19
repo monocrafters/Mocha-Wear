@@ -25,9 +25,8 @@ export async function getCroppedImage(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not crop image");
 
-  const aspect = pixelCrop.width / Math.max(pixelCrop.height, 1);
-  const outputWidth = 1200;
-  const outputHeight = Math.round(outputWidth / aspect);
+  const outputWidth = Math.max(1, Math.round(pixelCrop.width));
+  const outputHeight = Math.max(1, Math.round(pixelCrop.height));
 
   canvas.width = outputWidth;
   canvas.height = outputHeight;
@@ -53,10 +52,9 @@ export async function getCroppedImage(
         }
         resolve(file);
       },
-      "image/jpeg",
-      0.92,
+      "image/png",
     );
   });
 
-  return new File([blob], fileName, { type: "image/jpeg" });
+  return new File([blob], fileName.replace(/\.[^.]+$/, "") + ".png", { type: "image/png" });
 }
