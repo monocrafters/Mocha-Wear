@@ -6,7 +6,7 @@ function resolveApiUrl() {
   // Never ship localhost into a production client bundle.
   if (!raw || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(raw)) {
     if (process.env.NODE_ENV === "production") {
-      return "https://mocha-wear-production-4dd5.up.railway.app";
+      return "https://simple-tragic-gorilla.abasthan.app";
     }
     return raw || "http://localhost:5000";
   }
