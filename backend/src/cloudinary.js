@@ -109,4 +109,25 @@ async function duplicateMedia(url, folder, resourceType = "image") {
   }
 }
 
-module.exports = { isConfigured, uploadMedia, destroyMedia, duplicateMedia };
+function signProductUpload(resourceType) {
+  if (!['image', 'video'].includes(resourceType)) {
+    const error = new Error('Only product images and videos can be uploaded');
+    error.status = 400;
+    throw error;
+  }
+  config();
+  const params = {
+    timestamp: Math.floor(Date.now() / 1000),
+    folder: resourceType === 'video' ? 'mocha-wear/products/videos' : 'mocha-wear/products',
+    public_id: require('crypto').randomUUID(),
+    overwrite: false,
+  };
+  return {
+    upload_url: 'https://api.cloudinary.com/v1_1/' + process.env.CLOUDINARY_CLOUD_NAME + '/' + resourceType + '/upload',
+    api_key: process.env.CLOUDINARY_API_KEY,
+    params,
+    signature: cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET),
+  };
+}
+
+module.exports = { isConfigured, uploadMedia, destroyMedia, duplicateMedia, signProductUpload };

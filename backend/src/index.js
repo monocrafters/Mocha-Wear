@@ -375,6 +375,16 @@ app.get("/api/admin/products", adminAuth.requireAdmin, async (_req, res) => {
   }
 });
 
+// Only authenticated admins can authorize uploads; file bytes bypass the app proxy.
+app.post("/api/admin/product-upload-signature", adminAuth.requireAdmin, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    res.json(cloudinary.signProductUpload(req.body?.resource_type));
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message || "Could not authorize upload" });
+  }
+});
+
 app.post("/api/admin/products", adminAuth.requireAdmin, productFields, async (req, res) => {
   try {
     const body = await attachProductImages(req, { ...req.body });

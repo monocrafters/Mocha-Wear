@@ -3,6 +3,7 @@
 import { DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { API_URL, apiFetch } from "@/lib/api";
+import { uploadProductFile } from "@/lib/product-upload";
 import { applyCatalogVersion } from "@/lib/catalog-meta";
 import { formatPkr } from "@/lib/money";
 import { PRODUCT_BADGES, PRODUCT_SIZE_PRESETS, productSizes, productCollectionIds, productInCollection } from "@/lib/product";
@@ -338,25 +339,24 @@ export function AdminProducts() {
       if (form.reseller_enabled && !(Number(form.wholesale_price) > 0)) {
         throw new Error("Set a wholesale price before enabling this product for resellers");
       }
-      const body = new FormData();
-      Object.entries(form).forEach(([key, value]) => {
-        body.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+      const imageOrder: Array<{ id?: string; url: string }> = [];
+      // Upload individually to storage, keeping original bytes and the selected order.
+      for (const image of images) {
+        imageOrder.push(image.file
+          ? { url: await uploadProductFile(image.file, "image") }
+          : { id: image.id, url: image.url });
+      }
+      const videoUrl = videoFile ? await uploadProductFile(videoFile, "video") : undefined;
+      const body = JSON.stringify({
+        ...form, image_order: imageOrder, existing_images: [], labels, sizes: productSizes({ sizes }),
+        ...(videoUrl ? { video_url: videoUrl } : {}),
+        ...(clearVideo ? { clear_video: true } : {}),
       });
-      body.append(
-        "image_order",
-        JSON.stringify(images.map((image) => (image.file ? "new" : { id: image.id, url: image.url }))),
-      );
-      body.append("labels", JSON.stringify(labels));
-      body.append("sizes", JSON.stringify(productSizes({ sizes })));
-      images.forEach((image) => {
-        if (image.file) body.append("images", image.file);
-      });
-      if (videoFile) body.append("video", videoFile);
-      if (clearVideo) body.append("clear_video", "true");
 
       const url = editing ? `${API_URL}/api/admin/products/${editing.id}` : `${API_URL}/api/admin/products`;
       const res = await apiFetch(url, {
         method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body,
       });
