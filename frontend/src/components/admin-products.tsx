@@ -25,6 +25,8 @@ export type ProductLabel = {
   value: string;
 };
 
+export type CollectionProductDetails = Partial<Record<"name" | "description" | "fabric" | "pieces" | "color" | "badge" | "price" | "compare_at_price", string | number>>;
+
 export type Product = {
   id: string;
   name: string;
@@ -32,6 +34,9 @@ export type Product = {
   code?: string;
   collection_id: string;
   collection_ids?: string[];
+  selected_collection_id?: string;
+  price_source?: string;
+  collection_overrides?: Record<string, CollectionProductDetails>;
   description: string;
   fabric: string;
   pieces: string;
@@ -74,6 +79,7 @@ const emptyForm = {
   name: "",
   code: "",
   collection_ids: [] as string[],
+  collection_overrides: {} as Record<string, CollectionProductDetails>,
   description: "",
   fabric: "",
   pieces: "",
@@ -224,6 +230,7 @@ export function AdminProducts() {
       name: item.name,
       code: item.code || toCode(item.slug || item.name),
       collection_ids: productCollectionIds(item),
+      collection_overrides: item.collection_overrides || {},
       description: item.description,
       fabric: item.fabric,
       pieces: item.pieces,
@@ -677,6 +684,30 @@ export function AdminProducts() {
                   />
                 </div>
               </div>
+
+              {form.collection_ids.length > 0 && (
+                <div className="space-y-3 rounded-lg border border-slate-200 p-4">
+                  <h3 className="font-semibold text-slate-800">Details for each collection</h3>
+                  <p className="text-xs leading-5 text-slate-500">Optional: set different prices, names and details for each collection. Empty fields use the main product details. Images, sizes and stock remain shared.</p>
+                  {form.collection_ids.map((id) => (
+                    <details key={id} className="rounded border border-slate-200 bg-slate-50 p-3">
+                      <summary className="cursor-pointer text-sm font-semibold">{collectionName(id)}</summary>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {([['name', 'Product name'], ['price', 'Price (PKR)'], ['compare_at_price', 'Original price (PKR)'], ['fabric', 'Fabric'], ['pieces', 'Pieces'], ['color', 'Colour'], ['badge', 'Badge'], ['description', 'Description']] as const).map(([key, label]) => (
+                          <label key={key} className={key === 'description' ? 'text-xs sm:col-span-2' : 'text-xs'}>
+                            <span className="mb-1 block text-slate-600">{label}</span>
+                            {key === 'description' ? (
+                              <textarea aria-label={label} rows={4} className="w-full rounded border border-slate-300 bg-white p-2 text-sm" placeholder={form.description || 'Use main description'} value={form.collection_overrides[id]?.[key] ?? ''} onChange={(e) => setForm(current => ({ ...current, collection_overrides: { ...current.collection_overrides, [id]: { ...current.collection_overrides[id], [key]: e.target.value } } }))} />
+                            ) : (
+                              <input aria-label={label} type={key.includes('price') ? 'number' : 'text'} min={key.includes('price') ? 0 : undefined} step={key.includes('price') ? 'any' : undefined} className="w-full rounded border border-slate-300 bg-white p-2 text-sm" placeholder={String(form[key] || 'Use main value')} value={form.collection_overrides[id]?.[key] ?? ''} onChange={(e) => setForm(current => ({ ...current, collection_overrides: { ...current.collection_overrides, [id]: { ...current.collection_overrides[id], [key]: e.target.value } } }))} />
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              )}
 
               <div>
                 <span className="text-sm font-medium text-slate-600">Product video</span>

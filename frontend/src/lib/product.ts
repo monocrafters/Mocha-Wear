@@ -1,3 +1,5 @@
+import type { Product } from "@/components/admin-products";
+
 type CollectionMembership = { collection_id?: string; collection_ids?: string[] };
 
 export function productCollectionIds(item: CollectionMembership) {
@@ -12,9 +14,9 @@ export function productCode(item: { code?: string; slug?: string }) {
   return String(item.code || item.slug || "").trim();
 }
 
-export function productHref(item: { code?: string; slug?: string }) {
+export function productHref(item: { code?: string; slug?: string; selected_collection_id?: string }) {
   const code = productCode(item);
-  return code ? `/products/${code}` : "/shop";
+  return code ? `/products/${code}${item.selected_collection_id ? `?collection=${encodeURIComponent(item.selected_collection_id)}` : ""}` : "/shop";
 }
 
 export const PRODUCT_BADGES = ["New in", "Bestseller", "Limited", "Exclusive", "Ready to wear"] as const;
@@ -34,3 +36,16 @@ export function productSizes(item?: { sizes?: string[] | null }) {
     });
 }
 
+
+/** Resolve a collection view without mutating the shared catalog product. */
+export function productForCollection(item: Product, collectionId?: string): Product {
+  if (!collectionId || !productInCollection(item, collectionId)) return item;
+  const overrides = item.collection_overrides?.[collectionId] || {};
+  return {
+    ...item, ...overrides,
+    price: item.price_source === "reseller" ? item.price : Number(overrides.price ?? item.price),
+    compare_at_price: item.price_source === "reseller" ? item.compare_at_price : Number(overrides.compare_at_price ?? item.compare_at_price),
+    collection_id: collectionId,
+    selected_collection_id: collectionId,
+  } as Product;
+}

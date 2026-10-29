@@ -53,7 +53,7 @@ export function CartView() {
         <div className="space-y-2">
           {items.map((line) => (
             <article key={cartLineId(line)} className="flex gap-3 border border-sand bg-ivory p-3">
-              <Link href={`/products/${line.slug}`} prefetch className="relative h-[92px] w-[68px] shrink-0 overflow-hidden bg-sand">
+              <Link href={`/products/${line.slug}${line.collectionId ? `?collection=${encodeURIComponent(line.collectionId)}` : ""}`} prefetch className="relative h-[92px] w-[68px] shrink-0 overflow-hidden bg-sand">
                 {line.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={line.image} alt={line.name} className="h-full w-full object-cover" />
@@ -62,7 +62,7 @@ export function CartView() {
               <div className="flex min-w-0 flex-1 flex-col justify-between">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <Link href={`/products/${line.slug}`} prefetch className="font-serif block truncate text-[1.2rem] leading-tight text-mocha-deep">
+                    <Link href={`/products/${line.slug}${line.collectionId ? `?collection=${encodeURIComponent(line.collectionId)}` : ""}`} prefetch className="font-serif block truncate text-[1.2rem] leading-tight text-mocha-deep">
                       {line.name}
                     </Link>
                     <p className="mt-0.5 truncate text-[11px] text-mocha/45">
@@ -71,7 +71,7 @@ export function CartView() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => remove(line.productId, line.size)}
+                    onClick={() => remove(line.productId, line.size, line.collectionId)}
                     className="shrink-0 text-[10px] tracking-[0.14em] text-mocha/40 uppercase hover:text-sale"
                   >
                     Remove
@@ -82,7 +82,7 @@ export function CartView() {
                     <button
                       type="button"
                       aria-label="Decrease quantity"
-                      onClick={() => setQty(line.productId, line.qty - 1, line.size)}
+                      onClick={() => setQty(line.productId, line.qty - 1, line.size, line.collectionId)}
                       className="grid h-8 w-8 place-items-center text-mocha-deep"
                     >
                       −
@@ -92,7 +92,7 @@ export function CartView() {
                       type="button"
                       aria-label="Increase quantity"
                       disabled={line.qty >= (line.maxQty || 10)}
-                      onClick={() => setQty(line.productId, line.qty + 1, line.size)}
+                      onClick={() => setQty(line.productId, line.qty + 1, line.size, line.collectionId)}
                       className="grid h-8 w-8 place-items-center text-mocha-deep disabled:opacity-30"
                     >
                       +

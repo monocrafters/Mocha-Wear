@@ -197,6 +197,7 @@ export function CheckoutView() {
         },
         items: items.map((line) => ({
           product_id: line.productId,
+          collection_id: line.collectionId || "",
           name: line.name,
           spec: line.spec,
           size: line.size,

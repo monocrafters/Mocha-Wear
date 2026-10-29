@@ -169,7 +169,8 @@ async function resolveOrderItems(rawItems, req) {
 
   for (const raw of Array.isArray(rawItems) ? rawItems : []) {
     const productId = String(raw.product_id || raw.productId || "").trim();
-    const product = productId ? await products.getById(productId) : null;
+    const baseProduct = productId ? await products.getById(productId) : null;
+    const product = products.forCollection(baseProduct, String(raw.collection_id || raw.collectionId || ""));
     const qty = Math.max(1, Math.min(99, Number(raw.qty) || 1));
     let sold = product ? product.price : Math.max(0, Number(raw.price) || 0);
     let wholesale = 0;
@@ -190,6 +191,7 @@ async function resolveOrderItems(rawItems, req) {
     commission_total += commission;
     items.push({
       product_id: productId,
+      collection_id: product?.selected_collection_id || "",
       name: String(raw.name || product?.name || "Suit").trim() || "Suit",
       spec: String(raw.spec || "").trim(),
       size: String(raw.size || "").trim(),
@@ -414,6 +416,19 @@ async function clickStats(resellerId) {
 }
 
 async function pricingForIds(ids, req) {
+  if (req.query?.contexts) {
+    let contexts;
+    try { contexts = JSON.parse(req.query.contexts); } catch { throw Object.assign(new Error("Invalid cart context"), { status: 400 }); }
+    if (!contexts || Array.isArray(contexts) || typeof contexts !== "object" || Object.keys(contexts).length > 100) throw Object.assign(new Error("Invalid cart context"), { status: 400 });
+    const rows = [];
+    for (const [key, context] of Object.entries(contexts)) {
+      const base = await products.getById(context?.id);
+      if (!base?.is_published) continue;
+      const item = products.forCollection(base, context.collection);
+      rows.push({ ...await applyResellerPricing(item, req), cart_key: key });
+    }
+    return rows;
+  }
   const list = [];
   for (const id of ids) {
     const product = await products.getById(id);

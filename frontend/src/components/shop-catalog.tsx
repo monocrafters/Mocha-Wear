@@ -7,7 +7,7 @@ import { ProductCard, productGridClass } from "@/components/product-card";
 import { ProductGridSkeleton, Skeleton } from "@/components/skeletons";
 import { useCatalog } from "@/components/catalog-provider";
 import { useSiteSettings } from "@/components/site-settings";
-import { productInCollection } from "@/lib/product";
+import { productInCollection, productForCollection } from "@/lib/product";
 
 export function ShopCatalog() {
   const { products, collections, loading } = useCatalog();
@@ -16,7 +16,7 @@ export function ShopCatalog() {
 
   const items = useMemo(() => {
     if (active === "all") return products;
-    return products.filter((product) => productInCollection(product, active));
+    return products.filter((product) => productInCollection(product, active)).map(product => productForCollection(product, active));
   }, [products, active]);
 
   return (
@@ -65,7 +65,7 @@ export function ShopCatalog() {
       ) : items.length ? (
         <div className={`mt-8 ${productGridClass}`}>
           {items.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} collectionName={collections.find(row => row.id === active)?.name} />
           ))}
         </div>
       ) : (

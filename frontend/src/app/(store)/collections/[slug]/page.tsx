@@ -10,6 +10,7 @@ import { ProductCard, productGridClass } from "@/components/product-card";
 import { CollectionMedia } from "@/components/collection-media";
 import { useCatalogCollection } from "@/components/catalog-provider";
 import { SiteFooter } from "@/components/site-footer";
+import { productForCollection } from "@/lib/product";
 import { collectionBannerSrc } from "@/lib/collection";
 import { CollectionPageSkeleton } from "@/components/skeletons";
 
@@ -97,20 +98,22 @@ export default function CollectionPage() {
         ) : !item ? (
           <CollectionPageSkeleton />
         ) : (
-          <section className="flex min-h-0 flex-1 flex-col">
-            <div className="relative aspect-[2/1] w-full shrink-0 overflow-hidden bg-sand lg:aspect-[3/1]">
+          <section className="collection-detail-section flex min-h-0 flex-1 flex-col">
+            <div className="collection-detail-banner relative aspect-[2/1] w-full shrink-0 overflow-hidden bg-sand lg:aspect-[3/1]">
               {banner.mobile || banner.desktop ? (
                 <CollectionMedia
                   mobile={banner.mobile}
                   desktop={banner.desktop}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
+                  alt={item.name}
+                  natural
+                  priority
+                  className="h-full w-full object-cover lg:h-auto"
                 />
               ) : null}
               <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ivory to-transparent" />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-1 lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-8 lg:pb-10">
+            <div className="collection-detail-content min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-1 lg:mx-auto lg:w-full lg:max-w-[1440px] lg:px-8 lg:pb-10">
               {kicker ? (
                 <p className="store-kicker text-gold">{kicker}</p>
               ) : null}
@@ -131,7 +134,7 @@ export default function CollectionPage() {
               {products.length ? (
                 <div className={`mt-5 ${productGridClass}`}>
                   {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard key={product.id} product={productForCollection(product, item.id)} collectionName={item.name} />
                   ))}
                 </div>
               ) : (

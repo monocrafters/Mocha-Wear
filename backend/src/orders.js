@@ -51,6 +51,7 @@ function normalizeItem(item = {}) {
   const sold = Math.max(0, Number(item.sold_price_snapshot ?? price) || 0);
   return {
     product_id: String(item.product_id || item.productId || "").trim(),
+    collection_id: String(item.collection_id || item.collectionId || "").trim(),
     name: String(item.name || "Suit").trim() || "Suit",
     spec: String(item.spec || "").trim(),
     size: String(item.size || "").trim(),

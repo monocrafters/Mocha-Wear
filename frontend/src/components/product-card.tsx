@@ -14,11 +14,11 @@ function coverOf(product: Product) {
   return product.images?.[0]?.url || "";
 }
 
-export function ProductCard({ product, imageSizes = "(max-width: 1024px) 50vw, 16vw" }: { product: Product; imageSizes?: string }) {
+export function ProductCard({ product, collectionName, imageSizes = "(max-width: 1024px) 50vw, 16vw" }: { product: Product; collectionName?: string; imageSizes?: string }) {
   const sale = useActiveSale();
   const offLabel = productInActiveSale(product, sale) ? saleOffLabel(sale) : "";
   const tag = String(product.badge || "").trim();
-  const spec = [product.fabric, product.pieces].filter(Boolean).join(" · ");
+  const spec = [collectionName || product.fabric, product.pieces].filter(Boolean).join(" · ");
   const soldOut = (product.stock ?? 0) <= 0;
   const cover = coverOf(product);
 

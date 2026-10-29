@@ -21,8 +21,8 @@ type CartContextValue = {
   total: number;
   ready: boolean;
   addProduct: (product: Product, qty?: number, size?: string) => void;
-  setQty: (productId: string, qty: number, size?: string) => void;
-  remove: (productId: string, size?: string) => void;
+  setQty: (productId: string, qty: number, size?: string, collectionId?: string) => void;
+  remove: (productId: string, size?: string, collectionId?: string) => void;
   clear: () => void;
 };
 
@@ -45,11 +45,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || !items.length) return;
     const ids = [...new Set(items.map((line) => line.productId).filter(Boolean))];
+    const contexts = Object.fromEntries(items.map(line => [cartLineId(line), { id: line.productId, collection: line.collectionId || "" }]));
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await apiFetch(`${API_URL}/api/pricing?ids=${ids.join(",")}`, {
+        const res = await apiFetch(`${API_URL}/api/pricing?ids=${ids.join(",")}&contexts=${encodeURIComponent(JSON.stringify(contexts))}`, {
           credentials: "include",
         });
         if (!res.ok) return;
@@ -58,12 +59,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         for (const row of Array.isArray(data.items) ? data.items : []) {
           const id = String(row?.id || "").trim();
           const price = Math.round(Number(row?.price) || 0);
-          if (id && price > 0) map.set(id, price);
+          if (id && price >= 0) map.set(row.cart_key || id, price);
         }
         if (cancelled || !map.size) return;
         setItems((prev) =>
           prev.map((line) => {
-            const nextPrice = map.get(line.productId);
+            const nextPrice = map.get(cartLineId(line)) ?? map.get(line.productId);
             return nextPrice == null || nextPrice === line.price ? line : { ...line, price: nextPrice };
           }),
         );
@@ -79,7 +80,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addProduct = useCallback((product: Product, qty = 1, size = "") => {
     const picked = size.trim();
     setItems((prev) => {
-      const key = cartLineId({ productId: product.id, size: picked });
+      const key = cartLineId({ productId: product.id, size: picked, collectionId: product.selected_collection_id });
       const existing = prev.find((line) => cartLineId(line) === key);
       if (existing) {
         const maxQty = existing.maxQty || 10;
@@ -93,8 +94,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setQty = useCallback((productId: string, qty: number, size = "") => {
-    const key = cartLineId({ productId, size });
+  const setQty = useCallback((productId: string, qty: number, size = "", collectionId = "") => {
+    const key = cartLineId({ productId, size, collectionId });
     setItems((prev) => {
       if (qty < 1) return prev.filter((line) => cartLineId(line) !== key);
       return prev.map((line) =>
@@ -103,8 +104,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const remove = useCallback((productId: string, size = "") => {
-    const key = cartLineId({ productId, size });
+  const remove = useCallback((productId: string, size = "", collectionId = "") => {
+    const key = cartLineId({ productId, size, collectionId });
     setItems((prev) => prev.filter((line) => cartLineId(line) !== key));
   }, []);
 

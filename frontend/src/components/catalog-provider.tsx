@@ -282,7 +282,7 @@ export function useCatalog() {
 export function useCatalogProduct(slug?: string) {
   const { products, collections, loading } = useCatalog();
   const product = useMemo(
-    () => (slug ? products.find((item) => item.slug === slug) || null : null),
+    () => (slug ? products.find((item) => item.slug.toLowerCase() === slug.toLowerCase() || item.code?.toLowerCase() === slug.toLowerCase()) || null : null),
     [products, slug],
   );
   const collection = useMemo(
@@ -303,7 +303,7 @@ export function useCatalogProduct(slug?: string) {
 export function useCatalogCollection(slug?: string) {
   const { products, collections, loading } = useCatalog();
   const collection = useMemo(
-    () => (slug ? collections.find((item) => item.slug === slug) || null : null),
+    () => (slug ? collections.find((item) => item.slug.toLowerCase() === slug.toLowerCase() || item.id === slug) || null : null),
     [collections, slug],
   );
   const items = useMemo(() => {

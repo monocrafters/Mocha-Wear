@@ -6,16 +6,29 @@ export function CollectionMedia({
   alt = "",
   className = "",
   priority = false,
+  natural = false,
 }: {
   mobile: string;
   desktop: string;
   alt?: string;
   className?: string;
   priority?: boolean;
+  natural?: boolean;
 }) {
   const phone = mobile || desktop;
   const wide = desktop || mobile;
   if (!phone) return null;
+
+  if (natural) {
+    return (
+      <picture>
+        <source media="(min-width: 1024px)" srcSet={wide} />
+        {/* Native dimensions preserve the admin crop without stretching or letterboxing. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={phone} alt={alt} className={className} loading={priority ? "eager" : "lazy"} decoding="async" />
+      </picture>
+    );
+  }
 
   const objectClass = className || "object-cover";
 

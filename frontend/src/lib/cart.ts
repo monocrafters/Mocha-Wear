@@ -1,5 +1,6 @@
 export type CartLine = {
   productId: string;
+  collectionId?: string;
   slug: string;
   name: string;
   spec: string;
@@ -11,8 +12,8 @@ export type CartLine = {
   maxQty: number;
 };
 
-export function cartLineId(line: { productId: string; size?: string }) {
-  return `${line.productId}::${line.size || ""}`;
+export function cartLineId(line: { productId: string; size?: string; collectionId?: string }) {
+  return `${line.productId}::${line.size || ""}::${line.collectionId || ""}`;
 }
 
 export const CART_KEY = "mocha-wear-cart";
@@ -31,6 +32,7 @@ function parseLines(raw: unknown): CartLine[] {
       const maxQty = lineMaxQty(row);
       return {
         productId: String(row.productId || ""),
+        collectionId: String(row.collectionId || ""),
         slug: String(row.slug || ""),
         name: String(row.name || "Suit"),
         spec: String(row.spec || ""),
@@ -48,6 +50,7 @@ function parseLines(raw: unknown): CartLine[] {
 export function lineFromProduct(
   product: {
     id: string;
+    selected_collection_id?: string;
     code?: string;
     slug: string;
     name: string;
@@ -66,6 +69,7 @@ export function lineFromProduct(
   const cappedMax = Math.min(10, Math.max(1, available || 10));
   return {
     productId: product.id,
+    collectionId: product.selected_collection_id || "",
     slug: product.code || product.slug,
     name: product.name,
     spec: [product.fabric, product.pieces, product.color].filter(Boolean).join(" · "),

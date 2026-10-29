@@ -361,7 +361,7 @@ app.get("/api/products/:slug", httpCache.publicCatalog, async (req, res) => {
     res.set("Vary", "Cookie, X-Reseller-Code");
     const item = await products.getBySlug(req.params.slug);
     if (!item) return res.status(404).json({ message: "Product not found" });
-    res.json({ item: await resellerPricing.applyResellerPricing(item, req) });
+    res.json({ item: await resellerPricing.applyResellerPricing(products.forCollection(item, String(req.query.collection || "")), req) });
   } catch (error) {
     products.sendError(res, error);
   }

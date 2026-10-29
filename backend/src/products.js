@@ -118,6 +118,38 @@ function collectionsFromBody(body, existing) {
   return collectionIds(existing);
 }
 
+function collectionOverrides(value, ids) {
+  const input = value === undefined ? {} : parseJson(value, null);
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw Object.assign(new Error("Collection details must be an object"), { status: 400 });
+  }
+  const result = {};
+  for (const id of ids) {
+    const source = input[id];
+    if (source === undefined) continue;
+    if (!source || typeof source !== "object" || Array.isArray(source)) throw Object.assign(new Error("Invalid collection details"), { status: 400 });
+    const row = {};
+    for (const key of ["name", "description", "fabric", "pieces", "color", "badge"]) {
+      if (source[key] !== undefined && String(source[key]).trim()) row[key] = String(source[key]).trim();
+    }
+    for (const key of ["price", "compare_at_price"]) {
+      if (source[key] === undefined || source[key] === "" || source[key] === null) continue;
+      const number = Number(source[key]);
+      if (!Number.isFinite(number) || number < 0) {
+        throw Object.assign(new Error("Collection prices must be non-negative numbers"), { status: 400 });
+      }
+      row[key] = number;
+    }
+    result[id] = row;
+  }
+  return result;
+}
+
+function forCollection(product, collectionId) {
+  if (!product || !collectionId || !collectionIds(product).includes(collectionId)) return product;
+  return { ...product, ...product.collection_overrides?.[collectionId], collection_id: collectionId, selected_collection_id: collectionId };
+}
+
 function shapeImage(image, index = 0) {
   if (typeof image === "string") {
     return { id: crypto.randomUUID(), url: image, alt: "", sort_order: index };
@@ -168,6 +200,7 @@ function shape(row = {}, index = 0) {
     // Keep a primary collection for existing links and older clients.
     collection_id: collectionIds(row)[0] || "",
     collection_ids: collectionIds(row),
+    collection_overrides: collectionOverrides(row.collection_overrides, collectionIds(row)),
     description: String(row.description || "").trim(),
     fabric: String(row.fabric || "").trim(),
     pieces: String(row.pieces || "").trim(),
@@ -217,6 +250,7 @@ function payloadFromBody(body = {}, existing = {}) {
     code,
     slug: slugify(code),
     collection_ids: collectionsFromBody(body, existing),
+    collection_overrides: body.collection_overrides !== undefined ? body.collection_overrides : existing.collection_overrides,
     description: body.description ?? existing.description,
     fabric: body.fabric ?? existing.fabric,
     pieces: body.pieces ?? existing.pieces,
@@ -253,7 +287,7 @@ async function listPublished(filter = {}) {
     if (!item.is_published) return false;
     if (!collection) return true;
     return item.collection_ids.includes(collection);
-  });
+  }).map((item) => forCollection(item, collection));
 }
 
 async function getBySlug(slug) {
@@ -374,6 +408,7 @@ function sendError(res, error) {
 }
 
 module.exports = {
+  forCollection,
   listAll,
   listPublished,
   getBySlug,

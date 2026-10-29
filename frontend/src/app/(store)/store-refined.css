@@ -54,3 +54,13 @@
 @media(min-width:1024px) {
  .store-page-theme[data-store-page=collections] main > section { max-width:1264px; padding-inline:32px; }
 }
+
+/* Center capped desktop sections; collection banners retain their saved crop. */
+@media (min-width:1024px) {
+ .store-page-theme main > section { margin-inline:auto; width:100%; }
+ .store-page-theme[data-store-page=collections] main > .collection-detail-section { max-width:1440px; padding:32px 48px 64px; }
+ .collection-detail-section .collection-detail-banner { aspect-ratio:auto; max-width:1200px; margin-inline:auto; }
+ .collection-detail-section .collection-detail-banner img { display:block; width:100%; height:auto; }
+ .collection-detail-section .collection-detail-banner > div { display:none; }
+ .collection-detail-section .collection-detail-content { overflow:visible; padding:32px 0 0; max-width:1200px; margin-inline:auto; }
+}

@@ -5,6 +5,7 @@ export type OrderStatus = "processing" | "packed" | "shipped" | "delivered" | "c
 
 export type OrderItem = {
   product_id?: string;
+  collection_id?: string;
   name: string;
   spec: string;
   size?: string;

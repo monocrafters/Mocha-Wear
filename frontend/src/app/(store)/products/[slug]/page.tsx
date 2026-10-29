@@ -2,11 +2,11 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { apiJson, peekApiCache, primeApiCache } from "@/lib/api-cache";
 import { formatPkr } from "@/lib/money";
 import { collectionHref } from "@/lib/collection";
-import { productInCollection } from "@/lib/product";
+import { productInCollection, productForCollection } from "@/lib/product";
 import type { Collection } from "@/components/admin-collections";
 import type { Product, ProductImage, ProductLabel } from "@/components/admin-products";
 import { ProductBuyActions } from "@/components/product-buy-actions";
@@ -25,6 +25,7 @@ function readProductCache(slug: string) {
 export default function ProductPage() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug || "";
+  const selectedCollection = useSearchParams().get("collection") || "";
   const sale = useActiveSale();
   const { products, collections } = useCatalog();
   const {
@@ -35,9 +36,9 @@ export default function ProductPage() {
   } = useCatalogProduct(slug);
 
   // Always null on first paint so SSR HTML matches client hydration.
-  const [item, setItem] = useState<Product | null>(null);
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [related, setRelated] = useState<Product[]>([]);
+  const [baseItem, setItem] = useState<Product | null>(null);
+  const [baseCollection, setCollection] = useState<Collection | null>(null);
+  const [baseRelated, setRelated] = useState<Product[]>([]);
   const [missing, setMissing] = useState(false);
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -142,6 +143,11 @@ export default function ProductPage() {
     };
   }, [slug, catalogProduct, catalogLoading, products, collections]);
 
+  const item = useMemo(() => baseItem ? productForCollection(baseItem, selectedCollection) : null, [baseItem, selectedCollection]);
+  const collection = collections.find(row => row.id === item?.selected_collection_id) || baseCollection;
+  const related = item?.selected_collection_id
+    ? products.filter(row => row.id !== item.id && productInCollection(row, item.selected_collection_id!)).slice(0, 6).map(row => productForCollection(row, item.selected_collection_id))
+    : baseRelated;
   const images = item?.images || [];
   const off = useMemo(() => {
     if (!item?.compare_at_price || item.compare_at_price <= item.price) return 0;
@@ -257,7 +263,7 @@ export default function ProductPage() {
                   <h2 className="font-serif mt-3 text-3xl text-mocha-deep sm:text-4xl">You may also like</h2>
                   <div className={`mt-8 ${productGridClass}`}>
                     {related.map((product) => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard key={product.id} product={product} collectionName={collection?.name} />
                     ))}
                   </div>
                 </div>
